@@ -45,49 +45,19 @@ STATES = ['예정','진행중','확인필요','보류','완료']
 PRIORITIES = ['긴급','높음','보통','낮음']
 
 
-# 실제 Google Sheets 외의 샘플/임의 업무 데이터는 사용하지 않습니다.
-# 인증이 없는 공개 앱에는 회사 데이터를 노출하지 않습니다.
-try:
-    is_logged_in = bool(st.user.is_logged_in)
-except Exception:
-    is_logged_in = False
-
-if not is_logged_in:
-    st.title('📅 영업부 업무 일정 대시보드')
-    st.info('실제 Google Sheets 데이터만 표시하도록 설정되어 있습니다. 현재는 팀원 로그인 설정이 필요합니다.')
-    st.caption('예시 데이터 및 임의의 업무·담당자·공지사항은 표시하지 않습니다.')
-    try:
-        if 'auth' in st.secrets:
-            if st.button('Google 계정으로 로그인', type='primary'):
-                st.login()
-        else:
-            st.warning('로그인 설정이 아직 완료되지 않았습니다. 설정 후 실제 업무 데이터를 확인할 수 있습니다.')
-    except Exception:
-        st.warning('로그인 연결 상태를 확인해 주세요.')
-    st.stop()
-
+# 공개 링크 접근: 로그인 없이 조회합니다. Google Sheets 서비스 계정은 서버에서만 사용합니다.
+# 공개 수정은 위험하므로 기본적으로 차단합니다. 필요 시 Secrets에 allow_public_edit = true를 설정하세요.
 def configured():
-    return all(k in st.secrets for k in ('spreadsheet_id','gcp_service_account','auth','admin_emails'))
+    return all(k in st.secrets for k in ('spreadsheet_id', 'gcp_service_account'))
 
 if not configured():
-    st.error('서버 설정이 완료되지 않았습니다. 관리자에게 Secrets 및 OIDC 설정을 요청하세요.')
+    st.title('📅 영업부 업무 일정 대시보드')
+    st.warning('Google Sheets 연결 정보가 아직 없습니다. Streamlit Secrets에 spreadsheet_id와 gcp_service_account를 설정하세요.')
     st.stop()
 
-# App authentication is mandatory; do not permit anonymous fallback.
-try:
-    if not st.user.is_logged_in:
-        st.title('🔐 영업부 업무 일정')
-        st.info('승인된 회사 구성원만 이용할 수 있습니다.')
-        if st.button('회사 계정으로 로그인', type='primary'):
-            st.login()
-        st.stop()
-    email = str(st.user.get('email','')).strip().lower()
-    if not email or st.user.get('email_verified') is False:
-        st.error('인증된 이메일 주소를 확인할 수 없습니다.')
-        st.stop()
-except Exception:
-    st.error('로그인 설정을 확인할 수 없습니다. 관리자에게 문의하세요.')
-    st.stop()
+ALLOW_EDIT = bool(st.secrets.get('allow_public_edit', False))
+email = '공개 링크 사용자'
+username = '방문자'
 
 @st.cache_resource(show_spinner=False)
 def sheet_client():
@@ -139,25 +109,16 @@ def display_name(member):
     return str(member.get('이름','')).strip() or str(member.get('이메일','')).strip()
 
 try:
-    members, _ = fetch('팀원정보', MEMBER)
-    admins = {str(x).strip().lower() for x in st.secrets['admin_emails']}
-    authorized = members[(members['이메일'].str.strip().str.lower() == email) & (members['사용여부'].str.strip() == '사용')]
-    if email not in admins and authorized.empty:
-        st.error('로그인은 성공했지만 팀원 접근 권한이 없습니다. 관리자에게 팀원정보 시트 등록을 요청하세요.')
-        if st.button('로그아웃'):
-            st.logout()
-        st.stop()
-    username = display_name(authorized.iloc[0]) if not authorized.empty else email
-    is_admin = email in admins
     tasks, tasks_ws = fetch('업무일정', TASK)
     comments, comments_ws = fetch('업무확인내역', COMMENT)
     _, history_ws = fetch('변경이력', HISTORY)
 except Exception as exc:
-    st.error(f'구글시트 연결 또는 권한 확인 오류: {exc}')
+    st.error(f'Google Sheets 연결 오류: {exc}')
     st.stop()
 
 # Stable lookup based on ID, not filtered dataframe index.
 def update_task(task_id, changes, reason=''):
+    if not ALLOW_EDIT: raise PermissionError('현재 공개 링크는 조회 전용입니다.')
     ids = tasks_ws.col_values(1)
     if task_id not in ids:
         raise ValueError('업무ID를 찾지 못했습니다. 화면을 새로고침하세요.')
@@ -178,6 +139,7 @@ def update_task(task_id, changes, reason=''):
         history_ws.append_row([uuid4().hex[:12],task_id,nowstr(),email,field,before,after,reason],value_input_option='RAW')
 
 def append_task(data):
+    if not ALLOW_EDIT: raise PermissionError('현재 공개 링크는 조회 전용입니다.')
     data['업무ID'] = 'TASK-' + uuid4().hex[:10].upper()
     data['최종수정일시'] = nowstr()
     tasks_ws.append_row([str(data.get(h,'')) for h in TASK],value_input_option='RAW')
@@ -186,14 +148,15 @@ def append_task(data):
 st.sidebar.title('📅 영업부 일정')
 page = st.sidebar.radio('메뉴', ['📊 전체 현황','📋 업무 목록','👥 팀원별 업무','🗓️ 월간 캘린더','⏰ 마감 임박','💬 팀 확인사항','➕ 일정 등록','🕘 변경 이력'])
 st.sidebar.divider()
-st.sidebar.caption(f'접속자: {username} ({email})')
+st.sidebar.caption('공개 링크 접속 · ' + ('등록/수정 허용' if ALLOW_EDIT else '조회 전용'))
 if st.sidebar.button('🔄 최신 데이터 새로고침'):
     st.rerun()
-if st.sidebar.button('로그아웃'):
-    st.logout()
+
 
 st.title('영업부 업무 일정 대시보드')
-st.caption(f'조회일 {date.today().isoformat()} · Google Sheets 연결 · 접속자 {username}')
+st.caption(f'조회일 {date.today().isoformat()} · Google Sheets 실시간 조회 · 로그인 불필요')
+if ALLOW_EDIT:
+    st.warning('현재 공개 링크에서 누구나 업무를 등록·수정할 수 있습니다. 링크 외부 유출에 주의하세요.')
 if not tasks.empty:
     tasks['발송일'] = tasks['발송일'].map(fmt_date)
     tasks['마감일'] = tasks['마감일'].map(fmt_date)
@@ -260,6 +223,9 @@ elif page in ('📋 업무 목록','⏰ 마감 임박'):
         if item['비고']:st.caption('비고: '+str(item['비고']))
         if item['첨부파일URL'] and str(item['첨부파일URL']).startswith('https://'):
             st.link_button('📎 첨부파일 열기',str(item['첨부파일URL']))
+        if not ALLOW_EDIT:
+            st.info('현재는 조회 전용입니다. 등록·수정을 허용하려면 관리자 설정이 필요합니다.')
+            st.stop()
         with st.form('update_task'):
             c1,c2,c3=st.columns(3)
             new_status=c1.selectbox('진행상태',STATES,index=STATES.index(item['진행상태']) if item['진행상태'] in STATES else 0)
@@ -300,20 +266,27 @@ elif page=='💬 팀 확인사항':
         task_id=st.selectbox('업무 선택',tasks['업무ID'].tolist(),format_func=lambda x:f'{x} · {tasks.loc[tasks["업무ID"]==x,"업무명"].iloc[0]}')
         matched=comments[comments['업무ID']==task_id]
         st.dataframe(matched[['작성일시','작성자','확인유형','확인내용','처리상태','처리담당자']],hide_index=True,use_container_width=True)
+        if not ALLOW_EDIT:
+            st.info('현재는 조회 전용입니다.')
+            st.stop()
         with st.form('comment_form'):
+            writer=st.text_input('작성자 이름 *')
             kind=st.selectbox('확인 유형',['확인요청','의견','진행보고','완료보고'])
             message=st.text_area('내용',placeholder='확인 요청 또는 진행 상황을 작성하세요.')
             state=st.selectbox('처리 상태',['미처리','처리중','완료'])
             assignee=st.text_input('처리 담당자')
             if st.form_submit_button('확인 내용 등록',type='primary'):
-                if not message.strip():st.warning('내용을 입력하세요.')
+                if not writer.strip() or not message.strip():st.warning('작성자 이름과 내용을 입력하세요.')
                 else:
                     try:
-                        comments_ws.append_row([uuid4().hex[:12],task_id,nowstr(),email,kind,message.strip(),state,assignee,'',''],value_input_option='RAW')
+                        comments_ws.append_row([uuid4().hex[:12],task_id,nowstr(),writer.strip(),kind,message.strip(),state,assignee,'',''],value_input_option='RAW')
                         st.success('등록했습니다.');st.rerun()
                     except Exception as exc:st.error(f'저장 실패: {exc}')
 
 elif page=='➕ 일정 등록':
+    if not ALLOW_EDIT:
+        st.info('현재는 조회 전용입니다. 공개 수정 기능은 관리자 설정 후 사용할 수 있습니다.')
+        st.stop()
     st.subheader('신규 업무 등록')
     with st.form('new_task'):
         title=st.text_input('업무명 *')
@@ -324,7 +297,7 @@ elif page=='➕ 일정 등록':
         due=c2.date_input('마감일',date.today()+timedelta(days=7),disabled=not has_due)
         c3,c4=st.columns(2)
         cat=c3.selectbox('업무 구분',CATEGORIES)
-        owner=c4.text_input('담당자',value=username)
+        owner=c4.text_input('담당자')
         priority=st.selectbox('우선순위',PRIORITIES,index=2)
         note=st.text_area('비고')
         link=st.text_input('첨부파일 URL (선택)')
@@ -344,4 +317,4 @@ elif page=='🕘 변경 이력':
         st.dataframe(history.iloc[::-1].head(200),hide_index=True,use_container_width=True)
     except Exception as exc:st.error(f'이력 조회 실패: {exc}')
 
-st.caption('※ 변경 내용은 Google Sheets에 저장됩니다. 동시 수정이 많은 환경에서는 별도 데이터베이스와 트랜잭션 처리를 권장합니다.')
+st.caption('※ 실제 Google Sheets 데이터만 사용합니다. 공개 편집을 켠 경우 변경 내용은 Google Sheets에 저장됩니다. 동시 수정이 많은 환경에서는 별도 데이터베이스와 트랜잭션 처리를 권장합니다.')

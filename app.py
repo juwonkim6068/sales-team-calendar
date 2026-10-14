@@ -2,6 +2,9 @@
 from __future__ import annotations
 import calendar
 import html
+import io
+import json
+import mimetypes
 from datetime import date, datetime, timedelta
 from uuid import uuid4
 
@@ -10,6 +13,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 from google.oauth2.service_account import Credentials
+from google.auth.transport.requests import AuthorizedSession
 
 st.set_page_config(page_title="영업부 업무 일정", page_icon="📅", layout="wide", initial_sidebar_state="expanded")
 st.markdown("""<style>
@@ -62,8 +66,139 @@ username = '방문자'
 
 @st.cache_resource(show_spinner=False)
 def sheet_client():
-    creds = Credentials.from_service_account_info(dict(st.secrets['gcp_service_account']), scopes=['https://www.googleapis.com/auth/spreadsheets'])
+    creds = Credentials.from_service_account_info(dict(st.secrets['gcp_service_account']), scopes=['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'])
     return gspread.authorize(creds).open_by_key(st.secrets['spreadsheet_id'])
+
+# 파일은 Google Drive에 저장하고, 연결 정보는 Google Sheets의 '첨부파일' 탭에 저장합니다.
+FILE_HEADERS = ['파일ID', '업무ID', '파일명', 'MIME유형', '파일크기', '등록일시', '등록자']
+DRIVE_FOLDER_ID = str(st.secrets.get('drive_folder_id', '')).strip()
+
+@st.cache_resource(show_spinner=False)
+def drive_session():
+    credentials = Credentials.from_service_account_info(
+        dict(st.secrets['gcp_service_account']),
+        scopes=['https://www.googleapis.com/auth/drive']
+    )
+    return AuthorizedSession(credentials)
+
+def file_sheet():
+    book = sheet_client()
+    try:
+        ws = book.worksheet('첨부파일')
+    except gspread.WorksheetNotFound:
+        ws = book.add_worksheet(title='첨부파일', rows=1000, cols=len(FILE_HEADERS))
+        ws.append_row(FILE_HEADERS)
+    if ws.row_values(1) != FILE_HEADERS:
+        raise ValueError("Google Sheets '첨부파일' 탭의 첫 행이 예상 열 구성과 다릅니다.")
+    return ws
+
+def file_records():
+    try:
+        ws = sheet_client().worksheet('첨부파일')
+    except gspread.WorksheetNotFound:
+        return pd.DataFrame(columns=FILE_HEADERS)
+    vals = ws.get_all_records()
+    return pd.DataFrame(vals, columns=FILE_HEADERS)
+
+def drive_error(response):
+    try:
+        message = response.json().get('error', {}).get('message', response.text)
+    except Exception:
+        message = response.text[:500]
+    raise RuntimeError(f'Google Drive 오류 ({response.status_code}): {message}')
+
+def upload_drive_file(upload):
+    if not DRIVE_FOLDER_ID:
+        raise ValueError("Streamlit Secrets에 drive_folder_id = 'Google Drive 폴더 ID'를 추가해야 합니다.")
+    content = upload.getvalue()
+    if not content:
+        raise ValueError('빈 파일은 등록할 수 없습니다.')
+    mime = upload.type or mimetypes.guess_type(upload.name)[0] or 'application/octet-stream'
+    meta = {'name': upload.name, 'parents': [DRIVE_FOLDER_ID]}
+    # multipart/related 업로드: 서비스 계정이 접근 가능한 공유 드라이브 폴더 사용 권장
+    boundary = 'psg_' + uuid4().hex
+    payload = (
+        f'--{boundary}\\r\\nContent-Type: application/json; charset=UTF-8\\r\\n\\r\\n'
+        + json.dumps(meta, ensure_ascii=False)
+        + f'\\r\\n--{boundary}\\r\\nContent-Type: {mime}\\r\\n\\r\\n'
+    ).encode('utf-8') + content + f'\\r\\n--{boundary}--\\r\\n'.encode('utf-8')
+    response = drive_session().post(
+        'https://www.googleapis.com/upload/drive/v3/files',
+        params={'uploadType': 'multipart', 'fields': 'id,name', 'supportsAllDrives': 'true'},
+        headers={'Content-Type': f'multipart/related; boundary={boundary}'},
+        data=payload, timeout=120
+    )
+    if not response.ok:
+        drive_error(response)
+    return response.json()['id'], mime, len(content)
+
+def download_drive_file(file_id):
+    response = drive_session().get(
+        f'https://www.googleapis.com/drive/v3/files/{file_id}',
+        params={'alt': 'media', 'supportsAllDrives': 'true'}, timeout=120
+    )
+    if not response.ok:
+        drive_error(response)
+    return response.content
+
+def attachment_manager(task_id, key_prefix):
+    """각 업무별 파일 업로드/다운로드. 업무 수정 허용 여부와 별개로 동작합니다."""
+    st.markdown('<div class="panel-title">📎 첨부파일 등록 · 다운로드</div>', unsafe_allow_html=True)
+    try:
+        files = file_records()
+    except Exception as exc:
+        st.error(f'첨부파일 목록 조회 오류: {exc}')
+        return
+    matched = files[files['업무ID'].astype(str) == str(task_id)] if not files.empty else files
+    if matched.empty:
+        st.caption('현재 등록된 파일이 없습니다.')
+    else:
+        for _, f in matched.iterrows():
+            c1, c2 = st.columns([3, 1])
+            c1.markdown('📄 **' + html.escape(str(f['파일명'])) + '**')
+            c1.caption(str(f['등록일시']) + ' · ' + str(f['파일크기']) + ' bytes')
+            try:
+                file_data = download_drive_file(str(f['파일ID']))
+                c2.download_button(
+                    '⬇ 다운로드', data=file_data, file_name=str(f['파일명']),
+                    mime=str(f['MIME유형']) or 'application/octet-stream',
+                    key=f'{key_prefix}_download_{f["파일ID"]}', use_container_width=True
+                )
+            except Exception as exc:
+                c2.error(f'다운로드 불가: {exc}')
+    with st.expander('➕ 파일 등록하기', expanded=False):
+        uploads = st.file_uploader(
+            '파일을 끌어다 놓거나 선택하세요 (여러 개 가능)',
+            accept_multiple_files=True, key=f'{key_prefix}_uploader'
+        )
+        if st.button('선택한 파일 등록', type='primary', key=f'{key_prefix}_upload'):
+            if not uploads:
+                st.warning('등록할 파일을 선택하세요.')
+            else:
+                success, failures = 0, []
+                for upload in uploads:
+                    try:
+                        file_id, mime, size = upload_drive_file(upload)
+                        try:
+                            file_sheet().append_row([
+                                file_id, str(task_id), upload.name, mime, str(size), nowstr(), email
+                            ], value_input_option='RAW')
+                        except Exception:
+                            # 연결 정보 기록 실패 시 고아 파일이 남지 않도록 정리 시도
+                            drive_session().delete(
+                                f'https://www.googleapis.com/drive/v3/files/{file_id}',
+                                params={'supportsAllDrives': 'true'}, timeout=30
+                            )
+                            raise
+                        success += 1
+                    except Exception as exc:
+                        failures.append(f'{upload.name}: {exc}')
+                if success:
+                    st.success(f'{success}개 파일이 등록되었습니다.')
+                for err in failures:
+                    st.error(err)
+                if success:
+                    st.rerun()
 
 def tab(name):
     return sheet_client().worksheet(name)
@@ -359,6 +494,14 @@ if page=='📅 전체 일정':
     if q:view=view[view.astype(str).apply(lambda x:x.str.contains(q,case=False,regex=False)).any(axis=1)]
     st.markdown('<div class="panel-title">📋 전체 업무 관리표</div>',unsafe_allow_html=True)
     display_table(view,height=370)
+    if not view.empty:
+        chosen = st.selectbox(
+            '📎 첨부파일을 관리할 업무 선택',
+            view['업무ID'].astype(str).tolist(),
+            format_func=lambda tid: str(view.loc[view['업무ID'].astype(str)==tid, '업무명'].iloc[0]),
+            key='home_file_task'
+        )
+        attachment_manager(chosen, 'home')
     st.caption('화면의 수치와 업무는 Google Sheets 실제 기록을 기준으로 계산됩니다. 샘플 일정은 추가하지 않습니다.')
 
 elif page in ['🗣️ 회의 일정','🎓 교육 / 외부 일정','✅ 완료된 업무']:
@@ -369,6 +512,11 @@ elif page in ['🗣️ 회의 일정','🎓 교육 / 외부 일정','✅ 완료�
     else:subset=subset[subset['업무구분'].isin(groups[page])]
     st.subheader(page);st.caption(f'Google Sheets 등록 업무 {len(subset)}건')
     display_table(subset,height=550)
+    if not subset.empty:
+        selected = st.selectbox('📎 첨부파일 관리할 업무', subset['업무ID'].astype(str).tolist(),
+            format_func=lambda tid: str(subset.loc[subset['업무ID'].astype(str)==tid,'업무명'].iloc[0]),
+            key='group_file_task')
+        attachment_manager(selected, 'group')
 
 if False:  # previous summary view replaced by redesigned dashboard
     total=len(tasks)
@@ -426,6 +574,7 @@ elif page in ('📋 업무 목록','⏰ 마감임박 일정'):
         if item['비고']:st.caption('비고: '+str(item['비고']))
         if item['첨부파일URL'] and str(item['첨부파일URL']).startswith('https://'):
             st.link_button('📎 첨부파일 열기',str(item['첨부파일URL']))
+        attachment_manager(task_id, 'detail')
         if not ALLOW_EDIT:
             st.info('현재는 조회 전용입니다. 등록·수정을 허용하려면 관리자 설정이 필요합니다.')
             st.stop()
@@ -520,4 +669,4 @@ elif page=='🕘 변경 이력':
         display_table(history.iloc[::-1].head(200),HISTORY)
     except Exception as exc:st.error(f'이력 조회 실패: {exc}')
 
-st.caption('※ 실제 Google Sheets 데이터만 사용합니다. 공개 편집을 켠 경우 변경 내용은 Google Sheets에 저장됩니다. 동시 수정이 많은 환경에서는 별도 데이터베이스와 트랜잭션 처리를 권장합니다.')
+st.caption('※ 업무 데이터는 Google Sheets에서 조회하고, 첨부파일은 Google Drive에 저장합니다. 공개 편집을 켠 경우 변경 내용은 Google Sheets에 저장됩니다. 동시 수정이 많은 환경에서는 별도 데이터베이스와 트랜잭션 처리를 권장합니다.')

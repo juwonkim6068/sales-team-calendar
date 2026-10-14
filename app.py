@@ -145,29 +145,123 @@ def append_task(data):
     tasks_ws.append_row([str(data.get(h,'')) for h in TASK],value_input_option='RAW')
     history_ws.append_row([uuid4().hex[:12],data['업무ID'],nowstr(),email,'업무 생성','','신규 등록',''],value_input_option='RAW')
 
-st.sidebar.title('📅 영업부 일정')
-page = st.sidebar.radio('메뉴', ['📊 전체 현황','📋 업무 목록','👥 팀원별 업무','🗓️ 월간 캘린더','⏰ 마감 임박','💬 팀 확인사항','➕ 일정 등록','🕘 변경 이력'])
-st.sidebar.divider()
-st.sidebar.caption('공개 링크 접속 · ' + ('등록/수정 허용' if ALLOW_EDIT else '조회 전용'))
-if st.sidebar.button('🔄 최신 데이터 새로고침'):
-    st.rerun()
-
-
-st.title('영업부 업무 일정 대시보드')
-st.caption(f'조회일 {date.today().isoformat()} · Google Sheets 실시간 조회 · 로그인 불필요')
-if ALLOW_EDIT:
-    st.warning('현재 공개 링크에서 누구나 업무를 등록·수정할 수 있습니다. 링크 외부 유출에 주의하세요.')
+# Visual-only redesign. Data is always loaded from the existing Google Sheet.
+st.markdown("""<style>
+.stApp {background:#edf4fc!important;color:#122d53}
+.block-container{max-width:1850px!important;padding:0.7rem 1.15rem 2rem!important}
+[data-testid="stSidebar"]{background:linear-gradient(180deg,#10365f,#174a7c)!important;min-width:230px!important}
+[data-testid="stSidebar"] *{color:#fff!important}
+[data-testid="stSidebar"] [role="radiogroup"] label{padding:9px 10px!important;border-radius:5px!important}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){background:#2b70d5!important}
+[data-testid="stMetric"]{background:white!important;border:1px solid #d3e2f3!important;border-radius:7px!important;padding:14px!important;box-shadow:0 1px 5px #c5d8ef60}
+[data-testid="stMetricValue"]{color:#0c2b57!important;font-size:1.9rem!important}
+[data-testid="stDataFrame"]{background:#fff;border:1px solid #d3e2f3;border-radius:6px}
+[data-testid="stVerticalBlockBorderWrapper"]{background:#fff;border:1px solid #d5e3f3;border-radius:8px;padding:7px}
+.stButton button[kind="primary"]{background:#114a8d!important}
+.hero{background:linear-gradient(110deg,#09264b,#154779);padding:18px 24px;border-radius:8px;color:white;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.hero h1{color:white!important;margin:0!important;font-size:2rem!important}
+.hero .subtitle{color:#d6e8fc;font-size:.85rem}
+.panel-title{font-weight:800;font-size:1rem;color:#113a71;padding:8px 11px;background:#e4efff;border-radius:6px;margin:8px 0}
+.panel-title.red{background:#ffe5ea;color:#d91c39}
+</style>""",unsafe_allow_html=True)
+NAV=['📅 전체 일정','📋 업무 목록','🗓️ 월간 캘린더','⏰ 마감임박 일정','🗣️ 회의 일정','👥 거래처 관련','🧾 ERP / 마감 업무','🎓 교육 / 외부 일정','📁 팀 공유 자료','✅ 완료된 업무','👤 팀원별 업무','💬 팀 확인사항','➕ 일정 등록','🕘 변경 이력']
+st.sidebar.markdown('## 📅 영업부 일정')
+page=st.sidebar.radio('메뉴',NAV,label_visibility='collapsed')
+st.sidebar.caption('Google Sheets 연결 · '+('공개 편집' if ALLOW_EDIT else '공개 조회 전용'))
+if st.sidebar.button('🔄 최신 데이터 새로고침'): st.rerun()
 if not tasks.empty:
-    tasks['발송일'] = tasks['발송일'].map(fmt_date)
-    tasks['마감일'] = tasks['마감일'].map(fmt_date)
-    tasks['마감상태'] = tasks.apply(lambda r: deadline(r)[0],axis=1)
-    tasks['D-Day'] = tasks.apply(lambda r: deadline(r)[1],axis=1)
-    tasks['진행률(%)'] = pd.to_numeric(tasks['진행률(%)'],errors='coerce').fillna(0).clip(0,100)
+    tasks['발송일']=tasks['발송일'].map(fmt_date)
+    tasks['마감일']=tasks['마감일'].map(fmt_date)
+    tasks['마감상태']=tasks.apply(lambda r:deadline(r)[0],axis=1)
+    tasks['D-Day']=tasks.apply(lambda r:deadline(r)[1],axis=1)
+    tasks['진행률(%)']=pd.to_numeric(tasks['진행률(%)'],errors='coerce').fillna(0).clip(0,100)
 else:
-    tasks['마감상태'] = pd.Series(dtype='str')
-    tasks['D-Day'] = pd.Series(dtype='float')
+    tasks['마감상태']=pd.Series(dtype='str');tasks['D-Day']=pd.Series(dtype='float')
 
-if page == '📊 전체 현황':
+def display_table(df, columns=None, height=330):
+    cols=columns or ['발송일','마감일','업무구분','업무명','진행예정자(주/부)','담당자','진행상태','우선순위','확인사항','첨부파일URL']
+    cols=[c for c in cols if c in df.columns]
+    st.dataframe(df[cols],hide_index=True,use_container_width=True,height=height,column_config={'첨부파일URL':st.column_config.LinkColumn('첨부파일')})
+
+def summary_charts(df):
+    a,b,c,d=st.columns(4)
+    with a:
+        st.markdown('<div class="panel-title">업무 진행 현황</div>',unsafe_allow_html=True)
+        counts=df['진행상태'].replace('','미지정').value_counts().reset_index();counts.columns=['상태','건수']
+        if not counts.empty:st.plotly_chart(px.pie(counts,names='상태',values='건수',hole=.57,color_discrete_sequence=['#3b82f6','#fbbf24','#2dc48d','#ff5964']),use_container_width=True,key='status_pie')
+        else:st.info('데이터 없음')
+    with b:
+        st.markdown('<div class="panel-title">업무 구분별 현황</div>',unsafe_allow_html=True)
+        counts=df['업무구분'].replace('','미지정').value_counts().reset_index();counts.columns=['구분','건수']
+        if not counts.empty:st.plotly_chart(px.bar(counts,x='건수',y='구분',orientation='h'),use_container_width=True,key='category_bar')
+        else:st.info('데이터 없음')
+    with c:
+        st.markdown('<div class="panel-title">담당자별 업무 현황</div>',unsafe_allow_html=True)
+        counts=df['담당자'].replace('','미지정').value_counts().reset_index();counts.columns=['담당자','건수']
+        if not counts.empty:st.plotly_chart(px.bar(counts,x='건수',y='담당자',orientation='h'),use_container_width=True,key='owner_bar')
+        else:st.info('데이터 없음')
+    with d:
+        st.markdown('<div class="panel-title">최근 업데이트</div>',unsafe_allow_html=True)
+        recent=df.sort_values('최종수정일시',ascending=False).head(7)
+        display_table(recent,['최종수정일시','업무명','진행상태'],245)
+
+st.markdown(f'<div class="hero"><h1>🗓️ 영업부 업무 일정 대시보드</h1><div class="subtitle">오늘은 {date.today().strftime("%Y년 %m월 %d일")} · Google Sheets 실시간 조회</div></div>',unsafe_allow_html=True)
+if ALLOW_EDIT:st.warning('공개 편집이 활성화되어 있습니다. 링크 방문자가 수정할 수 있습니다.')
+if page=='📅 전체 일정':
+    today=date.today();month=tasks[tasks['마감일'].str.startswith(today.strftime('%Y-%m'),na=False)]
+    done=int((month['진행상태']=='완료').sum());total=len(month)
+    urgent=tasks[(tasks['마감상태'].isin(['오늘 마감','마감 임박'])) & (tasks['진행상태']!='완료')]
+    k=st.columns([1,1,1,1,1,1.6])
+    metrics=[('📅 전체 일정',total),('⏰ 마감임박 (D-3이내)',len(urgent)),('⚙️ 진행중',int((month['진행상태']=='진행중').sum())),('🗓️ 예정',int((month['진행상태']=='예정').sum())),('✅ 완료',done)]
+    for col,(name,val) in zip(k,metrics):col.metric(name,f'{val}건')
+    with k[5]:
+        st.markdown('**이번 달 업무 진행률**');st.progress(done/total if total else 0);st.caption(f'완료 {done}건 / 전체 {total}건 ({done/total:.0%})' if total else '등록된 업무 없음')
+    left,middle,right=st.columns([1.35,1.15,.85])
+    with left:
+        st.markdown('<div class="panel-title red">🚨 마감 임박 일정 (D-3이내)</div>',unsafe_allow_html=True)
+        display_table(urgent.sort_values('D-Day'),['D-Day','마감일','업무명','담당자','진행상태'],240)
+    with middle:
+        st.markdown('<div class="panel-title">⏰ 금주 주요 일정</div>',unsafe_allow_html=True)
+        week_end=today+timedelta(days=7)
+        week=tasks[tasks['마감일'].apply(lambda x:bool(dateval(x) and today<=dateval(x)<=week_end))]
+        display_table(week.sort_values('마감일'),['마감일','업무명','담당자','진행상태'],240)
+    with right:
+        st.markdown('<div class="panel-title">🗓️ 이번 달 일정</div>',unsafe_allow_html=True)
+        st.markdown(f'**{today.year}년 {today.month}월**')
+        days=month['마감일'].value_counts()
+        cal=calendar.monthcalendar(today.year,today.month)
+        st.markdown('월　 화　 수　 목　 금　 토　 일')
+        for wk in cal:
+            st.markdown('　'.join(('**'+str(n)+'●**' if days.get(f'{today.year}-{today.month:02d}-{n:02d}',0) else str(n)) if n else '　' for n in wk))
+        st.caption('● 마감 일정이 있는 날짜')
+    f1,f2,f3,f4,f5=st.columns([1.1,1,1,1,1.8])
+    period=f1.date_input('기간',value=(date(today.year,1,1),date(today.year,12,31)))
+    cat=f2.selectbox('업무 구분',['전체']+sorted(x for x in tasks['업무구분'].unique() if x))
+    state=f3.selectbox('진행 상태',['전체']+sorted(x for x in tasks['진행상태'].unique() if x))
+    owner=f4.selectbox('담당자',['전체']+sorted(x for x in tasks['담당자'].unique() if x))
+    q=f5.text_input('업무명 또는 키워드 검색')
+    view=tasks.copy()
+    if isinstance(period,tuple) and len(period)==2:
+        lo,hi=period;view=view[view['마감일'].apply(lambda x:bool(dateval(x) and lo<=dateval(x)<=hi)) | ((view['마감일']=='') & view['발송일'].apply(lambda x:bool(dateval(x) and lo<=dateval(x)<=hi)))]
+    if cat!='전체':view=view[view['업무구분']==cat]
+    if state!='전체':view=view[view['진행상태']==state]
+    if owner!='전체':view=view[view['담당자']==owner]
+    if q:view=view[view.astype(str).apply(lambda x:x.str.contains(q,case=False,regex=False)).any(axis=1)]
+    st.markdown('<div class="panel-title">📋 전체 업무 관리표</div>',unsafe_allow_html=True)
+    display_table(view,height=370)
+    summary_charts(view)
+    st.caption('화면의 수치와 업무는 Google Sheets 실제 기록을 기준으로 계산됩니다. 샘플 일정은 추가하지 않습니다.')
+
+elif page in ['🗣️ 회의 일정','👥 거래처 관련','🧾 ERP / 마감 업무','🎓 교육 / 외부 일정','📁 팀 공유 자료','✅ 완료된 업무']:
+    groups={'🗣️ 회의 일정':['회의'],'👥 거래처 관련':['거래처','채권관리'],'🧾 ERP / 마감 업무':['마감업무','ERP/시스템','비용처리'],'🎓 교육 / 외부 일정':['교육'],'📁 팀 공유 자료':[],'✅ 완료된 업무':[]}
+    subset=tasks.copy()
+    if page=='📁 팀 공유 자료':subset=subset[subset['첨부파일URL'].str.strip()!='']
+    elif page=='✅ 완료된 업무':subset=subset[subset['진행상태']=='완료']
+    else:subset=subset[subset['업무구분'].isin(groups[page])]
+    st.subheader(page);st.caption(f'Google Sheets 등록 업무 {len(subset)}건')
+    display_table(subset,height=550)
+
+if False:  # previous summary view replaced by redesigned dashboard
     total=len(tasks)
     done=int((tasks['진행상태']=='완료').sum())
     urgent=int(tasks['마감상태'].isin(['마감 임박','오늘 마감']).sum())
@@ -202,7 +296,7 @@ elif page == '👥 팀원별 업무':
         view=tasks if member=='전체' else tasks[tasks['담당자']==member]
         st.dataframe(view[['업무ID','업무명','업무구분','담당자','마감일','진행상태','우선순위','마감상태']],hide_index=True,use_container_width=True)
 
-elif page in ('📋 업무 목록','⏰ 마감 임박'):
+elif page in ('📋 업무 목록','⏰ 마감임박 일정'):
     st.subheader('업무 검색 및 상세 관리')
     f1,f2,f3,f4=st.columns(4)
     keyword=f1.text_input('업무명 검색')
@@ -210,7 +304,7 @@ elif page in ('📋 업무 목록','⏰ 마감 임박'):
     owner=f3.selectbox('담당자',['전체']+sorted([x for x in tasks['담당자'].unique() if x]))
     category=f4.selectbox('업무 구분',['전체']+CATEGORIES)
     df=tasks.copy()
-    if page=='⏰ 마감 임박':df=df[df['마감상태'].isin(['지연','오늘 마감','마감 임박'])]
+    if page=='⏰ 마감임박 일정':df=df[df['마감상태'].isin(['지연','오늘 마감','마감 임박'])]
     if keyword:df=df[df['업무명'].str.contains(keyword,case=False,regex=False,na=False)]
     if status!='전체':df=df[df['진행상태']==status]
     if owner!='전체':df=df[df['담당자']==owner]

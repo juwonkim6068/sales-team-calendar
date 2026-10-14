@@ -39,6 +39,9 @@ h3 {font-size:1.17rem!important}
 .page-intro .eyebrow {font-size:.76rem;color:#527aa4;font-weight:750;letter-spacing:.08em}
 .page-intro .main {font-size:1.65rem;color:#193c62;font-weight:800;margin:3px 0}
 .page-intro .sub {font-size:.89rem;color:#64748b}
+.attachment-table-header {background:#e7effd;color:#153e70;font-weight:750;font-size:.79rem;padding:12px 7px;border:1px solid #d8e3f2;border-radius:5px;min-height:44px}
+.attachment-table-cell {background:#fff;color:#153a65;font-size:.79rem;padding:11px 7px;min-height:43px;border-bottom:1px solid #e3eaf3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+div[data-testid="stPopover"] button {font-size:.78rem!important;color:#15529b!important;border:1px solid #bfd7f8!important;background:#eef5ff!important;min-height:35px!important}
 </style>""", unsafe_allow_html=True)
 
 TASK = ['업무ID','발송일','마감일','업무구분','업무명','상세내용','담당자','진행예정자(주/부)','진행상태','우선순위','진행률(%)','확인사항','최종확인자','최종확인일','첨부파일URL','최종수정일시','D-Day','마감구분','비고']
@@ -384,46 +387,56 @@ else:
     tasks['마감상태']=pd.Series(dtype='str');tasks['D-Day']=pd.Series(dtype='float')
 
 def display_table(df, columns=None, height=330):
-    """Read-only styled HTML table, populated exclusively from existing Sheets data."""
+    """행별 첨부파일 등록/다운로드가 가능한 관리표."""
     cols = columns or ['발송일','마감일','업무구분','업무명','진행예정자(주/부)','담당자','진행상태','우선순위','확인사항','첨부파일URL']
     cols = [c for c in cols if c in df.columns]
-    if not cols:
-        st.info('표시할 열이 없습니다.')
-        return
     if df.empty:
-        st.markdown('<div class="unified-table"><div class="empty-list">표시할 데이터가 없습니다.</div></div>', unsafe_allow_html=True)
+        st.info('표시할 데이터가 없습니다.')
         return
-    head = ''.join(f'<th>{html.escape("첨부파일" if c=="첨부파일URL" else c)}</th>' for c in cols)
-    rows = []
-    for _, record in df.iterrows():
-        cells = []
-        for col in cols:
-            value = record.get(col, '')
-            value = '' if pd.isna(value) else str(value)
-            safe = html.escape(value, quote=True)
-            if col in ('진행상태', '처리상태', '마감상태'):
-                klass = ('done' if value in ('완료','처리완료') else 'active' if value in ('진행중','처리중') else 'plan' if value in ('예정','미진행') else 'late' if value in ('지연','확인필요','오늘 마감') else '')
-                safe = f'<span class="state-pill {klass}">{safe}</span>' if value else '—'
-            elif col == '우선순위':
-                klass = 'high' if value in ('긴급','높음') else 'normal' if value=='보통' else 'low'
-                safe = f'<span class="priority-pill {klass}">{safe}</span>' if value else '—'
-            elif col in ('업무명','확인내용'):
-                safe = f'<span class="taskname" title="{safe}">{safe}</span>'
-            elif col == '업무구분':
-                safe = f'<span class="category-pill">{safe}</span>' if value else '—'
-            elif col == '첨부파일URL':
-                from urllib.parse import urlparse
-                parsed = urlparse(value)
-                safe = f'<a href="{html.escape(value,quote=True)}" target="_blank" rel="noopener noreferrer">📎 파일 열기</a>' if parsed.scheme == 'https' and parsed.netloc else '—'
-            elif col == 'D-Day':
-                try: safe = f'D{int(float(value)):+d}' if value else '—'
-                except (ValueError,TypeError): safe = '—'
-            elif not value:
-                safe = '—'
-            cells.append(f'<td title="{html.escape(value,quote=True)}">{safe}</td>')
-        rows.append('<tr>'+''.join(cells)+'</tr>')
-    markup = '<div class="unified-table-scroll"><div class="unified-table"><table class="pretty-table"><thead><tr>'+head+'</tr></thead><tbody>'+''.join(rows)+'</tbody></table></div></div>'
-    st.markdown(markup, unsafe_allow_html=True)
+    counts = {}
+    if '첨부파일URL' in cols:
+        try:
+            meta = file_records()
+            if not meta.empty:
+                counts = meta.groupby(meta['업무ID'].astype(str)).size().to_dict()
+        except Exception as exc:
+            st.warning(f'첨부파일 목록 조회 오류: {exc}')
+    widths = {'발송일':1,'마감일':1,'업무구분':1.15,'업무명':4.1,'진행예정자(주/부)':1.3,'담당자':.8,'진행상태':.95,'우선순위':.85,'확인사항':1.2,'첨부파일URL':1.35,'D-Day':.7}
+    ratios = [widths.get(c,1.1) for c in cols]
+    headers = st.columns(ratios,gap='small')
+    for cell,col in zip(headers,cols):
+        cell.markdown(f'<div class="attachment-table-header">{html.escape("첨부파일" if col=="첨부파일URL" else col)}</div>',unsafe_allow_html=True)
+    for i,(_,rec) in enumerate(df.iterrows()):
+        row = st.columns(ratios,gap='small',vertical_alignment='center')
+        for cell,col in zip(row,cols):
+            val=rec.get(col,'')
+            val='' if pd.isna(val) else str(val)
+            safe=html.escape(val,quote=True)
+            with cell:
+                if col=='첨부파일URL':
+                    task_id=str(rec.get('업무ID','')).strip()
+                    count=counts.get(task_id,0)
+                    label=f'📎 파일 {count}개' if count else '＋ 등록'
+                    if task_id:
+                        with st.popover(label,use_container_width=True):
+                            st.caption('업무: '+str(rec.get('업무명','')))
+                            attachment_manager(task_id,f'row_{i}_{task_id}')
+                    else:
+                        st.caption('업무ID 없음')
+                else:
+                    if col in ('진행상태','처리상태'):
+                        cls='done' if val=='완료' else 'active' if val=='진행중' else 'late' if val=='확인필요' else 'plan'
+                        safe=f'<span class="state-pill {cls}">{safe}</span>' if val else '—'
+                    elif col=='우선순위':
+                        cls='high' if val in ('긴급','높음') else 'normal' if val=='보통' else 'low'
+                        safe=f'<span class="priority-pill {cls}">{safe}</span>' if val else '—'
+                    elif col=='업무구분':
+                        safe=f'<span class="category-pill">{safe}</span>' if val else '—'
+                    elif col=='업무명':
+                        safe=f'<span class="taskname" title="{safe}">{safe}</span>' if val else '—'
+                    elif not val:
+                        safe='—'
+                    cell.markdown(f'<div class="attachment-table-cell" title="{html.escape(val,quote=True)}">{safe}</div>',unsafe_allow_html=True)
 
 st.markdown(f'<div class="hero"><h1>🗓️ 영업부 업무 일정 대시보드</h1><div class="subtitle">오늘은 {date.today().strftime("%Y년 %m월 %d일")} · Google Sheets 실시간 조회</div></div>',unsafe_allow_html=True)
 if ALLOW_EDIT:st.warning('공개 편집이 활성화되어 있습니다. 링크 방문자가 수정할 수 있습니다.')
@@ -494,14 +507,6 @@ if page=='📅 전체 일정':
     if q:view=view[view.astype(str).apply(lambda x:x.str.contains(q,case=False,regex=False)).any(axis=1)]
     st.markdown('<div class="panel-title">📋 전체 업무 관리표</div>',unsafe_allow_html=True)
     display_table(view,height=370)
-    if not view.empty:
-        chosen = st.selectbox(
-            '📎 첨부파일을 관리할 업무 선택',
-            view['업무ID'].astype(str).tolist(),
-            format_func=lambda tid: str(view.loc[view['업무ID'].astype(str)==tid, '업무명'].iloc[0]),
-            key='home_file_task'
-        )
-        attachment_manager(chosen, 'home')
     st.caption('화면의 수치와 업무는 Google Sheets 실제 기록을 기준으로 계산됩니다. 샘플 일정은 추가하지 않습니다.')
 
 elif page in ['🗣️ 회의 일정','🎓 교육 / 외부 일정','✅ 완료된 업무']:
@@ -512,11 +517,6 @@ elif page in ['🗣️ 회의 일정','🎓 교육 / 외부 일정','✅ 완료�
     else:subset=subset[subset['업무구분'].isin(groups[page])]
     st.subheader(page);st.caption(f'Google Sheets 등록 업무 {len(subset)}건')
     display_table(subset,height=550)
-    if not subset.empty:
-        selected = st.selectbox('📎 첨부파일 관리할 업무', subset['업무ID'].astype(str).tolist(),
-            format_func=lambda tid: str(subset.loc[subset['업무ID'].astype(str)==tid,'업무명'].iloc[0]),
-            key='group_file_task')
-        attachment_manager(selected, 'group')
 
 if False:  # previous summary view replaced by redesigned dashboard
     total=len(tasks)

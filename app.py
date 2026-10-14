@@ -121,10 +121,10 @@ def upload_drive_file(upload):
     # multipart/related 업로드: 서비스 계정이 접근 가능한 공유 드라이브 폴더 사용 권장
     boundary = 'psg_' + uuid4().hex
     payload = (
-        f'--{boundary}\\r\\nContent-Type: application/json; charset=UTF-8\\r\\n\\r\\n'
+        f'--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'
         + json.dumps(meta, ensure_ascii=False)
-        + f'\\r\\n--{boundary}\\r\\nContent-Type: {mime}\\r\\n\\r\\n'
-    ).encode('utf-8') + content + f'\\r\\n--{boundary}--\\r\\n'.encode('utf-8')
+        + f'\r\n--{boundary}\r\nContent-Type: {mime}\r\n\r\n'
+    ).encode('utf-8') + content + f'\r\n--{boundary}--\r\n'.encode('utf-8')
     response = drive_session().post(
         'https://www.googleapis.com/upload/drive/v3/files',
         params={'uploadType': 'multipart', 'fields': 'id,name', 'supportsAllDrives': 'true'},

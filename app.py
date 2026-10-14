@@ -7,9 +7,6 @@ import json
 import mimetypes
 import secrets
 import time
-import hmac
-import hashlib
-import base64
 from urllib.parse import urlencode
 import requests
 from datetime import date, datetime, timedelta
@@ -90,60 +87,31 @@ def oauth_config():
     cfg = st.secrets.get('google_oauth', {})
     return {k: str(cfg.get(k, '')).strip() for k in ('client_id', 'client_secret', 'redirect_uri')}
 
-def _oauth_state_signing_key():
-    # Keep the signing key on the server; do not rely on Streamlit WebSocket session state.
-    cfg = oauth_config()
-    return hmac.new(cfg['client_secret'].encode('utf-8'),
-                    b'psg-drive-oauth-state-v1', hashlib.sha256).digest()
-
-
-def _create_oauth_state():
-    issued = str(int(time.time()))
-    nonce = secrets.token_urlsafe(24)
-    payload = f'{issued}.{nonce}'
-    mac = hmac.new(_oauth_state_signing_key(), payload.encode('utf-8'), hashlib.sha256).digest()
-    signature = base64.urlsafe_b64encode(mac).decode('ascii').rstrip('=')
-    return f'{payload}.{signature}'
-
-
-def _valid_oauth_state(value):
-    try:
-        issued, nonce, signature = value.split('.', 2)
-        issued_at = int(issued)
-        if not nonce or not signature or not (0 <= time.time() - issued_at <= 600):
-            return False
-        payload = f'{issued}.{nonce}'
-        mac = hmac.new(_oauth_state_signing_key(), payload.encode('utf-8'), hashlib.sha256).digest()
-        expected = base64.urlsafe_b64encode(mac).decode('ascii').rstrip('=')
-        return hmac.compare_digest(signature, expected)
-    except (ValueError, TypeError, KeyError):
-        return False
-
-
 def oauth_url():
     cfg = oauth_config()
     if not all(cfg.values()):
         raise ValueError('Secrets의 [google_oauth] client_id, client_secret, redirect_uri 설정이 필요합니다.')
+    state = secrets.token_urlsafe(32)
+    st.session_state['drive_oauth_state'] = state
     return 'https://accounts.google.com/o/oauth2/v2/auth?' + urlencode({
         'client_id': cfg['client_id'], 'redirect_uri': cfg['redirect_uri'],
         'response_type': 'code', 'scope': OAUTH_SCOPE,
-        'access_type': 'offline', 'prompt': 'consent', 'state': _create_oauth_state(),
+        'access_type': 'offline', 'prompt': 'consent', 'state': state,
     })
-
 
 def process_oauth_callback():
     params = st.query_params
     if 'error' in params:
-        reason = str(params['error'])
+        st.error('Google 인증이 거부되었습니다: ' + str(params['error']))
         params.clear()
-        st.error('Google 인증이 거부되었습니다: ' + reason)
         return
     if 'code' not in params:
         return
     code, state = str(params['code']), str(params.get('state', ''))
     params.clear()
-    if not _valid_oauth_state(state):
-        st.error('Google 로그인 인증정보가 만료되었거나 유효하지 않습니다. Google Drive 연결을 다시 눌러주세요.')
+    expected = st.session_state.pop('drive_oauth_state', None)
+    if not expected or not secrets.compare_digest(state, expected):
+        st.error('OAuth 검증 실패: 로그인 버튼부터 다시 진행하세요.')
         return
     cfg = oauth_config()
     try:
@@ -153,9 +121,7 @@ def process_oauth_callback():
             'grant_type': 'authorization_code',
         }, timeout=30)
         if not res.ok:
-            # Do not display the raw Google response (may include sensitive information).
-            error_code = res.json().get('error', 'unknown_error') if res.headers.get('content-type', '').startswith('application/json') else 'unknown_error'
-            raise RuntimeError(f'Google 토큰 요청 실패 (HTTP {res.status_code}, {error_code}). 리디렉션 URI와 OAuth 클라이언트 설정을 확인하세요.')
+            raise RuntimeError(res.text[:500])
         token = res.json()
         token['expires_at'] = time.time() + int(token.get('expires_in', 3600)) - 60
         st.session_state['drive_oauth_token'] = token
@@ -190,10 +156,10 @@ def drive_request(method, url, **kwargs):
     headers['Authorization'] = 'Bearer ' + drive_access_token()
     return requests.request(method, url, headers=headers, timeout=120, **kwargs)
 
-def drive_connect_ui():
+def drive_connect_ui(key_prefix="global"):
     if st.session_state.get('drive_oauth_token'):
         st.caption('🟢 Google Drive 연결됨')
-        if st.button('Drive 연결 해제', key='drive_disconnect'):
+        if st.button('Drive 연결 해제', key=f'{key_prefix}_drive_disconnect'):
             st.session_state.pop('drive_oauth_token', None)
             st.rerun()
         return True
@@ -216,7 +182,6 @@ def file_sheet():
         raise ValueError("Google Sheets '첨부파일' 탭의 첫 행이 예상 열 구성과 다릅니다.")
     return ws
 
-@st.cache_data(ttl=120, show_spinner=False)
 def file_records():
     try:
         ws = sheet_client().worksheet('첨부파일')
@@ -267,7 +232,7 @@ def download_drive_file(file_id):
 def attachment_manager(task_id, key_prefix):
     """각 업무별 파일 업로드/다운로드. 업무 수정 허용 여부와 별개로 동작합니다."""
     st.markdown('<div class="panel-title">📎 첨부파일 등록 · 다운로드</div>', unsafe_allow_html=True)
-    connected = drive_connect_ui()
+    connected = drive_connect_ui(key_prefix)
     try:
         files = file_records()
     except Exception as exc:
@@ -313,7 +278,6 @@ def attachment_manager(task_id, key_prefix):
                             file_sheet().append_row([
                                 file_id, str(task_id), upload.name, mime, str(size), nowstr(), email
                             ], value_input_option='RAW')
-                            file_records.clear()
                         except Exception:
                             # 연결 정보 기록 실패 시 고아 파일이 남지 않도록 정리 시도
                             drive_request('DELETE',
@@ -330,17 +294,12 @@ def attachment_manager(task_id, key_prefix):
                 if success:
                     st.rerun()
 
-@st.cache_resource(show_spinner=False)
 def tab(name):
     return sheet_client().worksheet(name)
 
-@st.cache_data(ttl=120, show_spinner=False)
-def cached_sheet_values(name):
-    return tab(name).get_all_values()
-
 def fetch(name, headers):
     ws = tab(name)
-    values = cached_sheet_values(name)
+    values = ws.get_all_values()
     if not values:
         raise ValueError(f'{name} 시트에 헤더가 없습니다.')
     missing = [x for x in headers if x not in values[0]]
@@ -408,7 +367,6 @@ def update_task(task_id, changes, reason=''):
             tasks_ws.update_cell(row_no, header.index(field)+1, new)
     for field,before,after in changed:
         history_ws.append_row([uuid4().hex[:12],task_id,nowstr(),email,field,before,after,reason],value_input_option='RAW')
-    cached_sheet_values.clear()
 
 def append_task(data):
     if not ALLOW_EDIT: raise PermissionError('현재 공개 링크는 조회 전용입니다.')
@@ -416,7 +374,6 @@ def append_task(data):
     data['최종수정일시'] = nowstr()
     tasks_ws.append_row([str(data.get(h,'')) for h in TASK],value_input_option='RAW')
     history_ws.append_row([uuid4().hex[:12],data['업무ID'],nowstr(),email,'업무 생성','','신규 등록',''],value_input_option='RAW')
-    cached_sheet_values.clear()
 
 # Visual-only redesign. Data is always loaded from the existing Google Sheet.
 st.markdown("""<style>
@@ -766,7 +723,6 @@ elif page=='💬 팀 확인사항':
                 else:
                     try:
                         comments_ws.append_row([uuid4().hex[:12],task_id,nowstr(),writer.strip(),kind,message.strip(),state,assignee,'',''],value_input_option='RAW')
-                        cached_sheet_values.clear()
                         st.success('등록했습니다.');st.rerun()
                     except Exception as exc:st.error(f'저장 실패: {exc}')
 

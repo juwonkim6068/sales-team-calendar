@@ -5,6 +5,10 @@ import html
 import io
 import json
 import mimetypes
+import secrets
+import time
+from urllib.parse import urlencode
+import requests
 from datetime import date, datetime, timedelta
 from uuid import uuid4
 
@@ -13,7 +17,6 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 from google.oauth2.service_account import Credentials
-from google.auth.transport.requests import AuthorizedSession
 
 st.set_page_config(page_title="영업부 업무 일정", page_icon="📅", layout="wide", initial_sidebar_state="expanded")
 st.markdown("""<style>
@@ -76,13 +79,97 @@ def sheet_client():
 FILE_HEADERS = ['파일ID', '업무ID', '파일명', 'MIME유형', '파일크기', '등록일시', '등록자']
 DRIVE_FOLDER_ID = str(st.secrets.get('drive_folder_id', '')).strip()
 
-@st.cache_resource(show_spinner=False)
-def drive_session():
-    credentials = Credentials.from_service_account_info(
-        dict(st.secrets['gcp_service_account']),
-        scopes=['https://www.googleapis.com/auth/drive']
-    )
-    return AuthorizedSession(credentials)
+# Google Sheets는 기존 서비스 계정으로, Drive 업로드는 사용자 OAuth로 처리합니다.
+# 일반 개인 Drive에는 서비스 계정의 저장 용량이 없어 사용자 OAuth가 필요합니다.
+OAUTH_SCOPE = 'https://www.googleapis.com/auth/drive.file'
+
+def oauth_config():
+    cfg = st.secrets.get('google_oauth', {})
+    return {k: str(cfg.get(k, '')).strip() for k in ('client_id', 'client_secret', 'redirect_uri')}
+
+def oauth_url():
+    cfg = oauth_config()
+    if not all(cfg.values()):
+        raise ValueError('Secrets의 [google_oauth] client_id, client_secret, redirect_uri 설정이 필요합니다.')
+    state = secrets.token_urlsafe(32)
+    st.session_state['drive_oauth_state'] = state
+    return 'https://accounts.google.com/o/oauth2/v2/auth?' + urlencode({
+        'client_id': cfg['client_id'], 'redirect_uri': cfg['redirect_uri'],
+        'response_type': 'code', 'scope': OAUTH_SCOPE,
+        'access_type': 'offline', 'prompt': 'consent', 'state': state,
+    })
+
+def process_oauth_callback():
+    params = st.query_params
+    if 'error' in params:
+        st.error('Google 인증이 거부되었습니다: ' + str(params['error']))
+        params.clear()
+        return
+    if 'code' not in params:
+        return
+    code, state = str(params['code']), str(params.get('state', ''))
+    params.clear()
+    expected = st.session_state.pop('drive_oauth_state', None)
+    if not expected or not secrets.compare_digest(state, expected):
+        st.error('OAuth 검증 실패: 로그인 버튼부터 다시 진행하세요.')
+        return
+    cfg = oauth_config()
+    try:
+        res = requests.post('https://oauth2.googleapis.com/token', data={
+            'code': code, 'client_id': cfg['client_id'],
+            'client_secret': cfg['client_secret'], 'redirect_uri': cfg['redirect_uri'],
+            'grant_type': 'authorization_code',
+        }, timeout=30)
+        if not res.ok:
+            raise RuntimeError(res.text[:500])
+        token = res.json()
+        token['expires_at'] = time.time() + int(token.get('expires_in', 3600)) - 60
+        st.session_state['drive_oauth_token'] = token
+        st.toast('Google Drive 연결 완료')
+    except Exception as exc:
+        st.error(f'Google 인증 처리 실패: {exc}')
+
+def drive_access_token():
+    token = st.session_state.get('drive_oauth_token')
+    if not token:
+        raise PermissionError('먼저 Google Drive 계정을 연결하세요.')
+    if time.time() >= token.get('expires_at', 0):
+        if not token.get('refresh_token'):
+            st.session_state.pop('drive_oauth_token', None)
+            raise PermissionError('Google 인증이 만료되었습니다. 다시 연결하세요.')
+        cfg = oauth_config()
+        res = requests.post('https://oauth2.googleapis.com/token', data={
+            'client_id': cfg['client_id'], 'client_secret': cfg['client_secret'],
+            'refresh_token': token['refresh_token'], 'grant_type': 'refresh_token',
+        }, timeout=30)
+        if not res.ok:
+            st.session_state.pop('drive_oauth_token', None)
+            raise PermissionError('Google Drive 인증 갱신 실패. 다시 연결하세요.')
+        refreshed = res.json()
+        token.update(refreshed)
+        token['expires_at'] = time.time() + int(refreshed.get('expires_in', 3600)) - 60
+        st.session_state['drive_oauth_token'] = token
+    return token['access_token']
+
+def drive_request(method, url, **kwargs):
+    headers = kwargs.pop('headers', {})
+    headers['Authorization'] = 'Bearer ' + drive_access_token()
+    return requests.request(method, url, headers=headers, timeout=120, **kwargs)
+
+def drive_connect_ui():
+    if st.session_state.get('drive_oauth_token'):
+        st.caption('🟢 Google Drive 연결됨')
+        if st.button('Drive 연결 해제', key='drive_disconnect'):
+            st.session_state.pop('drive_oauth_token', None)
+            st.rerun()
+        return True
+    try:
+        st.link_button('🔐 Google Drive 연결', oauth_url(), use_container_width=True)
+    except Exception as exc:
+        st.warning(str(exc))
+    return False
+
+process_oauth_callback()
 
 def file_sheet():
     book = sheet_client()
@@ -112,41 +199,40 @@ def drive_error(response):
 
 def upload_drive_file(upload):
     if not DRIVE_FOLDER_ID:
-        raise ValueError("Streamlit Secrets에 drive_folder_id = 'Google Drive 폴더 ID'를 추가해야 합니다.")
+        raise ValueError("Streamlit Secrets에 drive_folder_id = '본인 Google Drive 폴더 ID'를 추가하세요.")
     content = upload.getvalue()
     if not content:
         raise ValueError('빈 파일은 등록할 수 없습니다.')
     mime = upload.type or mimetypes.guess_type(upload.name)[0] or 'application/octet-stream'
     meta = {'name': upload.name, 'parents': [DRIVE_FOLDER_ID]}
-    # multipart/related 업로드: 서비스 계정이 접근 가능한 공유 드라이브 폴더 사용 권장
-    boundary = 'psg_' + uuid4().hex
-    payload = (
-        f'--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'
-        + json.dumps(meta, ensure_ascii=False)
-        + f'\r\n--{boundary}\r\nContent-Type: {mime}\r\n\r\n'
-    ).encode('utf-8') + content + f'\r\n--{boundary}--\r\n'.encode('utf-8')
-    response = drive_session().post(
-        'https://www.googleapis.com/upload/drive/v3/files',
-        params={'uploadType': 'multipart', 'fields': 'id,name', 'supportsAllDrives': 'true'},
-        headers={'Content-Type': f'multipart/related; boundary={boundary}'},
-        data=payload, timeout=120
-    )
-    if not response.ok:
-        drive_error(response)
-    return response.json()['id'], mime, len(content)
+    # 1) Resumable 세션 생성 2) 파일 본문 업로드 (multipart 오류 방지)
+    init = drive_request('POST', 'https://www.googleapis.com/upload/drive/v3/files',
+        params={'uploadType': 'resumable', 'fields': 'id,name', 'supportsAllDrives': 'true'},
+        headers={'Content-Type': 'application/json; charset=UTF-8',
+                 'X-Upload-Content-Type': mime, 'X-Upload-Content-Length': str(len(content))},
+        json=meta)
+    if not init.ok:
+        drive_error(init)
+    location = init.headers.get('Location')
+    if not location or not location.startswith('https://www.googleapis.com/'):
+        raise RuntimeError('Google Drive 업로드 세션 URL이 올바르지 않습니다.')
+    res = drive_request('PUT', location,
+        headers={'Content-Type': mime, 'Content-Length': str(len(content))}, data=content)
+    if not res.ok:
+        drive_error(res)
+    return res.json()['id'], mime, len(content)
 
 def download_drive_file(file_id):
-    response = drive_session().get(
-        f'https://www.googleapis.com/drive/v3/files/{file_id}',
-        params={'alt': 'media', 'supportsAllDrives': 'true'}, timeout=120
-    )
-    if not response.ok:
-        drive_error(response)
-    return response.content
+    res = drive_request('GET', f'https://www.googleapis.com/drive/v3/files/{file_id}',
+        params={'alt': 'media', 'supportsAllDrives': 'true'})
+    if not res.ok:
+        drive_error(res)
+    return res.content
 
 def attachment_manager(task_id, key_prefix):
     """각 업무별 파일 업로드/다운로드. 업무 수정 허용 여부와 별개로 동작합니다."""
     st.markdown('<div class="panel-title">📎 첨부파일 등록 · 다운로드</div>', unsafe_allow_html=True)
+    connected = drive_connect_ui()
     try:
         files = file_records()
     except Exception as exc:
@@ -160,6 +246,9 @@ def attachment_manager(task_id, key_prefix):
             c1, c2 = st.columns([3, 1])
             c1.markdown('📄 **' + html.escape(str(f['파일명'])) + '**')
             c1.caption(str(f['등록일시']) + ' · ' + str(f['파일크기']) + ' bytes')
+            if not connected:
+                c2.caption('Drive 연결 필요')
+                continue
             try:
                 file_data = download_drive_file(str(f['파일ID']))
                 c2.download_button(
@@ -169,6 +258,9 @@ def attachment_manager(task_id, key_prefix):
                 )
             except Exception as exc:
                 c2.error(f'다운로드 불가: {exc}')
+    if not connected:
+        st.info('Google Drive 연결 후 파일 등록 및 다운로드가 가능합니다.')
+        return
     with st.expander('➕ 파일 등록하기', expanded=False):
         uploads = st.file_uploader(
             '파일을 끌어다 놓거나 선택하세요 (여러 개 가능)',
@@ -188,10 +280,9 @@ def attachment_manager(task_id, key_prefix):
                             ], value_input_option='RAW')
                         except Exception:
                             # 연결 정보 기록 실패 시 고아 파일이 남지 않도록 정리 시도
-                            drive_session().delete(
+                            drive_request('DELETE',
                                 f'https://www.googleapis.com/drive/v3/files/{file_id}',
-                                params={'supportsAllDrives': 'true'}, timeout=30
-                            )
+                                params={'supportsAllDrives': 'true'})
                             raise
                         success += 1
                     except Exception as exc:

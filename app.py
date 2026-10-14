@@ -216,6 +216,23 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label [data-testid="stRa
 }
 section[data-testid="stSidebar"] div[role="radiogroup"] label {gap:0!important;padding-left:14px!important}
 section[data-testid="stSidebar"] div[role="radiogroup"] label > div:last-child {margin-left:0!important;padding-left:0!important}
+
+/* Unified clean table design for all Google Sheets data views */
+.unified-table-scroll {overflow-x:auto;width:100%;margin:5px 0 18px;border-radius:10px}
+.unified-table {background:#fff;border:1px solid #dbe6f4;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(26,65,110,.045)}
+.unified-table .pretty-table {table-layout:auto;min-width:700px;border-collapse:collapse;width:100%}
+.unified-table .pretty-table thead th {position:sticky;top:0;background:#eef4fd;color:#385779;font-size:12px;font-weight:750;padding:12px 13px;white-space:nowrap;border-right:0;border-bottom:1px solid #d7e3f2}
+.unified-table .pretty-table tbody td {font-size:12px;padding:12px 13px;border-right:0;border-bottom:1px solid #eaf0f7;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.6}
+.unified-table .pretty-table tbody tr:nth-child(even) {background:#f8fbff}
+.unified-table .pretty-table tbody tr:hover {background:#edf5ff}
+.unified-table .pretty-table tbody tr:last-child td {border-bottom:0}
+.unified-table a {color:#2468bc;text-decoration:none;font-weight:650}
+.unified-table a:hover {text-decoration:underline}
+.category-pill {display:inline-block;background:#e5f0ff;color:#245f9e;border:1px solid #c9e0ff;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
+.priority-pill {display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:750}
+.priority-pill.high {background:#ffe3e7;color:#c82c40}
+.priority-pill.normal {background:#fff0c9;color:#a96b00}
+.priority-pill.low {background:#e7effa;color:#567293}
 </style>""",unsafe_allow_html=True)
 NAV=['📅 전체 일정','📋 업무 목록','🗓️ 월간 캘린더','⏰ 마감임박 일정','🗣️ 회의 일정','🎓 교육 / 외부 일정','✅ 완료된 업무','👤 팀원별 업무','💬 팀 확인사항','➕ 일정 등록','🕘 변경 이력']
 st.sidebar.markdown('## 📅 영업부 일정')
@@ -232,9 +249,46 @@ else:
     tasks['마감상태']=pd.Series(dtype='str');tasks['D-Day']=pd.Series(dtype='float')
 
 def display_table(df, columns=None, height=330):
-    cols=columns or ['발송일','마감일','업무구분','업무명','진행예정자(주/부)','담당자','진행상태','우선순위','확인사항','첨부파일URL']
-    cols=[c for c in cols if c in df.columns]
-    st.dataframe(df[cols],hide_index=True,use_container_width=True,height=height,column_config={'첨부파일URL':st.column_config.LinkColumn('첨부파일')})
+    """Read-only styled HTML table, populated exclusively from existing Sheets data."""
+    cols = columns or ['발송일','마감일','업무구분','업무명','진행예정자(주/부)','담당자','진행상태','우선순위','확인사항','첨부파일URL']
+    cols = [c for c in cols if c in df.columns]
+    if not cols:
+        st.info('표시할 열이 없습니다.')
+        return
+    if df.empty:
+        st.markdown('<div class="unified-table"><div class="empty-list">표시할 데이터가 없습니다.</div></div>', unsafe_allow_html=True)
+        return
+    head = ''.join(f'<th>{html.escape("첨부파일" if c=="첨부파일URL" else c)}</th>' for c in cols)
+    rows = []
+    for _, record in df.iterrows():
+        cells = []
+        for col in cols:
+            value = record.get(col, '')
+            value = '' if pd.isna(value) else str(value)
+            safe = html.escape(value, quote=True)
+            if col in ('진행상태', '처리상태', '마감상태'):
+                klass = ('done' if value in ('완료','처리완료') else 'active' if value in ('진행중','처리중') else 'plan' if value in ('예정','미진행') else 'late' if value in ('지연','확인필요','오늘 마감') else '')
+                safe = f'<span class="state-pill {klass}">{safe}</span>' if value else '—'
+            elif col == '우선순위':
+                klass = 'high' if value in ('긴급','높음') else 'normal' if value=='보통' else 'low'
+                safe = f'<span class="priority-pill {klass}">{safe}</span>' if value else '—'
+            elif col in ('업무명','확인내용'):
+                safe = f'<span class="taskname" title="{safe}">{safe}</span>'
+            elif col == '업무구분':
+                safe = f'<span class="category-pill">{safe}</span>' if value else '—'
+            elif col == '첨부파일URL':
+                from urllib.parse import urlparse
+                parsed = urlparse(value)
+                safe = f'<a href="{html.escape(value,quote=True)}" target="_blank" rel="noopener noreferrer">📎 파일 열기</a>' if parsed.scheme == 'https' and parsed.netloc else '—'
+            elif col == 'D-Day':
+                try: safe = f'D{int(float(value)):+d}' if value else '—'
+                except (ValueError,TypeError): safe = '—'
+            elif not value:
+                safe = '—'
+            cells.append(f'<td title="{html.escape(value,quote=True)}">{safe}</td>')
+        rows.append('<tr>'+''.join(cells)+'</tr>')
+    markup = '<div class="unified-table-scroll"><div class="unified-table"><table class="pretty-table"><thead><tr>'+head+'</tr></thead><tbody>'+''.join(rows)+'</tbody></table></div></div>'
+    st.markdown(markup, unsafe_allow_html=True)
 
 def summary_charts(df):
     a,b,c,d=st.columns(4)
@@ -351,7 +405,7 @@ if False:  # previous summary view replaced by redesigned dashboard
         st.subheader('🚨 우선 확인할 업무')
         alert=tasks[tasks['마감상태'].isin(['지연','오늘 마감','마감 임박'])].copy()
         alert=alert.sort_values('D-Day',na_position='last')
-        st.dataframe(alert[['업무명','담당자','마감일','마감상태','D-Day','진행상태']],hide_index=True,use_container_width=True)
+        display_table(alert,['업무명','담당자','마감일','마감상태','D-Day','진행상태'])
     with r:
         st.subheader('진행 상태별 현황')
         if total:
@@ -361,7 +415,7 @@ if False:  # previous summary view replaced by redesigned dashboard
     st.subheader('이번 주 마감 일정')
     end=date.today()+timedelta(days=7)
     week=tasks[tasks['마감일'].apply(lambda x: bool(dateval(x) and date.today()<=dateval(x)<=end)) & (tasks['진행상태']!='완료')]
-    st.dataframe(week[['마감일','업무명','담당자','진행상태','우선순위']],hide_index=True,use_container_width=True)
+    display_table(week,['마감일','업무명','담당자','진행상태','우선순위'])
 
 elif page == '👥 팀원별 업무':
     st.subheader('👥 팀원별 업무 현황')
@@ -369,10 +423,10 @@ elif page == '👥 팀원별 업무':
         st.info('등록된 업무가 없습니다.')
     else:
         summary=tasks.groupby('담당자',dropna=False).agg(전체=('업무ID','count'),완료=('진행상태',lambda s:(s=='완료').sum()),진행중=('진행상태',lambda s:(s=='진행중').sum()),지연=('마감상태',lambda s:(s=='지연').sum())).reset_index()
-        st.dataframe(summary,hide_index=True,use_container_width=True)
+        display_table(summary,summary.columns.tolist())
         member=st.selectbox('담당자 선택',['전체']+sorted(tasks['담당자'].dropna().unique().tolist()))
         view=tasks if member=='전체' else tasks[tasks['담당자']==member]
-        st.dataframe(view[['업무ID','업무명','업무구분','담당자','마감일','진행상태','우선순위','마감상태']],hide_index=True,use_container_width=True)
+        display_table(view,['업무ID','업무명','업무구분','담당자','마감일','진행상태','우선순위','마감상태'])
 
 elif page in ('📋 업무 목록','⏰ 마감임박 일정'):
     st.subheader('업무 검색 및 상세 관리')
@@ -387,7 +441,7 @@ elif page in ('📋 업무 목록','⏰ 마감임박 일정'):
     if status!='전체':df=df[df['진행상태']==status]
     if owner!='전체':df=df[df['담당자']==owner]
     if category!='전체':df=df[df['업무구분']==category]
-    st.dataframe(df[['업무ID','마감일','업무구분','업무명','담당자','진행상태','우선순위','진행률(%)','마감상태','D-Day']],hide_index=True,use_container_width=True)
+    display_table(df,['업무ID','마감일','업무구분','업무명','담당자','진행상태','우선순위','진행률(%)','마감상태','D-Day'])
     if not df.empty:
         task_id=st.selectbox('상세 확인 / 수정할 업무',df['업무ID'].tolist(),format_func=lambda x:f'{x} · {tasks.loc[tasks["업무ID"]==x,"업무명"].iloc[0]}')
         item=tasks[tasks['업무ID']==task_id].iloc[0]
@@ -437,7 +491,7 @@ elif page=='💬 팀 확인사항':
     else:
         task_id=st.selectbox('업무 선택',tasks['업무ID'].tolist(),format_func=lambda x:f'{x} · {tasks.loc[tasks["업무ID"]==x,"업무명"].iloc[0]}')
         matched=comments[comments['업무ID']==task_id]
-        st.dataframe(matched[['작성일시','작성자','확인유형','확인내용','처리상태','처리담당자']],hide_index=True,use_container_width=True)
+        display_table(matched,['작성일시','작성자','확인유형','확인내용','처리상태','처리담당자'])
         if not ALLOW_EDIT:
             st.info('현재는 조회 전용입니다.')
             st.stop()
@@ -486,7 +540,7 @@ elif page=='🕘 변경 이력':
     st.subheader('최근 변경 내역')
     try:
         history,_=fetch('변경이력',HISTORY)
-        st.dataframe(history.iloc[::-1].head(200),hide_index=True,use_container_width=True)
+        display_table(history.iloc[::-1].head(200),HISTORY)
     except Exception as exc:st.error(f'이력 조회 실패: {exc}')
 
 st.caption('※ 실제 Google Sheets 데이터만 사용합니다. 공개 편집을 켠 경우 변경 내용은 Google Sheets에 저장됩니다. 동시 수정이 많은 환경에서는 별도 데이터베이스와 트랜잭션 처리를 권장합니다.')

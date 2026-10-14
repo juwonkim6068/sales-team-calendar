@@ -150,10 +150,10 @@ def append_task(data):
 st.markdown("""<style>
 .stApp {background:#edf4fc!important;color:#122d53}
 .block-container{max-width:1850px!important;padding:0.7rem 1.15rem 2rem!important}
-[data-testid="stSidebar"]{background:linear-gradient(180deg,#10365f,#174a7c)!important;min-width:230px!important}
+[data-testid="stSidebar"]{background:linear-gradient(180deg,#24568a,#3372a8)!important;min-width:230px!important}
 [data-testid="stSidebar"] *{color:#fff!important}
 [data-testid="stSidebar"] [role="radiogroup"] label{padding:9px 10px!important;border-radius:5px!important}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){background:#2b70d5!important}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){background:#4389e5!important}
 [data-testid="stMetric"]{background:white!important;border:1px solid #d3e2f3!important;border-radius:7px!important;padding:14px!important;box-shadow:0 1px 5px #c5d8ef60}
 [data-testid="stMetricValue"]{color:#0c2b57!important;font-size:1.9rem!important}
 [data-testid="stDataFrame"]{background:#fff;border:1px solid #d3e2f3;border-radius:6px}
@@ -204,12 +204,24 @@ st.markdown("""<style>
 .state-pill.plan{background:#e1edff;color:#1d63c1}
 .state-pill.late{background:#ffe4e8;color:#c7253b}
 .empty-list {padding:30px 12px;text-align:center;color:#8390a2;font-size:13px}
+
+/* Hide radio indicator across Streamlit/BaseWeb versions while keeping clickable menu labels */
+section[data-testid="stSidebar"] div[role="radiogroup"] label > div:first-child:has(input),
+section[data-testid="stSidebar"] div[role="radiogroup"] label > div:first-child:has(svg),
+section[data-testid="stSidebar"] div[role="radiogroup"] label [data-baseweb="radio"] > div:first-child,
+section[data-testid="stSidebar"] div[role="radiogroup"] label input[type="radio"],
+section[data-testid="stSidebar"] div[role="radiogroup"] label svg,
+section[data-testid="stSidebar"] div[role="radiogroup"] label [data-testid="stRadioOption"] > div:first-child:has(input) {
+ display:none!important;width:0!important;min-width:0!important;margin:0!important;padding:0!important;visibility:hidden!important;
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label {gap:0!important;padding-left:14px!important}
+section[data-testid="stSidebar"] div[role="radiogroup"] label > div:last-child {margin-left:0!important;padding-left:0!important}
 </style>""",unsafe_allow_html=True)
-NAV=['📅 전체 일정','📋 업무 목록','🗓️ 월간 캘린더','⏰ 마감임박 일정','🗣️ 회의 일정','👥 거래처 관련','🧾 ERP / 마감 업무','🎓 교육 / 외부 일정','📁 팀 공유 자료','✅ 완료된 업무','👤 팀원별 업무','💬 팀 확인사항','➕ 일정 등록','🕘 변경 이력']
+NAV=['📅 전체 일정','📋 업무 목록','🗓️ 월간 캘린더','⏰ 마감임박 일정','🗣️ 회의 일정','🎓 교육 / 외부 일정','✅ 완료된 업무','👤 팀원별 업무','💬 팀 확인사항','➕ 일정 등록','🕘 변경 이력']
 st.sidebar.markdown('## 📅 영업부 일정')
 page=st.sidebar.radio('메뉴',NAV,label_visibility='collapsed')
 st.sidebar.caption('Google Sheets 연결 · '+('공개 편집' if ALLOW_EDIT else '공개 조회 전용'))
-if st.sidebar.button('🔄 최신 데이터 새로고침'): st.rerun()
+
 if not tasks.empty:
     tasks['발송일']=tasks['발송일'].map(fmt_date)
     tasks['마감일']=tasks['마감일'].map(fmt_date)
@@ -318,7 +330,7 @@ if page=='📅 전체 일정':
     summary_charts(view)
     st.caption('화면의 수치와 업무는 Google Sheets 실제 기록을 기준으로 계산됩니다. 샘플 일정은 추가하지 않습니다.')
 
-elif page in ['🗣️ 회의 일정','👥 거래처 관련','🧾 ERP / 마감 업무','🎓 교육 / 외부 일정','📁 팀 공유 자료','✅ 완료된 업무']:
+elif page in ['🗣️ 회의 일정','🎓 교육 / 외부 일정','✅ 완료된 업무']:
     groups={'🗣️ 회의 일정':['회의'],'👥 거래처 관련':['거래처','채권관리'],'🧾 ERP / 마감 업무':['마감업무','ERP/시스템','비용처리'],'🎓 교육 / 외부 일정':['교육'],'📁 팀 공유 자료':[],'✅ 완료된 업무':[]}
     subset=tasks.copy()
     if page=='📁 팀 공유 자료':subset=subset[subset['첨부파일URL'].str.strip()!='']

@@ -216,6 +216,7 @@ def file_sheet():
         raise ValueError("Google Sheets '첨부파일' 탭의 첫 행이 예상 열 구성과 다릅니다.")
     return ws
 
+@st.cache_data(ttl=120, show_spinner=False)
 def file_records():
     try:
         ws = sheet_client().worksheet('첨부파일')
@@ -312,6 +313,7 @@ def attachment_manager(task_id, key_prefix):
                             file_sheet().append_row([
                                 file_id, str(task_id), upload.name, mime, str(size), nowstr(), email
                             ], value_input_option='RAW')
+                            file_records.clear()
                         except Exception:
                             # 연결 정보 기록 실패 시 고아 파일이 남지 않도록 정리 시도
                             drive_request('DELETE',
@@ -328,12 +330,17 @@ def attachment_manager(task_id, key_prefix):
                 if success:
                     st.rerun()
 
+@st.cache_resource(show_spinner=False)
 def tab(name):
     return sheet_client().worksheet(name)
 
+@st.cache_data(ttl=120, show_spinner=False)
+def cached_sheet_values(name):
+    return tab(name).get_all_values()
+
 def fetch(name, headers):
     ws = tab(name)
-    values = ws.get_all_values()
+    values = cached_sheet_values(name)
     if not values:
         raise ValueError(f'{name} 시트에 헤더가 없습니다.')
     missing = [x for x in headers if x not in values[0]]
@@ -401,6 +408,7 @@ def update_task(task_id, changes, reason=''):
             tasks_ws.update_cell(row_no, header.index(field)+1, new)
     for field,before,after in changed:
         history_ws.append_row([uuid4().hex[:12],task_id,nowstr(),email,field,before,after,reason],value_input_option='RAW')
+    cached_sheet_values.clear()
 
 def append_task(data):
     if not ALLOW_EDIT: raise PermissionError('현재 공개 링크는 조회 전용입니다.')
@@ -408,6 +416,7 @@ def append_task(data):
     data['최종수정일시'] = nowstr()
     tasks_ws.append_row([str(data.get(h,'')) for h in TASK],value_input_option='RAW')
     history_ws.append_row([uuid4().hex[:12],data['업무ID'],nowstr(),email,'업무 생성','','신규 등록',''],value_input_option='RAW')
+    cached_sheet_values.clear()
 
 # Visual-only redesign. Data is always loaded from the existing Google Sheet.
 st.markdown("""<style>
@@ -757,6 +766,7 @@ elif page=='💬 팀 확인사항':
                 else:
                     try:
                         comments_ws.append_row([uuid4().hex[:12],task_id,nowstr(),writer.strip(),kind,message.strip(),state,assignee,'',''],value_input_option='RAW')
+                        cached_sheet_values.clear()
                         st.success('등록했습니다.');st.rerun()
                     except Exception as exc:st.error(f'저장 실패: {exc}')
 

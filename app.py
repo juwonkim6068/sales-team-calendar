@@ -1,6 +1,7 @@
 """PSG 영업부 일정 대시보드: Google Sheets + OIDC, fail-closed authentication."""
 from __future__ import annotations
 import calendar
+import html
 from datetime import date, datetime, timedelta
 from uuid import uuid4
 
@@ -163,6 +164,46 @@ st.markdown("""<style>
 .hero .subtitle{color:#d6e8fc;font-size:.85rem}
 .panel-title{font-weight:800;font-size:1rem;color:#113a71;padding:8px 11px;background:#e4efff;border-radius:6px;margin:8px 0}
 .panel-title.red{background:#ffe5ea;color:#d91c39}
+
+/* Sidebar radio circles removed, labels become full-width navigation */
+[data-testid="stSidebar"] [role="radiogroup"] label [data-testid="stWidgetLabel"],
+[data-testid="stSidebar"] [role="radiogroup"] label [data-testid="stMarkdownContainer"] {color:white!important}
+[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child:has(input[type="radio"]),
+[data-testid="stSidebar"] [role="radiogroup"] input[type="radio"] {display:none!important}
+[data-testid="stSidebar"] [role="radiogroup"] label {display:flex!important;align-items:center!important;width:100%!important;min-height:39px!important;margin:1px 0!important;padding:8px 13px!important;cursor:pointer}
+[data-testid="stSidebar"] [role="radiogroup"] label p {font-size:14px!important;font-weight:600!important}
+[data-testid="stSidebar"] [role="radiogroup"] {gap:2px!important}
+/* Compact cards and calendar */
+.ui-card {background:white;border:1px solid #d9e5f4;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px #183e6610}
+.ui-card-title {background:#e7f0ff;padding:12px 15px;font-weight:800;color:#153d70;font-size:15px}
+.ui-card-title.red {background:#ffebef;color:#c81e3c}
+.ui-card-body {padding:11px 12px}
+.mini-cal {display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;text-align:center}
+.mini-cal .dow {font-size:12px;color:#72829b;font-weight:700;padding:5px 0}
+.mini-cal .dow.sun {color:#e45160}.mini-cal .dow.sat{color:#3175c9}
+.mini-cal .day {min-height:34px;display:flex;align-items:center;justify-content:center;border-radius:8px;position:relative;font-size:13px;color:#263c5e}
+.mini-cal .day.muted {color:#b7c2d1}
+.mini-cal .day.today {background:#174c91;color:white;font-weight:800}
+.mini-cal .day.has-due:not(.today) {background:#eef4ff;color:#164d92;font-weight:700}
+.mini-cal .day.has-due::after {content:"";width:5px;height:5px;background:#f06c44;border-radius:50%;position:absolute;bottom:2px;left:calc(50% - 2.5px)}
+.mini-cal .day.today::after{background:#ffce54}
+.calendar-foot {padding:8px 2px 1px;font-size:11px;color:#75859b}
+/* Non-editable polished compact tables */
+.pretty-table-wrap {border:1px solid #dce6f3;border-radius:9px;overflow:hidden;background:white}
+.pretty-table {width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
+.pretty-table th {background:#f0f5fd;color:#536b8c;font-size:12px;text-align:left;padding:11px 9px;border-bottom:1px solid #dbe5f2;font-weight:750}
+.pretty-table td {padding:10px 9px;font-size:12px;color:#263c5d;border-bottom:1px solid #edf1f7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pretty-table tr:last-child td{border-bottom:0}
+.pretty-table tbody tr:nth-child(even){background:#fafcff}
+.pretty-table tbody tr:hover{background:#edf5ff}
+.pretty-table .taskname{font-weight:650;color:#153a69}
+.pretty-table .datecell{font-variant-numeric:tabular-nums;color:#506580}
+.state-pill{display:inline-block;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:750;background:#e9eef7;color:#49627f}
+.state-pill.done{background:#def7e8;color:#16824c}
+.state-pill.active{background:#fff0d2;color:#a96300}
+.state-pill.plan{background:#e1edff;color:#1d63c1}
+.state-pill.late{background:#ffe4e8;color:#c7253b}
+.empty-list {padding:30px 12px;text-align:center;color:#8390a2;font-size:13px}
 </style>""",unsafe_allow_html=True)
 NAV=['📅 전체 일정','📋 업무 목록','🗓️ 월간 캘린더','⏰ 마감임박 일정','🗣️ 회의 일정','👥 거래처 관련','🧾 ERP / 마감 업무','🎓 교육 / 외부 일정','📁 팀 공유 자료','✅ 완료된 업무','👤 팀원별 업무','💬 팀 확인사항','➕ 일정 등록','🕘 변경 이력']
 st.sidebar.markdown('## 📅 영업부 일정')
@@ -211,29 +252,54 @@ if page=='📅 전체 일정':
     today=date.today();month=tasks[tasks['마감일'].str.startswith(today.strftime('%Y-%m'),na=False)]
     done=int((month['진행상태']=='완료').sum());total=len(month)
     urgent=tasks[(tasks['마감상태'].isin(['오늘 마감','마감 임박'])) & (tasks['진행상태']!='완료')]
-    k=st.columns([1,1,1,1,1,1.6])
-    metrics=[('📅 전체 일정',total),('⏰ 마감임박 (D-3이내)',len(urgent)),('⚙️ 진행중',int((month['진행상태']=='진행중').sum())),('🗓️ 예정',int((month['진행상태']=='예정').sum())),('✅ 완료',done)]
-    for col,(name,val) in zip(k,metrics):col.metric(name,f'{val}건')
-    with k[5]:
-        st.markdown('**이번 달 업무 진행률**');st.progress(done/total if total else 0);st.caption(f'완료 {done}건 / 전체 {total}건 ({done/total:.0%})' if total else '등록된 업무 없음')
+    # 상단 KPI 5개 카드 제거: 실제 일정 중심의 간결한 화면
     left,middle,right=st.columns([1.35,1.15,.85])
+    def polished_table(frame, fields, max_rows=6):
+        frame=frame.head(max_rows)
+        if frame.empty:
+            st.markdown('<div class="pretty-table-wrap"><div class="empty-list">표시할 일정이 없습니다.</div></div>',unsafe_allow_html=True)
+            return
+        headers={'D-Day':'D-Day','마감일':'마감일','업무명':'업무명','담당자':'담당자','진행상태':'상태'}
+        widths={'D-Day':'12%','마감일':'20%','업무명':'40%','담당자':'15%','진행상태':'13%'}
+        th=''.join(f'<th style="width:{widths.get(f,"auto")}">{headers.get(f,f)}</th>' for f in fields)
+        rows=[]
+        for _,r in frame.iterrows():
+            cells=[]
+            for f in fields:
+                val=str(r.get(f,'') or '')
+                if f=='D-Day':
+                    raw=r.get('D-Day')
+                    val='D'+str(int(raw)) if pd.notna(raw) else '—'
+                safe=html.escape(val)
+                if f=='진행상태':
+                    state_class=('done' if val=='완료' else 'active' if val=='진행중' else 'plan' if val=='예정' else 'late' if val=='확인필요' else '')
+                    safe=f'<span class="state-pill {state_class}">{safe}</span>'
+                elif f=='업무명':safe=f'<span class="taskname" title="{safe}">{safe}</span>'
+                elif f=='마감일':safe=f'<span class="datecell">{safe}</span>'
+                cells.append(f'<td>{safe}</td>')
+            rows.append('<tr>'+''.join(cells)+'</tr>')
+        st.markdown('<div class="pretty-table-wrap"><table class="pretty-table"><thead><tr>'+th+'</tr></thead><tbody>'+''.join(rows)+'</tbody></table></div>',unsafe_allow_html=True)
+
     with left:
         st.markdown('<div class="panel-title red">🚨 마감 임박 일정 (D-3이내)</div>',unsafe_allow_html=True)
-        display_table(urgent.sort_values('D-Day'),['D-Day','마감일','업무명','담당자','진행상태'],240)
+        polished_table(urgent.sort_values('D-Day'),['D-Day','마감일','업무명','담당자','진행상태'])
     with middle:
         st.markdown('<div class="panel-title">⏰ 금주 주요 일정</div>',unsafe_allow_html=True)
         week_end=today+timedelta(days=7)
         week=tasks[tasks['마감일'].apply(lambda x:bool(dateval(x) and today<=dateval(x)<=week_end))]
-        display_table(week.sort_values('마감일'),['마감일','업무명','담당자','진행상태'],240)
+        polished_table(week.sort_values('마감일'),['마감일','업무명','담당자','진행상태'])
     with right:
-        st.markdown('<div class="panel-title">🗓️ 이번 달 일정</div>',unsafe_allow_html=True)
-        st.markdown(f'**{today.year}년 {today.month}월**')
-        days=month['마감일'].value_counts()
-        cal=calendar.monthcalendar(today.year,today.month)
-        st.markdown('월　 화　 수　 목　 금　 토　 일')
-        for wk in cal:
-            st.markdown('　'.join(('**'+str(n)+'●**' if days.get(f'{today.year}-{today.month:02d}-{n:02d}',0) else str(n)) if n else '　' for n in wk))
-        st.caption('● 마감 일정이 있는 날짜')
+        year,mo=today.year,today.month
+        due_dates=set(month['마감일'].dropna().astype(str))
+        weekdays=['월','화','수','목','금','토','일']
+        head=''.join(f'<div class="dow {"sun" if i==6 else "sat" if i==5 else ""}">{d}</div>' for i,d in enumerate(weekdays))
+        day_cells=[]
+        for wk in calendar.monthcalendar(year,mo):
+            for n in wk:
+                if n==0:day_cells.append('<div class="day muted"></div>');continue
+                classes='day'+(' today' if n==today.day else '')+(' has-due' if f'{year}-{mo:02d}-{n:02d}' in due_dates else '')
+                day_cells.append(f'<div class="{classes}">{n}</div>')
+        st.markdown(f'<div class="ui-card"><div class="ui-card-title">🗓️ {year}년 {mo}월</div><div class="ui-card-body"><div class="mini-cal">{head}{"".join(day_cells)}</div><div class="calendar-foot">🟠 마감 일정이 등록된 날짜</div></div></div>',unsafe_allow_html=True)
     f1,f2,f3,f4,f5=st.columns([1.1,1,1,1,1.8])
     period=f1.date_input('기간',value=(date(today.year,1,1),date(today.year,12,31)))
     cat=f2.selectbox('업무 구분',['전체']+sorted(x for x in tasks['업무구분'].unique() if x))

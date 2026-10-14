@@ -45,185 +45,25 @@ STATES = ['예정','진행중','확인필요','보류','완료']
 PRIORITIES = ['긴급','높음','보통','낮음']
 
 
-# 공개 배포에서는 인증되지 않은 사용자에게 회사 시트 데이터를 노출하지 않습니다.
-# 로그인 전에는 브라우저 세션 내에서만 유지되는 샘플 데이터로 디자인을 시험합니다.
-def demo_rows():
-    today = date.today()
-    items = [
-        ('월간 FC 가마감 예상 매출 확인', '마감업무', '김대리', 2, '진행중', '높음', 65),
-        ('거래처별 마감 자료 검토', '거래처', '이차장', -1, '확인필요', '긴급', 80),
-        ('영업부 주간회의 준비', '회의', '조부장', 1, '예정', '보통', 0),
-        ('미수금 회수 일정 점검', '채권관리', '김대리', 5, '진행중', '높음', 30),
-        ('신규 거래처 정보 정리', '거래처', '박사원', 9, '완료', '보통', 100),
-        ('월말 비용 결재 확인', '비용처리', '박사원', 12, '예정', '보통', 0),
-    ]
-    return [dict(zip(['업무ID','업무명','업무구분','담당자','마감일','진행상태','우선순위','진행률(%)','상세내용','확인사항'],
-        [f'DEMO-{i:03}',title,cat,owner,(today+timedelta(days=offset)).isoformat(),status,priority,progress,'예시 데이터입니다.','']))
-        for i,(title,cat,owner,offset,status,priority,progress) in enumerate(items,1)]
-
-
-def render_demo():
-    import html
-    if 'demo_tasks' not in st.session_state:
-        st.session_state.demo_tasks = demo_rows()
-    if 'demo_comments' not in st.session_state:
-        st.session_state.demo_comments = []
-    st.markdown("""<style>
-    .stApp{background:#edf5fd} .block-container{max-width:1750px;padding-top:.55rem}
-    [data-testid="stSidebar"]{background:linear-gradient(160deg,#204d80,#0e294b);border-right:0}
-    [data-testid="stSidebar"] *{color:#fff!important}
-    [data-testid="stSidebar"] [role="radiogroup"] label{border-radius:7px;padding:10px 12px}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){background:#2d72cc}
-    [data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#326398}
-    .dash-head{background:linear-gradient(100deg,#092747,#194e82);color:white;padding:18px 23px;border-radius:11px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
-    .dash-head h1{color:white!important;margin:0;font-size:1.8rem!important}.dash-head small{color:#d8e8fa}
-    .metric-card{background:#fff;border:1px solid #d6e3f1;border-radius:9px;padding:13px 14px;box-shadow:0 2px 7px #183b6010;min-height:110px}
-    .metric-label{font-weight:750;font-size:13px;color:#254567}.metric-num{font-size:29px;font-weight:850;color:#132f52;text-align:center;margin:5px 0}.metric-foot{text-align:center;color:#5e7186;font-size:12px}
-    .dash-panel{background:white;border:1px solid #d8e5f2;border-radius:9px;padding:12px 13px;margin:8px 0}
-    .panel-title{font-size:15px;font-weight:850;color:#163961;margin:0 0 9px}
-    .tiny-table{width:100%;border-collapse:collapse;font-size:12px}.tiny-table th{background:#edf4fc;color:#284b75;text-align:left}.tiny-table td,.tiny-table th{padding:8px 7px;border-bottom:1px solid #e8eef6}.tiny-table td{color:#233f5f}
-    .tag{display:inline-block;border-radius:5px;padding:3px 7px;font-size:11px;font-weight:750;background:#e4f0ff;color:#2161ae}
-    .tag.red{background:#ffe3e7;color:#c42e43}.tag.orange{background:#fff0cc;color:#b76a00}.tag.green{background:#d7f5e8;color:#188453}
-    .section-title{font-size:17px;font-weight:850;color:#173b66;margin:13px 0 8px}
-    [data-testid="stDataFrame"]{border-radius:8px}
-    </style>""",unsafe_allow_html=True)
-    menu=['📅 전체 일정','📋 업무 목록','🗓️ 월간 캘린더','⏰ 마감임박 일정','🗒️ 회의 일정','👤 거래처 관련','🧮 ERP / 마감 업무','🎓 교육 / 외부 일정','📁 팀 공유 자료','☑️ 완료된 업무','💬 팀 확인사항','➕ 일정 추가']
-    st.sidebar.markdown('### 📅 영업부 업무관리')
-    page=st.sidebar.radio('메뉴',menu,label_visibility='collapsed')
-    st.sidebar.caption('🧪 디자인 미리보기 · 구글시트 저장 안 됨')
-    if st.sidebar.button('🔄 예시 데이터 초기화'):
-        st.session_state.demo_tasks=demo_rows();st.session_state.demo_comments=[];st.rerun()
-    today=date.today()
-    esc=lambda v:html.escape(str(v if v is not None else ''))
-    df=pd.DataFrame(st.session_state.demo_tasks)
-    df['D-Day']=df['마감일'].apply(lambda x:(date.fromisoformat(str(x))-today).days if x else 99999)
-    df['마감상태']=df.apply(lambda r:'완료' if r['진행상태']=='완료' else '지연' if r['D-Day']<0 else '오늘 마감' if r['D-Day']==0 else '마감 임박' if r['D-Day']<=30 else '여유',axis=1)
-    st.markdown(f'<div class="dash-head"><h1>🗓️ 영업부 업무 일정 대시보드</h1><small>오늘은 {today.year}년 {today.month}월 {today.day}일 · PSG CHEM</small></div>',unsafe_allow_html=True)
-    st.caption('🧪 공개 디자인 테스트 · 아래 자료는 가상 데이터이며 수정 내용은 현재 브라우저에서만 유지됩니다. 실제 회사 정보는 입력하지 마세요.')
-    if page=='📅 전체 일정':
-        total=len(df);done=int((df['진행상태']=='완료').sum());inprogress=int((df['진행상태']=='진행중').sum());planned=int((df['진행상태']=='예정').sum());urgent=int(((df['D-Day']>=0)&(df['D-Day']<=30)&(df['진행상태']!='완료')).sum())
-        cards=[('▦ 전체 일정',total,'등록된 전체 업무','#163961'),('⏰ 마감임박 (D-30)',urgent,'30일 이내 마감','#e83b48'),('⚙ 진행중',inprogress,'처리중인 업무','#e99c00'),('▣ 예정',planned,'예정된 업무','#2165d0'),('✔ 완료',done,'완료된 업무','#1cae7a')]
-        cols=st.columns([1,1,1,1,1,1.55],gap='small')
-        for c,(label,n,desc,color) in zip(cols[:5],cards):
-            with c:st.markdown(f'<div class="metric-card"><div class="metric-label" style="color:{color}">{label}</div><div class="metric-num" style="color:{color}">{n}<span style="font-size:14px">건</span></div><div class="metric-foot">{desc}</div></div>',unsafe_allow_html=True)
-        with cols[5]:
-            pct=round(done/total*100) if total else 0
-            st.markdown(f'<div class="metric-card"><div class="metric-label">이번 달 업무 진행률</div><div class="metric-num" style="font-size:25px">{pct}%</div><div style="height:11px;background:#e6ebf2;border-radius:8px;overflow:hidden"><div style="background:#29bb85;width:{pct}%;height:100%"></div></div><div class="metric-foot">완료 {done}건 / 전체 {total}건</div></div>',unsafe_allow_html=True)
-        left,mid,right=st.columns([1.35,1.2,0.9],gap='small')
-        with left:
-            st.markdown('<div class="section-title">🚨 마감 임박 일정 (D-30 이내)</div>',unsafe_allow_html=True)
-            upcoming=df[(df['진행상태']!='완료')&(df['D-Day']<=30)].sort_values('D-Day').head(6)
-            rows=''.join(f'<tr><td><span class="tag {"red" if r["D-Day"]<=1 else "orange"}">{"D+"+str(abs(r["D-Day"])) if r["D-Day"]<0 else "D-"+str(r["D-Day"])}</span></td><td>{esc(r["마감일"])}</td><td>{esc(r["업무명"])}</td><td>{esc(r["담당자"])}</td></tr>' for _,r in upcoming.iterrows())
-            st.markdown('<div class="dash-panel"><table class="tiny-table"><tr><th>D-Day</th><th>마감일</th><th>업무명</th><th>담당자</th></tr>'+rows+'</table></div>',unsafe_allow_html=True)
-        with mid:
-            st.markdown('<div class="section-title">⏰ 금주 주요 일정</div>',unsafe_allow_html=True)
-            week=df[(df['D-Day']>=0)&(df['D-Day']<=7)&(df['진행상태']!='완료')].sort_values('D-Day').head(6)
-            rows=''.join(f'<tr><td>{esc(r["마감일"])}</td><td>{esc(r["업무명"])}</td><td><span class="tag orange">{esc(r["진행상태"])}</span></td></tr>' for _,r in week.iterrows())
-            st.markdown('<div class="dash-panel"><table class="tiny-table"><tr><th>날짜</th><th>업무명</th><th>상태</th></tr>'+rows+'</table></div>',unsafe_allow_html=True)
-        with right:
-            st.markdown(f'<div class="section-title">🗓️ {today.year}년 {today.month}월</div>',unsafe_allow_html=True)
-            cal=calendar.monthcalendar(today.year,today.month)
-            heads='<tr>'+''.join(f'<th>{x}</th>' for x in ['일','월','화','수','목','금','토'])+'</tr>'
-            rows=''
-            for weekrow in cal:
-                rows+='<tr>'+''.join(f'<td style="text-align:center;{("background:#dceafe;border-radius:50%;font-weight:850" if d==today.day else "")}">{d or ""}</td>' for d in weekrow)+'</tr>'
-            st.markdown('<div class="dash-panel"><table class="tiny-table">'+heads+rows+'</table><div style="font-size:11px;color:#627a93;margin-top:8px">● 오늘 기준 · 월간 캘린더 메뉴에서 상세 확인</div></div>',unsafe_allow_html=True)
-        st.markdown('<div class="section-title">📋 전체 업무 목록</div>',unsafe_allow_html=True)
-        filters=st.columns([1.25,1,1,1,2])
-        category=filters[0].selectbox('업무 구분',['전체']+CATEGORIES)
-        status=filters[1].selectbox('진행 상태',['전체']+STATES)
-        owners=sorted(df['담당자'].dropna().unique().tolist())
-        owner=filters[2].selectbox('담당자',['전체']+owners)
-        priority=filters[3].selectbox('우선순위',['전체']+PRIORITIES)
-        query=filters[4].text_input('업무명 또는 키워드 검색')
-        view=df.copy()
-        for key,val in [('업무구분',category),('진행상태',status),('담당자',owner),('우선순위',priority)]:
-            if val!='전체':view=view[view[key]==val]
-        if query:view=view[view['업무명'].str.contains(query,case=False,regex=False)]
-        view=view.sort_values('마감일')
-        st.dataframe(view[['업무ID','마감일','업무구분','업무명','담당자','진행상태','우선순위','확인사항','마감상태']],hide_index=True,use_container_width=True,height=280)
-        c1,c2,c3,c4=st.columns(4,gap='small')
-        with c1:
-            st.markdown('<div class="section-title">업무 진행 현황</div>',unsafe_allow_html=True)
-            if not df.empty:
-                fig=px.pie(df,names='진행상태',hole=.64)
-                fig.update_layout(height=245,margin=dict(l=0,r=0,t=0,b=0),legend=dict(orientation='h',y=-.15))
-                st.plotly_chart(fig,use_container_width=True)
-        with c2:
-            st.markdown('<div class="section-title">업무 구분별 현황</div>',unsafe_allow_html=True)
-            counts=df['업무구분'].value_counts().reset_index();counts.columns=['구분','건수']
-            fig=px.bar(counts,x='건수',y='구분',orientation='h',text='건수');fig.update_layout(height=245,margin=dict(l=0,r=0,t=0,b=0),yaxis={'categoryorder':'total ascending'});st.plotly_chart(fig,use_container_width=True)
-        with c3:
-            st.markdown('<div class="section-title">담당자별 업무 현황</div>',unsafe_allow_html=True)
-            counts=df['담당자'].value_counts().reset_index();counts.columns=['담당자','건수']
-            fig=px.bar(counts,x='건수',y='담당자',orientation='h',text='건수');fig.update_layout(height=245,margin=dict(l=0,r=0,t=0,b=0),yaxis={'categoryorder':'total ascending'});st.plotly_chart(fig,use_container_width=True)
-        with c4:
-            st.markdown('<div class="section-title">최근 업데이트</div>',unsafe_allow_html=True)
-            st.markdown('<div class="dash-panel"><table class="tiny-table"><tr><th>구분</th><th>내용</th></tr><tr><td>안내</td><td>테스트 데이터 표시 중</td></tr><tr><td>저장</td><td>브라우저 세션 전용</td></tr><tr><td>협업</td><td>로그인 연동 후 활성화</td></tr></table></div>',unsafe_allow_html=True)
-    elif page=='🗓️ 월간 캘린더':
-        a,b=st.columns(2);yr=int(a.number_input('연도',2020,2100,today.year));mo=int(b.selectbox('월',list(range(1,13)),index=today.month-1))
-        st.subheader(f'{yr}년 {mo}월 마감 캘린더')
-        for week in calendar.monthcalendar(yr,mo):
-            cols=st.columns(7)
-            for i,d in enumerate(week):
-                with cols[i]:
-                    with st.container(border=True):
-                        st.markdown(f'**{d or "　"}**')
-                        if d:
-                            for _,r in df[df['마감일']==f'{yr}-{mo:02d}-{d:02d}'].iterrows():st.caption(('✅ ' if r['진행상태']=='완료' else '📌 ')+str(r['업무명'])[:18])
-    elif page=='💬 팀 확인사항':
-        st.subheader('💬 팀 확인사항')
-        selected=st.selectbox('업무 선택',df['업무ID'].tolist(),format_func=lambda x:next((t['업무명'] for t in st.session_state.demo_tasks if t['업무ID']==x),x))
-        comments=[c for c in st.session_state.demo_comments if c['업무ID']==selected]
-        if comments:st.dataframe(pd.DataFrame(comments),hide_index=True,use_container_width=True)
-        with st.form('demo_comments_new'):
-            writer=st.text_input('작성자',value='테스트 사용자');message=st.text_area('확인사항 또는 의견')
-            if st.form_submit_button('확인사항 등록',type='primary') and message.strip():
-                st.session_state.demo_comments.append({'업무ID':selected,'작성자':writer,'작성일시':datetime.now().strftime('%Y-%m-%d %H:%M'),'확인내용':message});st.rerun()
-    elif page=='➕ 일정 추가':
-        st.subheader('➕ 신규 일정 등록')
-        with st.form('new_demo_task'):
-            title=st.text_input('업무명 *');detail=st.text_area('업무 내용')
-            a,b,c=st.columns(3);due=a.date_input('마감일',today+timedelta(days=7));owner=b.text_input('담당자',value='담당자 A');cat=c.selectbox('업무 구분',CATEGORIES)
-            priority=st.selectbox('우선순위',PRIORITIES,index=2)
-            if st.form_submit_button('예시 일정 등록',type='primary'):
-                if not title.strip():st.warning('업무명을 입력하세요.')
-                else:
-                    st.session_state.demo_tasks.append({'업무ID':'DEMO-'+uuid4().hex[:6].upper(),'업무명':title.strip(),'업무구분':cat,'담당자':owner,'마감일':due.isoformat(),'진행상태':'예정','우선순위':priority,'진행률(%)':0,'상세내용':detail,'확인사항':''});st.rerun()
-    else:
-        subset=df.copy()
-        if page=='⏰ 마감임박 일정':subset=subset[(subset['D-Day']<=30)&(subset['진행상태']!='완료')]
-        elif page=='☑️ 완료된 업무':subset=subset[subset['진행상태']=='완료']
-        elif page=='🗒️ 회의 일정':subset=subset[subset['업무구분']=='회의']
-        elif page=='👤 거래처 관련':subset=subset[subset['업무구분'].isin(['거래처','채권관리'])]
-        elif page=='🧮 ERP / 마감 업무':subset=subset[subset['업무구분'].isin(['마감업무','ERP/시스템','비용처리'])]
-        elif page=='🎓 교육 / 외부 일정':subset=subset[subset['업무구분']=='교육']
-        st.subheader(page)
-        if page=='📁 팀 공유 자료':st.info('첨부파일 링크 목록은 실제 Google Sheets 연결 이후 활성화할 수 있습니다.')
-        st.dataframe(subset[['업무ID','업무명','업무구분','담당자','마감일','진행상태','우선순위','확인사항','마감상태']],hide_index=True,use_container_width=True)
-        if page in ['📋 업무 목록','⏰ 마감임박 일정','🗒️ 회의 일정','👤 거래처 관련','🧮 ERP / 마감 업무','🎓 교육 / 외부 일정'] and not subset.empty:
-            selected=st.selectbox('수정할 업무 선택',subset['업무ID'].tolist(),format_func=lambda x:next((t['업무명'] for t in st.session_state.demo_tasks if t['업무ID']==x),x))
-            item=next(t for t in st.session_state.demo_tasks if t['업무ID']==selected)
-            with st.form('edit_demo_task'):
-                a,b=st.columns(2)
-                new_status=a.selectbox('진행상태',STATES,index=STATES.index(item['진행상태']))
-                new_priority=b.selectbox('우선순위',PRIORITIES,index=PRIORITIES.index(item['우선순위']))
-                new_owner=st.text_input('담당자',value=item['담당자']);new_due=st.date_input('마감일',date.fromisoformat(item['마감일']));note=st.text_area('확인사항',value=item.get('확인사항',''))
-                if st.form_submit_button('예시 업무 수정',type='primary'):
-                    item.update({'진행상태':new_status,'우선순위':new_priority,'담당자':new_owner,'마감일':new_due.isoformat(),'확인사항':note});st.rerun()
-    st.caption('※ 현재는 공개 테스트 화면입니다. 실제 Google Sheets 저장 및 팀원 로그인은 추후 설정합니다.')
-
-# 로그인 설정이 끝나기 전에는 누구나 예시 화면만 볼 수 있습니다.
+# 실제 Google Sheets 외의 샘플/임의 업무 데이터는 사용하지 않습니다.
+# 인증이 없는 공개 앱에는 회사 데이터를 노출하지 않습니다.
 try:
-    logged_in = bool(st.user.is_logged_in)
+    is_logged_in = bool(st.user.is_logged_in)
 except Exception:
-    logged_in = False
-if not logged_in:
-    if 'auth' in st.secrets:
-        with st.sidebar:
-            if st.button('🔐 팀원 로그인 (추후 설정)'):
+    is_logged_in = False
+
+if not is_logged_in:
+    st.title('📅 영업부 업무 일정 대시보드')
+    st.info('실제 Google Sheets 데이터만 표시하도록 설정되어 있습니다. 현재는 팀원 로그인 설정이 필요합니다.')
+    st.caption('예시 데이터 및 임의의 업무·담당자·공지사항은 표시하지 않습니다.')
+    try:
+        if 'auth' in st.secrets:
+            if st.button('Google 계정으로 로그인', type='primary'):
                 st.login()
-    render_demo()
+        else:
+            st.warning('로그인 설정이 아직 완료되지 않았습니다. 설정 후 실제 업무 데이터를 확인할 수 있습니다.')
+    except Exception:
+        st.warning('로그인 연결 상태를 확인해 주세요.')
     st.stop()
 
 def configured():

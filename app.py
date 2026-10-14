@@ -290,28 +290,6 @@ def display_table(df, columns=None, height=330):
     markup = '<div class="unified-table-scroll"><div class="unified-table"><table class="pretty-table"><thead><tr>'+head+'</tr></thead><tbody>'+''.join(rows)+'</tbody></table></div></div>'
     st.markdown(markup, unsafe_allow_html=True)
 
-def summary_charts(df):
-    a,b,c,d=st.columns(4)
-    with a:
-        st.markdown('<div class="panel-title">업무 진행 현황</div>',unsafe_allow_html=True)
-        counts=df['진행상태'].replace('','미지정').value_counts().reset_index();counts.columns=['상태','건수']
-        if not counts.empty:st.plotly_chart(px.pie(counts,names='상태',values='건수',hole=.57,color_discrete_sequence=['#3b82f6','#fbbf24','#2dc48d','#ff5964']),use_container_width=True,key='status_pie')
-        else:st.info('데이터 없음')
-    with b:
-        st.markdown('<div class="panel-title">업무 구분별 현황</div>',unsafe_allow_html=True)
-        counts=df['업무구분'].replace('','미지정').value_counts().reset_index();counts.columns=['구분','건수']
-        if not counts.empty:st.plotly_chart(px.bar(counts,x='건수',y='구분',orientation='h'),use_container_width=True,key='category_bar')
-        else:st.info('데이터 없음')
-    with c:
-        st.markdown('<div class="panel-title">담당자별 업무 현황</div>',unsafe_allow_html=True)
-        counts=df['담당자'].replace('','미지정').value_counts().reset_index();counts.columns=['담당자','건수']
-        if not counts.empty:st.plotly_chart(px.bar(counts,x='건수',y='담당자',orientation='h'),use_container_width=True,key='owner_bar')
-        else:st.info('데이터 없음')
-    with d:
-        st.markdown('<div class="panel-title">최근 업데이트</div>',unsafe_allow_html=True)
-        recent=df.sort_values('최종수정일시',ascending=False).head(7)
-        display_table(recent,['최종수정일시','업무명','진행상태'],245)
-
 st.markdown(f'<div class="hero"><h1>🗓️ 영업부 업무 일정 대시보드</h1><div class="subtitle">오늘은 {date.today().strftime("%Y년 %m월 %d일")} · Google Sheets 실시간 조회</div></div>',unsafe_allow_html=True)
 if ALLOW_EDIT:st.warning('공개 편집이 활성화되어 있습니다. 링크 방문자가 수정할 수 있습니다.')
 if page=='📅 전체 일정':
@@ -381,7 +359,6 @@ if page=='📅 전체 일정':
     if q:view=view[view.astype(str).apply(lambda x:x.str.contains(q,case=False,regex=False)).any(axis=1)]
     st.markdown('<div class="panel-title">📋 전체 업무 관리표</div>',unsafe_allow_html=True)
     display_table(view,height=370)
-    summary_charts(view)
     st.caption('화면의 수치와 업무는 Google Sheets 실제 기록을 기준으로 계산됩니다. 샘플 일정은 추가하지 않습니다.')
 
 elif page in ['🗣️ 회의 일정','🎓 교육 / 외부 일정','✅ 완료된 업무']:

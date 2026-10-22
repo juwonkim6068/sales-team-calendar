@@ -130,38 +130,48 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 [data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top) [data-testid="stForm"] label p{font-size:13px!important;font-weight:800!important;color:#1b467d!important}
 [data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top) [data-testid="stFormSubmitButton"] button{background:#165fe7!important;color:white!important;min-height:48px!important;font-size:15px!important;font-weight:800!important;border-radius:9px!important}
 
-/* New task form: consistent rhythm and aligned section headings */
-[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stVerticalBlock"]{gap:0.85rem!important}
-[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] .form-section-label{
-  display:block!important;box-sizing:border-box!important;width:100%!important;
-  margin:20px 0 12px!important;padding:12px 14px!important;
-  font-size:12px!important;line-height:1.5!important;border-radius:8px!important;
-  background:#e8f1ff!important;border-left:4px solid #236af0!important;
+/* New-task form: aligned headings, distinct groups, and consistent field spacing */
+[data-testid="stColumn"]:has(.new-task-banner) .form-section-label{
+  margin:24px 0 0!important;padding:11px 13px!important;
+  font-size:13px!important;line-height:1.45!important;
+  background:#e7f0ff!important;border-left:4px solid #2267ed!important;
+  border-radius:8px!important;box-sizing:border-box!important;
 }
-[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] .form-section-label){
-  margin-top:10px!important;margin-bottom:8px!important;
+[data-testid="stColumn"]:has(.new-task-banner) .section-caption{
+  margin:10px 0 16px!important;padding:0 2px!important;
+  color:#62758e!important;font-size:11px!important;line-height:1.6!important;
+}
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stVerticalBlock"]{
+  gap:.85rem!important;
+}
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stHorizontalBlock"]{
+  gap:14px!important;align-items:start!important;
 }
 [data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stWidgetLabel"]{
   margin-bottom:7px!important;
 }
 [data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stWidgetLabel"] p{
-  font-size:12px!important;line-height:1.45!important;
+  font-size:12px!important;line-height:1.5!important;
 }
-[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stHorizontalBlock"]{
-  gap:14px!important;align-items:start!important;
-}
-[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stTextInput"],
-[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stSelectbox"],
-[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stDateInput"],
-[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stTextArea"]{
-  margin-bottom:3px!important;
-}
-[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"]{
-  padding:20px 16px 22px!important;
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] input,
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] textarea{
+  border-radius:9px!important;
 }
 [data-testid="stColumn"]:has(.new-task-banner) [data-testid="stFormSubmitButton"]{
-  margin-top:12px!important;
+  margin-top:10px!important;
 }
+
+
+/* 업무 현황: 제목 오른쪽의 소형 요약 배지 */
+.task-overview-header{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin:0 0 14px;padding:5px 0 10px}
+.task-overview-title h2{font-size:27px!important;font-weight:850!important;color:#172d4e;margin:0 0 5px!important;line-height:1.25}
+.task-overview-title p{font-size:12px;color:#71819b;margin:0}
+.compact-stats{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.compact-stat{display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:91px;padding:9px 12px;border-radius:11px;border:1px solid rgba(49,89,151,.10)}
+.compact-stat span{font-size:11px;font-weight:750;white-space:nowrap}
+.compact-stat strong{font-size:21px;line-height:1.2;font-weight:850}
+.compact-stat small{font-size:11px;font-weight:600;margin-left:3px}
+@media(max-width:900px){.task-overview-header{align-items:flex-start}.compact-stats{justify-content:flex-start}.compact-stat{min-width:76px;padding:7px 9px}.compact-stat strong{font-size:18px}}
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'
@@ -275,7 +285,7 @@ def form(svc,people,existing=None,key='new',compact=False):
     with st.form('edit_'+key):
         title=st.text_input('📝 업무명 *',value=safe(old.get('업무명')),placeholder='무슨 업무인가요? 예: HE 단가 인하 기안')
         detail=st.text_area('📋 상세 업무 내용',value=safe(old.get('상세내용')),placeholder='해야 할 일과 진행 내용을 간단히 적어주세요.',height=75)
-        if compact:st.markdown('<div class="form-section-label">01 · 업무 분류 및 담당</div>',unsafe_allow_html=True)
+        if compact:st.markdown('<div class="form-section-label">01 · 업무 분류 및 담당</div><div class="section-caption">거래처와 업무 담당자를 지정하세요.</div>',unsafe_allow_html=True)
         c1,c2,c3=st.columns(1 if compact else 3) if not compact else (None,None,None)
         if compact:
             company=st.text_input('관련 거래처 (선택)',value=safe(old.get('거래처')),placeholder='예: 효성 / 해당 없으면 비워두세요')
@@ -287,7 +297,7 @@ def form(svc,people,existing=None,key='new',compact=False):
         owner=c2.selectbox('담당자',options,index=options.index(safe(old.get('담당자'))) if safe(old.get('담당자')) in options else 0)
         cat_options=list(dict.fromkeys(CATS+([safe(old.get('업무구분'))] if safe(old.get('업무구분')) else [])))
         category=c3.selectbox('업무구분',cat_options,index=cat_options.index(safe(old.get('업무구분'))) if safe(old.get('업무구분')) in cat_options else 0)
-        if compact:st.markdown('<div class="form-section-label">02 · 일정 및 진행 상태</div>',unsafe_allow_html=True)
+        if compact:st.markdown('<div class="form-section-label">02 · 일정 및 진행 상태</div><div class="section-caption">업무 기간과 현재 진행 상황을 선택하세요.</div>',unsafe_allow_html=True)
         c1,c2=st.columns(2)
         start=c1.date_input('시작일',value=dt(old.get('시작일')) or date.today())
         due=c2.date_input('마감일',value=dt(old.get('마감일')) or date.today())
@@ -299,7 +309,7 @@ def form(svc,people,existing=None,key='new',compact=False):
         try:p=int(float(old.get('진행률') or 0))
         except (ValueError,TypeError):p=0
         progress=st.slider('진행률 (%)',0,100,max(0,min(100,p)))
-        if compact:st.markdown('<div class="form-section-label">03 · 참고 정보</div>',unsafe_allow_html=True)
+        if compact:st.markdown('<div class="form-section-label">03 · 참고 정보</div><div class="section-caption">메모와 참고 파일이 있다면 추가하세요.</div>',unsafe_allow_html=True)
         memo=st.text_area('메모 (선택)',value=safe(old.get('메모')),height=65,placeholder='참고사항, 인수인계 내용 등')
         link=st.text_input('첨부파일 링크 (선택)',value=safe(old.get('첨부파일URL')),placeholder='Google Drive 파일 URL 붙여넣기')
         st.caption('입력한 업무는 Google Sheets에 저장되며 왼쪽 업무 목록에 표시됩니다.')
@@ -439,15 +449,27 @@ else:
         month_df=shown[((shown['마감일']>=month_start)&(shown['시작일']<next_month))|((shown['시작일']=='')&(shown['마감일']>=month_start)&(shown['마감일']<next_month))]
         display_table(month_df)
     elif page=='📋 업무현황':
-        st.markdown("## 📋 업무 현황")
-        st.caption('개인의 업무를 등록하고 마감일까지 관리할 수 있습니다.')
         today=date.today().isoformat()
         done=shown['진행상태'].eq('완료')
         late=(shown['마감일']<today)&(~done)&shown['마감일'].ne('')
         ongoing=shown['진행상태'].isin(['진행중','거의완료'])&(~late)
-        cards=st.columns(4)
-        for card,label,value in zip(cards,['📄 전체 업무','🔵 진행 중','🟢 완료','🔴 지연'],[len(shown),int(ongoing.sum()),int(done.sum()),int(late.sum())]):
-            card.metric(label,f'{value} 건')
+        summary_items=[('전체 업무',len(shown),'#376de0','#e9f1ff'),
+                       ('진행 중',int(ongoing.sum()),'#286cdd','#e9f1ff'),
+                       ('완료',int(done.sum()),'#159665','#e8f8f0'),
+                       ('지연',int(late.sum()),'#df4457','#fff0f1')]
+        summary_html=''.join(
+            f'<div class="compact-stat" style="background:{bg};">'
+            f'<span style="color:{color};">{label}</span>'
+            f'<strong style="color:{color};">{value}<small>건</small></strong></div>'
+            for label,value,color,bg in summary_items
+        )
+        st.markdown(
+            '<div class="task-overview-header">'
+            '<div class="task-overview-title"><h2>📋 업무 현황</h2>'
+            '<p>업무를 등록하고 마감일까지 관리하세요.</p></div>'
+            f'<div class="compact-stats">{summary_html}</div></div>',
+            unsafe_allow_html=True,
+        )
         left,right=st.columns([3.1,1.45],gap='medium')
         with left:
             st.markdown('<div class="task-list-head"><strong>📌 업무 목록 · 한눈에 확인</strong><small>업무별 상태와 마감일을 확인하고 아래 파란 수정란을 눌러 바로 변경하세요.</small></div>',unsafe_allow_html=True)

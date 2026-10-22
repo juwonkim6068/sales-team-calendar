@@ -97,6 +97,28 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .new-task-banner{padding:15px 16px!important;margin-bottom:7px!important}
 .new-task-title{font-size:19px!important}.new-task-desc{font-size:11px!important}
 .form-section-label{margin:10px 0 5px!important;padding:6px 9px!important;font-size:11px!important}
+
+/* High-visibility, compact task management */
+.task-list-head{background:linear-gradient(100deg,#eaf2ff,#f6f9ff);border:1px solid #c8dbff;border-left:5px solid #2469ed;border-radius:12px;padding:12px 16px;margin:4px 0 12px}
+.task-list-head strong{display:block;color:#143d83;font-size:17px;font-weight:850}
+.task-list-head small{color:#48658d;font-size:12px}
+[data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top){border:1px solid #cddbf0!important;border-left:5px solid #2469ed!important;background:#fff!important;box-shadow:0 5px 15px rgba(32,85,170,.07)!important;margin-bottom:9px!important;padding:13px 16px!important}
+[data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top):hover{border-color:#83aaf0!important;box-shadow:0 7px 20px rgba(32,85,170,.13)!important}
+.task-card-title{font-size:17px!important;color:#102d57!important;font-weight:850!important}
+.task-card-meta{gap:7px!important;margin:8px 0!important}
+.task-card-meta span{background:#edf4ff!important;border:1px solid #d4e4fa!important;color:#203e6b!important;font-size:12px!important;padding:6px 9px!important}
+.task-card-meta b{color:#225cb1!important;font-weight:800!important}
+.task-tags span{font-size:12px!important;font-weight:800!important;padding:5px 11px!important}
+[data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top) [data-testid="stExpander"]{background:#f0f6ff!important;border:1px solid #c5dafb!important}
+[data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top) [data-testid="stExpander"] summary p{font-weight:800!important;color:#1556b5!important}
+.new-task-banner{background:linear-gradient(120deg,#104dbd,#2679ff)!important;border:2px solid #91baff!important;box-shadow:0 10px 24px rgba(28,89,210,.2)!important;padding:19px!important}
+.new-task-title{font-size:23px!important}
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"]{border:2px solid #b7d2ff!important;border-radius:14px!important;padding:14px!important;background:#fff!important}
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] label p{font-size:13px!important;font-weight:800!important;color:#1d3d70!important}
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] input:focus,[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] textarea:focus{border-color:#2169ef!important;box-shadow:0 0 0 2px #d9e8ff!important}
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stFormSubmitButton"] button{background:#155ee9!important;min-height:49px!important;font-size:15px!important;box-shadow:0 5px 12px rgba(27,91,209,.2)!important}
+.form-section-label{font-size:12px!important;background:#e6f0ff!important;color:#154eaa!important;border-left:4px solid #2169ef!important;padding:9px 11px!important}
+@media(max-width:850px){.task-card-title{font-size:15px!important}.task-card-meta span{font-size:11px!important}}
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'
@@ -208,8 +230,8 @@ def dt(v):
 def form(svc,people,existing=None,key='new',compact=False):
     old=existing or {}
     with st.form('edit_'+key):
-        title=st.text_input('① 업무명 *',value=safe(old.get('업무명')),placeholder='무슨 업무인가요? 예: HE 단가 인하 기안')
-        detail=st.text_area('② 업무 내용',value=safe(old.get('상세내용')),placeholder='해야 할 일과 진행 내용을 간단히 적어주세요.',height=75)
+        title=st.text_input('📝 업무명 *',value=safe(old.get('업무명')),placeholder='무슨 업무인가요? 예: HE 단가 인하 기안')
+        detail=st.text_area('📋 상세 업무 내용',value=safe(old.get('상세내용')),placeholder='해야 할 일과 진행 내용을 간단히 적어주세요.',height=75)
         if compact:st.markdown('<div class="form-section-label">01 · 업무 분류 및 담당</div>',unsafe_allow_html=True)
         c1,c2,c3=st.columns(1 if compact else 3) if not compact else (None,None,None)
         if compact:
@@ -385,7 +407,7 @@ else:
             card.metric(label,f'{value} 건')
         left,right=st.columns([3.1,1.45],gap='medium')
         with left:
-            st.markdown('### 업무 목록')
+            st.markdown('<div class="task-list-head"><strong>📌 업무 목록 · 한눈에 확인</strong><small>업무별 상태와 마감일을 확인하고 아래 파란 수정란을 눌러 바로 변경하세요.</small></div>',unsafe_allow_html=True)
             st.caption('업무 카드를 선택하면 진행상태, 우선순위, 담당자 등을 바로 변경할 수 있습니다.')
             view=st.radio('상태별 조회',['전체','진행 중','완료','지연'],horizontal=True,label_visibility='collapsed')
             q=st.text_input('🔎 업무명, 거래처, 담당자 검색',key='task_search')
@@ -403,7 +425,7 @@ else:
             if owner_filter!='전체':filtered=filtered[filtered['담당자']==owner_filter]
             if cat_filter!='전체':filtered=filtered[filtered['업무구분']==cat_filter]
             if priority_filter!='전체':filtered=filtered[filtered['우선순위']==priority_filter]
-            st.caption(f'표시 중인 업무 {len(filtered)}건  |  업무별 ‘수정하기’를 눌러 내용을 변경하세요.')
+            st.caption(f'🔵 현재 {len(filtered)}건 표시 중  ·  카드의 수정 메뉴에서 상태·우선순위·진행률 변경 가능')
             if filtered.empty:
                 st.info('조건에 맞는 업무가 없습니다.')
             else:
@@ -436,8 +458,8 @@ else:
                             f'<span><b>마감일</b>{escape(due_text)}</span>'
                             + (f'<span><b>거래처</b>{escape(company_text)}</span>' if company_text else '')
                             + '</div>',unsafe_allow_html=True)
-                        st.progress(percent/100,text=f'진행률 · {percent}%')
-                        with st.expander('✏️ 이 업무 수정하기 · 클릭해서 펼치기'):
+                        st.progress(percent/100,text=f'📊 업무 진행률  {percent}%')
+                        with st.expander('✏️ 업무 내용 · 상태 변경하기  ▾'):
                             st.caption('각 항목을 수정한 뒤 아래 ‘변경사항 저장’을 눌러주세요.')
                             with st.form('quick_edit_'+task_id):
                                 a,b,c=st.columns([1.1,1,1.3])
@@ -478,7 +500,7 @@ else:
                                             st.error(f'저장 실패: {exc}')
         with right:
             st.markdown('''<div class="new-task-banner"><div class="new-task-kicker">✦ NEW TASK</div><div class="new-task-title">＋ 새 업무 등록</div><div class="new-task-desc">새로운 업무를 작성하고 팀원과 공유하세요.</div></div>''',unsafe_allow_html=True)
-            st.caption('필수 항목: 업무명 · 시작일 · 마감일  |  나머지는 필요에 따라 입력')
+            st.info('✍️ **여기에서 새 업무를 작성합니다.** 업무명을 먼저 입력한 후 아래 **파란 등록 버튼**을 누르세요.')
             with st.container(border=True):
                 form(svc,people,key='task_new_panel',compact=True)
     elif page=='📝 회의록':

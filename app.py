@@ -472,8 +472,8 @@ else:
         with add.popover('＋ 일정 추가',use_container_width=True):form(svc,people,key='calendar_new')
         st.markdown('<style>.cal-event:is(a){display:block;text-decoration:none!important;cursor:pointer}.cal-event:is(a):hover{text-decoration:none!important;filter:brightness(.98)}</style>',unsafe_allow_html=True)
         # 기존 달력 HTML/CSS를 유지하면서 업무 카드만 클릭 가능한 링크로 연결합니다.
-        @st.dialog('📋 업무 상세정보 · 수정', width='large')
         def calendar_task_detail(task_row):
+            st.markdown('### 📋 선택한 업무 상세정보 · 수정')
             st.subheader(safe(task_row.get('업무명')) or '업무 상세정보')
             a,b,c=st.columns(3)
             a.write('**담당자**  '+(safe(task_row.get('담당자')) or '미지정'))
@@ -492,7 +492,8 @@ else:
         if selected_calendar_task:
             matches=df[df['통합ID'].astype(str)==str(selected_calendar_task)]
             if len(matches)==1:
-                calendar_task_detail(matches.iloc[0].to_dict())
+                with st.container(border=True):
+                    calendar_task_detail(matches.iloc[0].to_dict())
             else:
                 st.query_params.pop('calendar_task',None)
         palette=['#377af4','#7b45f4','#f59d26','#27bd6a','#ed6978','#23a8bb','#9861db','#dc8a41']

@@ -381,7 +381,14 @@ def form(svc,people,existing=None,key='new',compact=False):
              '시작일':start.isoformat(),'마감일':due.isoformat(),'시작시간':tm,'진행상태':status,
              '우선순위':priority,'진행률':str(progress),'메모':memo,'첨부파일URL':link,
              '작성일':safe(old.get('작성일')) or now,'수정일':now})
-            try:save_record(svc,rec,safe(old.get('통합ID')) or None);st.success('저장되었습니다.');st.rerun()
+            try:
+                save_record(svc,rec,safe(old.get('통합ID')) or None)
+                # 신규 업무 등록 후 입력 폼의 위젯 키를 갱신해 모든 입력값을 초기화합니다.
+                # 수정 폼은 기존 동작을 그대로 유지합니다.
+                if compact and not safe(old.get('통합ID')):
+                    st.session_state['task_new_form_version'] = st.session_state.get('task_new_form_version', 0) + 1
+                    st.session_state['task_created_notice'] = True
+                st.rerun()
             except Exception as exc:st.error(f'저장 실패: {exc}')
 
 def display_table(data):
@@ -696,8 +703,10 @@ else:
         with right:
             st.markdown('''<div class="new-task-banner"><div class="new-task-kicker">✦ NEW TASK</div><div class="new-task-title">＋ 새 업무 등록</div><div class="new-task-desc">새로운 업무를 작성하고 팀원과 공유하세요.</div></div>''',unsafe_allow_html=True)
             st.info('✍️ **여기에서 새 업무를 작성합니다.** 업무명을 먼저 입력한 후 아래 **파란 등록 버튼**을 누르세요.')
+            if st.session_state.pop('task_created_notice', False):
+                st.success('새 업무가 등록되었습니다. 입력란을 초기화했습니다.')
             with st.container(border=True):
-                form(svc,people,key='task_new_panel',compact=True)
+                form(svc,people,key=f"task_new_panel_{st.session_state.get('task_new_form_version', 0)}",compact=True)
 
     elif page=='📝 회의록':
         try:meetings=meeting_data()

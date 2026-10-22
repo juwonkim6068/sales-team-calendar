@@ -65,6 +65,12 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .sidebar-mini .mini-week span{padding:5px 0}
 .sidebar-mini .mini-week .on{background:#2169ef;border-radius:50%;color:white}
 @media(max-width:1050px){.block-container{padding:1rem .7rem}.cal-day{min-height:108px;padding:5px 3px}.cal-event{font-size:9px;padding:4px}.cal-event .event-sub{font-size:9px}}
+
+.task-card-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:2px 0 10px}
+.task-card-title{font-size:17px;font-weight:800;color:#192c49}
+.task-tags{display:flex;gap:7px}.task-tags span{font-size:12px;font-weight:700;border-radius:30px;padding:5px 11px}
+.task-card-meta{font-size:12px;color:#71819b;margin-bottom:13px;line-height:1.8}
+[data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top){border-radius:16px!important;box-shadow:0 4px 18px rgba(31,67,122,.045)!important}
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'
@@ -362,30 +368,76 @@ else:
             if owner_filter!='전체':filtered=filtered[filtered['담당자']==owner_filter]
             if cat_filter!='전체':filtered=filtered[filtered['업무구분']==cat_filter]
             if priority_filter!='전체':filtered=filtered[filtered['우선순위']==priority_filter]
-            cols=['업무명','업무구분','담당자','우선순위','진행상태','마감일','진행률','거래처']
+            st.caption(f'검색 결과 {len(filtered)}건 · 카드를 펼치면 항목별로 수정할 수 있습니다.')
             if filtered.empty:
                 st.info('조건에 맞는 업무가 없습니다.')
             else:
-                table_data = filtered[cols].copy()
-                table_data['진행률'] = pd.to_numeric(
-                    table_data['진행률'], errors='coerce'
-                ).fillna(0).clip(0, 100).astype(int)
-                st.dataframe(
-                    table_data,
-                    hide_index=True,
-                    use_container_width=True,
-                    height=580,
-                    column_config={
-                        '진행률': st.column_config.ProgressColumn(
-                            '진행률', min_value=0, max_value=100, format='%d%%'
-                        )
-                    },
-                )
-            if not filtered.empty:
-                ids=filtered['통합ID'].tolist()
-                selected=st.selectbox('수정할 업무 선택',ids,format_func=lambda x:(lambda r:f"{r['업무명']} · {r['담당자']}")(filtered[filtered['통합ID']==x].iloc[0]),key='task_edit_select')
-                with st.expander('✏️ 선택한 업무 수정'):
-                    form(svc,people,filtered[filtered['통합ID']==selected].iloc[0].to_dict(),key='task_modify_'+selected)
+                status_colors={'완료':('#e4f8ec','#12844a'),'진행중':('#e6f0ff','#1768df'),
+                               '거의완료':('#e8f0ff','#3554bd'),'미진행':('#f0f3f8','#66758b'),
+                               '보류':('#fff3db','#a46b05')}
+                priority_colors={'긴급':('#ffe5e5','#c52d35'),'높음':('#ffeded','#d4484b'),
+                                 '보통':('#fff2dc','#b77712'),'낮음':('#edf2f7','#65758b')}
+                for _, task in filtered.iterrows():
+                    task_id=safe(task['통합ID'])
+                    title=safe(task['업무명'])
+                    status=safe(task['진행상태']) or '미진행'
+                    priority=safe(task['우선순위']) or '보통'
+                    try: percent=max(0,min(100,int(float(task.get('진행률') or 0))))
+                    except (ValueError,TypeError):percent=0
+                    sbg,sfg=status_colors.get(status,('#f0f3f8','#66758b'))
+                    pbg,pfg=priority_colors.get(priority,('#f0f3f8','#66758b'))
+                    due_text=safe(task.get('마감일')) or '미지정'
+                    owner_text=safe(task.get('담당자')) or '담당자 미지정'
+                    category_text=safe(task.get('업무구분')) or '기타'
+                    company_text=safe(task.get('거래처'))
+                    with st.container(border=True):
+                        st.markdown(
+                            f'<div class="task-card-top"><div class="task-card-title">{escape(title)}</div>'
+                            f'<div class="task-tags"><span style="background:{sbg};color:{sfg}">{escape(status)}</span>'
+                            f'<span style="background:{pbg};color:{pfg}">{escape(priority)}</span></div></div>'
+                            f'<div class="task-card-meta">👤 {escape(owner_text)}　 ·　 '
+                            f'📁 {escape(category_text)}　 ·　 📅 {escape(due_text)}'
+                            + (f'　 ·　 🏢 {escape(company_text)}' if company_text else '')
+                            + '</div>',unsafe_allow_html=True)
+                        st.progress(percent/100,text=f'진행률 {percent}%')
+                        with st.expander('✏️ 클릭하여 진행상태 · 진행률 · 우선순위 등 수정'):
+                            with st.form('quick_edit_'+task_id):
+                                a,b,c=st.columns([1.1,1,1.3])
+                                states=list(dict.fromkeys(STATES+[status]))
+                                new_status=a.selectbox('진행상태',states,index=states.index(status),key='qs_'+task_id)
+                                priorities=list(dict.fromkeys(['낮음','보통','높음','긴급']+[priority]))
+                                new_priority=b.selectbox('우선순위',priorities,index=priorities.index(priority),key='qp_'+task_id)
+                                new_progress=c.slider('진행률 (%)',0,100,percent,key='qg_'+task_id)
+                                a,b=st.columns(2)
+                                new_title=a.text_input('업무명',value=title,key='qt_'+task_id)
+                                new_owner=b.selectbox('담당자',list(dict.fromkeys(
+                                    ['미지정']+people+([owner_text] if owner_text!='담당자 미지정' else []))),
+                                    index=(list(dict.fromkeys(['미지정']+people+([owner_text] if owner_text!='담당자 미지정' else []))).index(owner_text)
+                                           if owner_text!='담당자 미지정' else 0),key='qo_'+task_id)
+                                a,b=st.columns(2)
+                                new_due=a.date_input('마감일',value=dt(task.get('마감일')) or date.today(),key='qd_'+task_id)
+                                new_cat=b.selectbox('업무구분',list(dict.fromkeys(CATS+[category_text])),
+                                    index=list(dict.fromkeys(CATS+[category_text])).index(category_text),key='qc_'+task_id)
+                                new_detail=st.text_area('상세내용',value=safe(task.get('상세내용')),key='qdetail_'+task_id)
+                                new_company=st.text_input('거래처',value=company_text,key='qcompany_'+task_id)
+                                if st.form_submit_button('변경사항 저장',type='primary'):
+                                    if not new_title.strip():
+                                        st.error('업무명을 입력하세요.')
+                                    elif dt(task.get('시작일')) and new_due<dt(task.get('시작일')):
+                                        st.error('마감일은 시작일 이후여야 합니다.')
+                                    else:
+                                        record={k:safe(task.get(k)) for k in HEAD}
+                                        record.update({'업무명':new_title.strip(),'담당자':'' if new_owner=='미지정' else new_owner,
+                                            '업무구분':new_cat,'진행상태':new_status,'우선순위':new_priority,
+                                            '진행률':str(new_progress),'마감일':new_due.isoformat(),
+                                            '상세내용':new_detail,'거래처':new_company,
+                                            '수정일':datetime.now().strftime('%Y-%m-%d %H:%M:%S')})
+                                        try:
+                                            save_record(svc,record,task_id)
+                                            st.success('Google Sheets에 저장했습니다.')
+                                            st.rerun()
+                                        except Exception as exc:
+                                            st.error(f'저장 실패: {exc}')
         with right:
             st.markdown('### ＋ 업무 작성')
             st.caption('입력 후 등록하면 Google Sheets에 저장됩니다.')

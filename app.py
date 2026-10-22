@@ -3,6 +3,7 @@ import json
 import uuid
 from datetime import date, datetime
 from html import escape
+from urllib.parse import quote
 
 import pandas as pd
 import streamlit as st
@@ -469,7 +470,31 @@ else:
             st.session_state.month=(pd.Timestamp(m)+pd.DateOffset(months=1)).date();st.rerun()
         if todaycol.button('오늘',use_container_width=True):st.session_state.month=date.today().replace(day=1);st.rerun()
         with add.popover('＋ 일정 추가',use_container_width=True):form(svc,people,key='calendar_new')
-        # HTML은 표시 전용이며, 일정 등록·수정은 Streamlit 위젯으로 수행합니다.
+        st.markdown('<style>.cal-event:is(a){display:block;text-decoration:none!important;cursor:pointer}.cal-event:is(a):hover{text-decoration:none!important;filter:brightness(.98)}</style>',unsafe_allow_html=True)
+        # 기존 달력 HTML/CSS를 유지하면서 업무 카드만 클릭 가능한 링크로 연결합니다.
+        @st.dialog('📋 업무 상세정보 · 수정', width='large')
+        def calendar_task_detail(task_row):
+            st.subheader(safe(task_row.get('업무명')) or '업무 상세정보')
+            a,b,c=st.columns(3)
+            a.write('**담당자**  '+(safe(task_row.get('담당자')) or '미지정'))
+            b.write('**진행상태**  '+(safe(task_row.get('진행상태')) or '미진행'))
+            c.write('**진행률**  '+safe(task_row.get('진행률') or '0')+'%')
+            st.write('**업무기간**  '+(safe(task_row.get('시작일')) or '미지정')+' ~ '+(safe(task_row.get('마감일')) or '미지정'))
+            st.write('**업무구분**  '+(safe(task_row.get('업무구분')) or '미지정'))
+            st.write('**상세내용**')
+            st.write(safe(task_row.get('상세내용')) or '등록된 상세내용이 없습니다.')
+            with st.expander('✏️ 업무 정보 수정', expanded=False):
+                form(svc,people,existing=task_row,key='calendar_detail_'+safe(task_row.get('통합ID')))
+            if st.button('닫기',key='calendar_detail_close'):
+                st.query_params.pop('calendar_task',None)
+                st.rerun()
+        selected_calendar_task=st.query_params.get('calendar_task','')
+        if selected_calendar_task:
+            matches=df[df['통합ID'].astype(str)==str(selected_calendar_task)]
+            if len(matches)==1:
+                calendar_task_detail(matches.iloc[0].to_dict())
+            else:
+                st.query_params.pop('calendar_task',None)
         palette=['#377af4','#7b45f4','#f59d26','#27bd6a','#ed6978','#23a8bb','#9861db','#dc8a41']
         def owner_color(owner):
             if not owner:return '#6c87b4'
@@ -500,7 +525,7 @@ else:
                     fg='#15934c' if status=='완료' else '#7140db' if status=='진행중' else '#2367d6' if status=='미진행' else '#ae6b13' if status=='거의완료' else '#5e7395'
                     task=escape(safe(r.get('업무명')));owner_html=escape(owner)
                     tm=escape(safe(r.get('시작시간')))
-                    html.append(f'<div class="cal-event" title="{task} · {owner_html}" style="background:{bg};color:{fg};border-left:3px solid {color}"><div class="event-title">{tm+" " if tm else ""}{task}</div><div class="event-sub"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48%">{owner_html}</span><div class="track"><div class="fill" style="width:{progress}%;background:{fg}"></div></div><b>{progress}%</b></div></div>')
+                    html.append(f'<a class="cal-event" href="?calendar_task={quote(safe(r.get("통합ID")),safe="")}" title="{task} · {owner_html}" style="background:{bg};color:{fg};border-left:3px solid {color}"><div class="event-title">{tm+" " if tm else ""}{task}</div><div class="event-sub"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48%">{owner_html}</span><div class="track"><div class="fill" style="width:{progress}%;background:{fg}"></div></div><b>{progress}%</b></div></a>')
                 if len(daily)>3:html.append(f'<div class="cal-more">+ {len(daily)-3}건 더보기</div>')
                 html.append('</div>')
         html.append('</div></div>')

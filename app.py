@@ -10,7 +10,49 @@ from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
 st.set_page_config(page_title='영업부 통합 업무관리', page_icon='🗓️', layout='wide')
-st.markdown('''<style>.block-container{max-width:1650px;padding-top:1.2rem}.stApp{background:#f5f7fb}[data-testid="stSidebar"]{background:#162840}[data-testid="stSidebar"] *{color:#edf4ff}.event{font-size:12px;padding:5px;border-radius:6px;margin:3px 0;background:#e9f1ff;color:#1b477a;overflow-wrap:anywhere}</style>''',unsafe_allow_html=True)
+st.markdown("""<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
+:root{--navy:#13243b;--blue:#2563eb;--ink:#182b47;--muted:#6f8098;--line:#e5ebf4;--bg:#f5f7fb}
+html,body,[class*="css"],.stApp{font-family:'DM Sans','Noto Sans KR',sans-serif}
+.stApp{background:var(--bg);color:var(--ink)}
+.block-container{max-width:1580px;padding:2.15rem 2.2rem 4rem}
+h1{font-size:1.85rem!important;font-weight:800!important;letter-spacing:-.045em!important;color:var(--ink)!important;margin-bottom:.45rem!important}
+h2,h3{font-weight:750!important;letter-spacing:-.03em!important;color:var(--ink)!important}
+p{line-height:1.7}
+[data-testid="stSidebar"]{background:linear-gradient(170deg,#14263f 0%,#0c182a 100%);border-right:1px solid #24364c}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding-top:1.6rem}
+[data-testid="stSidebar"] h1,[data-testid="stSidebar"] h2,[data-testid="stSidebar"] h3,[data-testid="stSidebar"] p,[data-testid="stSidebar"] label{color:#edf4ff!important}
+[data-testid="stSidebar"] [role="radiogroup"] label{border-radius:11px;padding:9px 11px;margin:3px 0;transition:background .2s}
+[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#263c59}
+[data-testid="stSidebar"] [data-testid="stAlert"]{background:#25344b;color:#dce6f5;border:1px solid #3a4b62;border-radius:12px}
+[data-testid="stSidebar"] [data-testid="stAlert"] p{font-size:.77rem!important}
+[data-testid="stSidebar"] button{background:#233b5a;color:white;border-color:#36506f;width:100%}
+[data-testid="stSidebar"] button:hover{border-color:#7ba8f8;color:white}
+[data-testid="stMetric"]{background:white;border:1px solid var(--line);border-radius:15px;padding:18px 20px;box-shadow:0 4px 16px rgba(24,43,71,.035)}
+[data-testid="stMetricLabel"]{color:var(--muted)}
+[data-testid="stMetricValue"]{color:var(--ink);font-weight:800}
+[data-testid="stVerticalBlockBorderWrapper"]{background:white;border:1px solid var(--line)!important;border-radius:14px!important;box-shadow:0 3px 12px rgba(30,53,89,.035)}
+[data-testid="stDataFrame"]{border-radius:12px;overflow:hidden}
+.stButton button{border-radius:10px;font-weight:650;min-height:38px;border-color:#dbe4f1}
+.stButton button[kind="primary"],button[kind="primary"]{background:#2563eb;border-color:#2563eb;color:white}
+.stButton button[kind="primary"]:hover{background:#1d4ed8;border-color:#1d4ed8}
+[data-testid="stTextInput"] input,[data-testid="stSelectbox"]>div>div,[data-testid="stTextArea"] textarea{border-radius:10px;border-color:#dce5f1}
+[data-testid="stExpander"]{background:white;border:1px solid var(--line);border-radius:13px;overflow:hidden}
+[data-testid="stAlert"]{border-radius:12px}
+.event{font-size:11px;line-height:1.45;padding:7px 8px;border-radius:8px;margin:4px 0;background:#eaf1ff;color:#1e4b91;border-left:3px solid #4e86e7;overflow-wrap:anywhere;font-weight:650}
+.event small{font-weight:500;color:#6681a8}
+.brand-header{background:linear-gradient(115deg,#152a48,#244e83);color:white;padding:22px 26px;border-radius:18px;margin-bottom:24px;box-shadow:0 10px 26px rgba(27,59,101,.12)}
+.brand-header .eyebrow{font-size:11px;letter-spacing:.16em;font-weight:800;color:#9ec7ff;margin-bottom:6px}
+.brand-header .heading{font-size:24px;font-weight:800;letter-spacing:-.04em}
+.brand-header .sub{font-size:12px;color:#c5d8f2;margin-top:5px}
+.section-note{color:#718198;font-size:13px;margin-top:-6px;margin-bottom:14px}
+.calendar-weekday{background:#eaf0f8;border-radius:8px;text-align:center;padding:9px 0;font-weight:750;font-size:12px;color:#526783;margin-bottom:6px}
+.calendar-date{font-size:14px;font-weight:800;color:#293e59;margin-bottom:6px}
+.calendar-date.today{display:inline-flex;align-items:center;justify-content:center;background:#2563eb;color:white;width:27px;height:27px;border-radius:50%}
+.calendar-date.outside{color:#b6c1cf}
+[data-testid="stSidebarNav"]{display:none}
+@media(max-width:900px){.block-container{padding:1.2rem .75rem 3rem}.brand-header{padding:18px}.brand-header .heading{font-size:20px}.event{font-size:10px;padding:5px}}
+</style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'
 HEAD=['통합ID','원본시트','원본ID','업무명','상세내용','거래처','담당자','업무구분','시작일','마감일','시작시간','진행상태','우선순위','진행률','메모','첨부파일URL','작성일','수정일']
@@ -168,9 +210,11 @@ def display_table(data):
 try:svc=api();tabs=tab_names(svc)
 except Exception as exc:st.error(f'Google Sheets 연결 실패: {exc}');st.stop()
 
-st.sidebar.title('🗓️ 영업부 업무관리')
+st.sidebar.markdown('### ◈ PSG CHEM')
+st.sidebar.caption('SALES OPERATIONS  /  WORKSPACE')
+st.sidebar.divider()
 page=st.sidebar.radio('메뉴',['🗓️ 달력','📋 업무현황','📝 회의록','🏢 거래처 특이사항','⚙️ 데이터 통합/설정'])
-st.sidebar.caption('Google Sheets · 원본 데이터 보존')
+st.sidebar.caption('● Google Sheets 연결 · 원본 데이터 보존')
 if st.sidebar.button('🔄 새로고침'):st.rerun()
 
 if TAB not in tabs:
@@ -191,6 +235,7 @@ except Exception:people=[]
 people=list(dict.fromkeys(people+[safe(x) for x in df.get('담당자',pd.Series(dtype=str)).tolist() if safe(x)]))
 
 st.sidebar.warning('현재 버전은 공유 편집형입니다. 개인별 수정 권한은 로그인 기능 구축 후 적용됩니다.')
+st.markdown('''<div class="brand-header"><div class="eyebrow">PSG CHEM · SALES TEAM</div><div class="heading">영업부 통합 업무관리</div><div class="sub">팀 일정 · 업무 진행 현황 · 회의 · 거래처 기록을 한 곳에서 관리합니다.</div></div>''',unsafe_allow_html=True)
 if page=='⚙️ 데이터 통합/설정':
     st.title('데이터 통합 및 설정')
     st.write('원본 업무일정·일정관리 시트는 수정하지 않습니다. 통합업무 시트에만 신규 데이터를 추가합니다.')
@@ -212,6 +257,10 @@ else:
     shown=df if person=='전체' else df[df['담당자']==person]
     if page=='🗓️ 달력':
         st.title('월간 업무 캘린더')
+        st.markdown('<div class="section-note">월별 업무 일정과 담당자별 진행 현황을 한눈에 확인하세요.</div>',unsafe_allow_html=True)
+        total=len(shown); done=int((shown['진행상태']=='완료').sum()) if total else 0
+        overdue=int(((shown['마감일']<date.today().isoformat())&(shown['마감일']!='')&(shown['진행상태']!='완료')).sum()) if total else 0
+        for col,label,value in zip(st.columns(3),['전체 업무','완료 업무','기한 경과'],[total,done,overdue]):col.metric(label,f'{value:,}건')
         if 'month' not in st.session_state:st.session_state.month=date.today().replace(day=1)
         m=st.session_state.month
         a,b,c,d=st.columns([1,4,1,1])
@@ -222,12 +271,15 @@ else:
             st.session_state.month=(pd.Timestamp(m)+pd.DateOffset(months=1)).date();st.rerun()
         if d.button('오늘'):st.session_state.month=date.today().replace(day=1);st.rerun()
         with st.expander('＋ 새 일정 등록'):form(svc,people,key='calendar_new')
+        for col,weekday in zip(st.columns(7,gap='small'),['일','월','화','수','목','금','토']):
+            col.markdown(f'<div class="calendar-weekday">{weekday}</div>',unsafe_allow_html=True)
         for week in calendar.Calendar(firstweekday=6).monthdatescalendar(m.year,m.month):
             cols=st.columns(7,gap='small')
             for col,day in zip(cols,week):
                 with col:
                     with st.container(border=True):
-                        st.markdown(f'**{day.day}**'+(' · 오늘' if day==date.today() else ''))
+                        dayclass='today' if day==date.today() else ('outside' if day.month!=m.month else '')
+                        st.markdown(f'<div class="calendar-date {dayclass}">{day.day}</div>',unsafe_allow_html=True)
                         daily=shown[(shown['시작일']<=day.isoformat()) & (shown['마감일']>=day.isoformat())]
                         daily=pd.concat([daily,shown[(shown['시작일']=='')&(shown['마감일']==day.isoformat())]]).drop_duplicates(subset=['통합ID'])
                         for _,r in daily.head(4).iterrows():
@@ -239,7 +291,10 @@ else:
         display_table(month_df)
     elif page=='📋 업무현황':
         st.title('업무현황')
-        st.metric('조회 업무',len(shown))
+        a,b,c=st.columns(3)
+        a.metric('조회 업무',len(shown))
+        b.metric('진행 중',int(shown['진행상태'].isin(['진행중','거의완료']).sum()))
+        c.metric('완료',int((shown['진행상태']=='완료').sum()))
         q=st.text_input('업무명·거래처 검색')
         if q:shown=shown[shown['업무명'].str.contains(q,case=False,regex=False,na=False)|shown['거래처'].str.contains(q,case=False,regex=False,na=False)]
         display_table(shown)

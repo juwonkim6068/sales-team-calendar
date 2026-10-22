@@ -18,13 +18,20 @@ html,body,.stApp,[class*="css"]{font-family:'Noto Sans KR',sans-serif}
 .block-container{max-width:1900px;padding:1.65rem 2rem 3rem}
 h1,h2,h3{color:#172641!important;letter-spacing:-.04em;font-weight:800!important}
 h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
-[data-testid="stSidebar"]{background:linear-gradient(155deg,#19273d,#111d30);border-right:0}
+[data-testid="stSidebar"]{background:linear-gradient(155deg,#253b58,#1b2d47);border-right:0}
 [data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding-top:1.5rem}
 [data-testid="stSidebar"] h1,[data-testid="stSidebar"] h2,[data-testid="stSidebar"] h3,[data-testid="stSidebar"] p,[data-testid="stSidebar"] label{color:#eaf1ff!important}
-[data-testid="stSidebar"] [role="radiogroup"] label{padding:10px 12px;margin:3px 0;border-radius:9px}
-[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#273f62}
-[data-testid="stSidebar"] [data-testid="stAlert"]{background:#253750;color:white;border:1px solid #435572}
-[data-testid="stSidebar"] button{background:#273b57;color:#fff;border:1px solid #3b506c}
+[data-testid="stSidebar"] [role="radiogroup"] label{padding:10px 12px;margin:3px 0;border-radius:9px;cursor:pointer}
+/* 메뉴 앞의 Streamlit 라디오 선택 원형 표시만 숨김 (기능은 유지) */
+[data-testid="stSidebar"] [role="radiogroup"] label [data-testid="stRadioButtonIcon"],
+[data-testid="stSidebar"] [role="radiogroup"] label [data-baseweb="radio"],
+[data-testid="stSidebar"] [role="radiogroup"] label input[type="radio"],
+[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child:has(input[type="radio"]){display:none!important}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){background:#31568c!important;border-radius:9px}
+[data-testid="stSidebar"] [role="radiogroup"] label p{margin:0!important}
+[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#355577}
+[data-testid="stSidebar"] [data-testid="stAlert"]{background:#304762;color:white;border:1px solid #536987}
+[data-testid="stSidebar"] button{background:#344d6b;color:#fff;border:1px solid #58708e}
 [data-testid="stSidebar"] button:hover{color:white;border-color:#6d9fff}
 [data-testid="stVerticalBlockBorderWrapper"],[data-testid="stMetric"]{background:#fff;border:1px solid var(--line)!important;border-radius:11px!important;box-shadow:0 4px 20px rgba(30,55,90,.035)}
 [data-testid="stMetric"]{padding:14px 18px}

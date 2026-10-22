@@ -1,412 +1,406 @@
-<!doctype html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>업무관리 시스템</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-<style>
-:root {
-  --bg: #f5f7fb;
-  --card: #ffffff;
-  --line: #e9edf3;
-  --ink: #1b1f2a;
-  --sub: #5f6675;
-  --muted: #9aa1ae;
-  --blue: #1f6bff;
-  --blue-soft: #e8f0ff;
-  --green: #22c06b;
-  --green-soft: #e3f7ec;
-  --orange: #ffa51f;
-  --orange-soft: #fff3df;
-  --red: #f04848;
-  --red-soft: #fde8e8;
-  --purple: #9a7cf2;
-  --teal: #2ec4b6;
-  --gray-bar: #b8c2d1;
-}
-* { box-sizing: border-box; }
-html, body { margin: 0; }
-body { background: var(--bg); color: var(--ink); font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; font-size: 14px; letter-spacing: -0.01em; }
-button, input, select { font: inherit; color: inherit; }
-button { cursor: pointer; }
-svg { display: block; }
+import calendar
+import json
+import uuid
+from datetime import date, datetime
+from html import escape
 
-/* ---------- 헤더 ---------- */
-.top { height: 64px; background: var(--card); border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 232px 1fr auto; align-items: center; position: sticky; top: 0; z-index: 10; }
-.logo { display: flex; align-items: center; gap: 12px; padding-left: 24px; font-size: 17px; font-weight: 700; }
-.logo i { width: 28px; height: 28px; border-radius: 7px; background: var(--blue); display: grid; place-items: center; }
-.gsearch { margin-left: 194px; width: 680px; max-width: calc(100% - 210px); height: 38px; background: #f2f4f8; border-radius: 8px; display: flex; align-items: center; gap: 10px; padding: 0 14px; color: var(--muted); }
-.gsearch input { border: 0; background: none; outline: none; flex: 1; min-width: 0; }
-.gsearch input::placeholder { color: var(--muted); }
-.tools { display: flex; align-items: center; gap: 28px; padding-right: 28px; }
-.bell { position: relative; background: none; border: 0; padding: 4px; color: var(--sub); }
-.bell::after { content: ""; position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--red); border: 2px solid var(--card); }
-.me { display: flex; align-items: center; gap: 12px; }
-.me b { display: block; font-size: 15px; font-weight: 600; }
-.me small { color: var(--sub); font-size: 13px; }
+import pandas as pd
+import streamlit as st
+from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
 
-.avatar { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 600; font-size: 14px; flex: none; }
-.avatar.sm { width: 24px; height: 24px; font-size: 11px; }
+st.set_page_config(page_title='영업팀 대시보드', page_icon='📊', layout='wide', initial_sidebar_state='expanded')
+st.markdown("""<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
+:root{--ink:#172641;--muted:#7283a0;--line:#e3eaf3;--blue:#2169ef}
+html,body,.stApp,[class*="css"]{font-family:'Noto Sans KR',sans-serif}
+.stApp{background:#f8fafd;color:var(--ink)}
+.block-container{max-width:1900px;padding:1.65rem 2rem 3rem}
+h1,h2,h3{color:#172641!important;letter-spacing:-.04em;font-weight:800!important}
+h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
+[data-testid="stSidebar"]{background:linear-gradient(155deg,#253b58,#1b2d47);border-right:0}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding-top:1.5rem}
+[data-testid="stSidebar"] h1,[data-testid="stSidebar"] h2,[data-testid="stSidebar"] h3,[data-testid="stSidebar"] p,[data-testid="stSidebar"] label{color:#eaf1ff!important}
+[data-testid="stSidebar"] [role="radiogroup"] label{padding:10px 12px;margin:3px 0;border-radius:9px;cursor:pointer}
+/* 메뉴 앞의 Streamlit 라디오 선택 원형 표시만 숨김 (기능은 유지) */
+[data-testid="stSidebar"] [role="radiogroup"] label [data-testid="stRadioButtonIcon"],
+[data-testid="stSidebar"] [role="radiogroup"] label [data-baseweb="radio"],
+[data-testid="stSidebar"] [role="radiogroup"] label input[type="radio"],
+[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child:has(input[type="radio"]){display:none!important}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){background:#31568c!important;border-radius:9px}
+[data-testid="stSidebar"] [role="radiogroup"] label p{margin:0!important}
+[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#355577}
+[data-testid="stSidebar"] [data-testid="stAlert"]{background:#304762;color:white;border:1px solid #536987}
+[data-testid="stSidebar"] button{background:#344d6b;color:#fff;border:1px solid #58708e}
+[data-testid="stSidebar"] button:hover{color:white;border-color:#6d9fff}
+[data-testid="stVerticalBlockBorderWrapper"],[data-testid="stMetric"]{background:#fff;border:1px solid var(--line)!important;border-radius:11px!important;box-shadow:0 4px 20px rgba(30,55,90,.035)}
+[data-testid="stMetric"]{padding:14px 18px}
+.stButton button{border-radius:8px;font-weight:700;border-color:#dce4f0;min-height:38px}
+.stButton button[kind="primary"],button[kind="primary"]{background:#2169ef;color:white;border-color:#2169ef}
+[data-testid="stExpander"]{border-radius:10px;background:white;border:1px solid var(--line)}
+[data-testid="stTextInput"] input,[data-testid="stSelectbox"]>div>div,[data-testid="stTextArea"] textarea{border-radius:8px;border-color:#dce5f1}
+.dashboard-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px}
+.dashboard-head h1{margin:0!important}
+.dashboard-head p{color:#657895;font-size:13px;margin:4px 0 0}
+.cal-shell{background:#fff;border:1px solid #dfe7f1;border-radius:11px;overflow:hidden;box-shadow:0 6px 24px rgba(23,45,77,.04);margin-top:12px}
+.cal-weekdays{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:#f7f9fc;border-bottom:1px solid #dfe7f1}
+.cal-weekdays div{text-align:center;padding:13px 0;color:#506481;font-size:12px;font-weight:700;border-right:1px solid #e2e9f2}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.cal-day{min-height:139px;border-right:1px solid #e2e9f2;border-bottom:1px solid #e2e9f2;padding:10px 8px;min-width:0;background:white}
+.cal-day.outside{background:#fafbfd}
+.cal-day .day-num{font-size:13px;color:#243754;font-weight:750;margin-bottom:8px}
+.cal-day.outside .day-num{color:#a8b6cb}
+.cal-day .day-num.today{display:inline-block;background:#2169ef;color:#fff;padding:3px 8px;border-radius:20px}
+.cal-event{border-radius:7px;padding:7px 7px 6px;margin:4px 0;font-size:11px;line-height:1.45;overflow:hidden}
+.cal-event .event-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700}
+.cal-event .event-sub{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:5px;font-size:10px}
+.cal-event .track{height:5px;border-radius:8px;background:rgba(70,100,145,.13);flex:1;overflow:hidden}
+.cal-event .fill{height:100%;border-radius:8px}
+.cal-more{font-size:11px;color:#7385a0;margin:5px}
+.cal-legend{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:15px;padding:12px 2px;color:#50627e;font-size:12px}
+.cal-legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
+.sidebar-mini{border-top:1px solid #35465d;padding-top:16px;margin-top:20px;color:#e9f0ff}
+.sidebar-mini h4{font-size:13px;margin:0 0 9px;color:white}
+.sidebar-mini .mini-week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11px;color:#b7c8e2}
+.sidebar-mini .mini-week span{padding:5px 0}
+.sidebar-mini .mini-week .on{background:#2169ef;border-radius:50%;color:white}
+@media(max-width:1050px){.block-container{padding:1rem .7rem}.cal-day{min-height:108px;padding:5px 3px}.cal-event{font-size:9px;padding:4px}.cal-event .event-sub{font-size:9px}}
+</style>""",unsafe_allow_html=True)
+SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
+TAB='통합업무'
+HEAD=['통합ID','원본시트','원본ID','업무명','상세내용','거래처','담당자','업무구분','시작일','마감일','시작시간','진행상태','우선순위','진행률','메모','첨부파일URL','작성일','수정일']
+STATES=['미진행','진행중','거의완료','완료','보류']
+CATS=['일반업무','거래처 방문','견적/계약','납품/출고','매출마감','미수금/수금','회의','교육','ERP/시스템','기타']
 
-/* ---------- 레이아웃 ---------- */
-.app { display: grid; grid-template-columns: 232px 1fr; min-height: calc(100vh - 64px); }
-.side { background: var(--card); border-right: 1px solid var(--line); padding: 20px 0; display: flex; flex-direction: column; }
-.side a { display: flex; align-items: center; gap: 14px; height: 46px; margin: 0 12px 3px; padding: 0 16px; border-radius: 8px; color: #343a46; text-decoration: none; font-size: 15px; font-weight: 500; position: relative; }
-.side a:hover { background: #f4f6fa; }
-.side a.on { background: var(--blue-soft); color: var(--blue); font-weight: 600; }
-.side a.on::before { content: ""; position: absolute; left: -12px; top: 6px; bottom: 6px; width: 4px; border-radius: 0 3px 3px 0; background: var(--blue); }
-.side a svg { color: currentColor; }
-.side .bottom { margin-top: auto; border-top: 1px solid var(--line); margin-inline: 24px; padding-top: 20px; }
-.side .bottom a { margin-inline: -12px; }
+def secrets_credential():
+    for k in ('gcp_service_account','google_service_account','service_account'):
+        try:
+            val=st.secrets.get(k)
+            if val:return json.loads(val) if isinstance(val,str) else dict(val)
+        except Exception:pass
+    try:
+        val=st.secrets['gcp']['service_account_json']
+        return json.loads(val) if isinstance(val,str) else dict(val)
+    except Exception:return None
 
-main { padding: 22px 16px 16px 20px; min-width: 0; }
-.hello { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; padding-left: 6px; }
-.hello h1 { margin: 0; font-size: 27px; font-weight: 700; letter-spacing: -0.03em; }
-.hello p { margin: 6px 0 0; color: var(--sub); font-size: 15px; }
-.hello .when { display: flex; align-items: center; gap: 28px; color: #343a46; font-size: 16px; padding-top: 10px; }
-.hello .when span { display: flex; align-items: center; gap: 10px; }
+@st.cache_resource
+def api_for(key):
+    creds=Credentials.from_service_account_info(json.loads(key),scopes=['https://www.googleapis.com/auth/spreadsheets'])
+    return build('sheets','v4',credentials=creds,cache_discovery=False)
 
-.grid { display: grid; grid-template-columns: minmax(0, 1fr) 344px; gap: 16px; align-items: start; }
-.left { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.right { display: flex; flex-direction: column; gap: 16px; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+def api():
+    cred=secrets_credential()
+    if not cred:raise RuntimeError('Streamlit Secrets의 Google 서비스 계정 정보를 확인하세요.')
+    return api_for(json.dumps(cred,sort_keys=True))
 
-/* ---------- 상단 숫자 카드 ---------- */
-.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-.stat { height: 106px; display: flex; align-items: center; gap: 22px; padding: 0 20px; }
-.stat .ic { width: 70px; height: 70px; border-radius: 12px; display: grid; place-items: center; flex: none; }
-.stat span { display: block; font-size: 15px; font-weight: 500; }
-.stat b { font-size: 31px; font-weight: 700; letter-spacing: -0.02em; }
-.stat b small { font-size: 14px; font-weight: 500; color: var(--sub); margin-left: 6px; }
+def tab_names(svc):
+    meta=svc.spreadsheets().get(spreadsheetId=SID,fields='sheets(properties(title))').execute()
+    return [x['properties']['title'] for x in meta.get('sheets',[])]
 
-/* ---------- 차트 ---------- */
-.charts { display: grid; grid-template-columns: minmax(0, 432fr) minmax(0, 460fr); gap: 16px; }
-.chart { height: 246px; padding: 18px 20px; }
-.chart h2, .card h2 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
-.donut-wrap { display: flex; align-items: center; gap: 40px; padding: 18px 10px 0 10px; }
-.donut { position: relative; width: 166px; height: 166px; flex: none; }
-.donut .c { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; font-size: 17px; font-weight: 700; line-height: 1.35; }
-.legend { display: flex; flex-direction: column; gap: 14px; flex: 1; }
-.legend div { display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: 8px; font-size: 15px; }
-.legend i { width: 10px; height: 10px; border-radius: 50%; }
-.legend b { font-weight: 600; font-size: 16px; }
-.legend b small { font-weight: 500; font-size: 16px; }
+def read_tab(svc,name,cols='A:R'):
+    vals=svc.spreadsheets().values().get(spreadsheetId=SID,range=f"'{name}'!{cols}").execute().get('values',[])
+    if not vals:return pd.DataFrame()
+    hdr=[str(x).strip() for x in vals[0]]
+    data=[dict(zip(hdr,row+['']*(len(hdr)-len(row)))) for row in vals[1:] if any(str(v).strip() for v in row)]
+    return pd.DataFrame(data,columns=hdr).fillna('')
 
-.bars { position: relative; height: 158px; margin: 26px 0 0 30px; }
-.bars .gl { position: absolute; left: 0; right: 0; height: 1px; background: #eef1f5; }
-.bars .gl span { position: absolute; left: -30px; top: -8px; width: 20px; text-align: right; font-size: 13px; color: #4d5462; }
-.bars .gl.base { background: #dfe4ec; }
-.bars .cols { position: absolute; inset: 0 20px 0 10px; display: flex; justify-content: space-between; align-items: flex-end; }
-.bars .col { width: 46px; position: relative; display: flex; flex-direction: column; align-items: center; }
-.bars .col .v { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
-.bars .col .b { width: 46px; border-radius: 3px 3px 0 0; }
-.bars .col .n { position: absolute; top: calc(100% + 8px); font-size: 13px; color: #4d5462; white-space: nowrap; }
+def create_tab(svc):
+    if TAB not in tab_names(svc):
+        svc.spreadsheets().batchUpdate(spreadsheetId=SID,body={'requests':[{'addSheet':{'properties':{'title':TAB}}}]}).execute()
+    vals=svc.spreadsheets().values().get(spreadsheetId=SID,range=f"'{TAB}'!A1:R1").execute().get('values',[])
+    if not vals:
+        svc.spreadsheets().values().update(spreadsheetId=SID,range=f"'{TAB}'!A1:R1",valueInputOption='RAW',body={'values':[HEAD]}).execute()
+    elif vals[0]!=HEAD:raise RuntimeError('통합업무 시트의 열 구조가 예상과 달라 작업을 중단했습니다. 기존 내용은 변경하지 않았습니다.')
 
-/* ---------- 업무 목록 ---------- */
-.tasks { padding: 14px 16px 6px 18px; }
-.thead { display: flex; align-items: center; gap: 24px; margin-bottom: 14px; }
-.thead h2 small { font-size: 16px; color: var(--sub); font-weight: 500; margin-left: 8px; }
-.tabs { display: flex; gap: 8px; margin-left: 50px; }
-.tabs button { height: 36px; padding: 0 18px; border-radius: 18px; border: 1px solid var(--line); background: var(--card); color: #4d5462; font-size: 14px; }
-.tabs button.on { background: var(--blue-soft); border-color: #bcd2ff; color: var(--blue); font-weight: 600; }
-.write { margin-left: auto; height: 36px; padding: 0 18px; border-radius: 7px; border: 0; background: var(--blue); color: #fff; font-weight: 600; display: flex; align-items: center; gap: 6px; font-size: 14px; }
-.filters { display: grid; grid-template-columns: minmax(0, 1fr) 146px 146px 156px; gap: 12px; margin-bottom: 12px; }
-.filters .s { height: 38px; border: 1px solid #dfe4ec; border-radius: 6px; display: flex; align-items: center; gap: 8px; padding: 0 12px; color: var(--muted); }
-.filters .s input { border: 0; outline: none; flex: 1; min-width: 0; background: none; }
-.filters .s input::placeholder { color: var(--muted); }
-.filters .s.sel { color: #343a46; justify-content: space-between; }
-.filters .s:nth-child(2) { margin-left: 16px; }
-table { width: 100%; border-collapse: collapse; }
-th { height: 36px; background: #f4f6f9; font-size: 13px; font-weight: 600; text-align: left; color: #343a46; }
-th:first-child { border-radius: 6px 0 0 6px; }
-th:last-child { border-radius: 0 6px 6px 0; }
-td { height: 41px; border-bottom: 1px solid #eef1f5; font-size: 14px; }
-td.p { color: #5f6675; font-size: 13px; }
-td:first-child, th:first-child { width: 40px; padding-left: 10px; }
-.chk { width: 17px; height: 17px; border: 1.5px solid #c9d0db; border-radius: 4px; display: block; }
-.who { display: flex; align-items: center; gap: 10px; }
-.pill { display: inline-block; height: 22px; line-height: 22px; padding: 0 9px; border-radius: 5px; font-size: 13px; font-weight: 500; }
-.hi { background: var(--red-soft); color: var(--red); }
-.mid { background: var(--orange-soft); color: #f08c00; }
-.lo { background: #f1f3f6; color: #5f6675; }
-.st-run { background: var(--blue-soft); color: var(--blue); }
-.st-done { background: var(--green-soft); color: #1a9e57; }
-.st-late { background: var(--red-soft); color: var(--red); }
-td.late { color: var(--red); }
-.dots { color: #5f6675; letter-spacing: 1px; text-align: center; font-weight: 700; }
+def safe(v):
+    if v is None:return ''
+    return str(v).strip()
 
-/* ---------- 오른쪽: 미니 달력 ---------- */
-.mini { padding: 16px 18px 12px 18px; }
-.mini .h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.mini .nav { display: flex; gap: 6px; align-items: center; }
-.mini .nav button { width: 30px; height: 26px; border: 1px solid transparent; border-radius: 5px; background: none; display: grid; place-items: center; color: #343a46; }
-.mini .nav button.bd { border-color: #dfe4ec; }
-.mini .nav .today { width: auto; padding: 0 10px; border: 1px solid #bcd2ff; color: var(--blue); font-size: 13px; font-weight: 600; }
-.cal { display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 2px; text-align: center; }
-.cal .w { font-size: 13px; color: #4d5462; height: 30px; line-height: 30px; }
-.cal .d { height: 34px; display: grid; place-items: center; position: relative; font-size: 14px; color: #343a46; }
-.cal .d.o { color: var(--muted); }
-.cal .d.b { font-weight: 700; }
-.cal .d.b::after { content: ""; position: absolute; bottom: 3px; width: 14px; height: 2px; background: #343a46; }
-.cal .d.dot::after { content: ""; position: absolute; bottom: 2px; width: 4px; height: 4px; border-radius: 50%; background: var(--blue); }
-.cal .d.t span { width: 36px; height: 36px; border-radius: 50%; background: var(--blue); color: #fff; display: grid; place-items: center; font-weight: 600; }
+def canonical_date(v):
+    try:
+        x=pd.to_datetime(v,errors='coerce')
+        return x.strftime('%Y-%m-%d') if pd.notna(x) else ''
+    except Exception:return ''
 
-/* ---------- 다가오는 일정 ---------- */
-.up { padding: 16px 18px 8px 18px; }
-.sec-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.sec-h h2 small { font-size: 16px; font-weight: 500; color: var(--sub); margin-left: 12px; }
-.more { color: var(--blue); font-size: 14px; text-decoration: none; display: flex; align-items: center; gap: 2px; }
-.ev { display: grid; grid-template-columns: 44px 22px 1fr; padding: 10px 0 0; }
-.ev .d { font-size: 14px; font-weight: 600; text-align: center; line-height: 1.45; }
-.ev .d small { display: block; color: var(--sub); font-weight: 400; font-size: 13px; }
-.ev .ln { position: relative; display: flex; justify-content: center; }
-.ev .ln::before { content: ""; position: absolute; top: 18px; bottom: -10px; width: 1px; background: #e6eaf0; }
-.ev:last-child .ln::before { display: none; }
-.ev .ln i { width: 9px; height: 9px; border-radius: 50%; margin-top: 7px; position: relative; }
-.ev .t { padding: 0 0 10px 4px; border-bottom: 1px solid #eef1f5; }
-.ev:last-child .t { border-bottom: 0; }
-.ev .t b { display: block; font-size: 15px; font-weight: 500; }
-.ev .t small { color: var(--sub); font-size: 13px; }
+def normalize(row,source):
+    r={k:'' for k in HEAD}
+    original=safe(row.get('업무ID' if source=='업무일정' else '일정ID'))
+    if not original:return None
+    r.update({'통합ID':str(uuid.uuid5(uuid.NAMESPACE_URL,f'{SID}/{source}/{original}')),
+      '원본시트':source,'원본ID':original,'업무명':safe(row.get('업무명')),
+      '상세내용':safe(row.get('상세내용') or row.get('메모')),
+      '거래처':safe(row.get('거래처')),'담당자':safe(row.get('담당자')),
+      '업무구분':safe(row.get('업무구분')) or '기타',
+      '시작일':canonical_date(row.get('발송일') if source=='업무일정' else row.get('시작일')),
+      '마감일':canonical_date(row.get('마감일')),
+      '시작시간':safe(row.get('시작시간')),'진행상태':safe(row.get('진행상태')) or '미진행',
+      '우선순위':safe(row.get('우선순위')) or '보통',
+      '진행률':safe(row.get('진행률(%)') if source=='업무일정' else row.get('진행률')) or '0',
+      '메모':safe(row.get('확인사항') if source=='업무일정' else row.get('메모')),
+      '첨부파일URL':safe(row.get('첨부파일URL')),
+      '작성일':safe(row.get('작성일')),'수정일':safe(row.get('최종수정일시') if source=='업무일정' else row.get('수정일'))})
+    return r
 
-/* ---------- 공지사항 ---------- */
-.notice { padding: 16px 18px 6px 18px; }
-.notice ul { list-style: none; margin: 0; padding: 0; }
-.notice li { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid #eef1f5; font-size: 15px; }
-.notice li:last-child { border-bottom: 0; }
-.notice li small { color: var(--sub); font-size: 13px; flex: none; }
+def append_rows(svc,records):
+    if not records:return
+    svc.spreadsheets().values().append(spreadsheetId=SID,range=f"'{TAB}'!A:R",valueInputOption='RAW',insertDataOption='INSERT_ROWS',body={'values':[[safe(r.get(k)) for k in HEAD] for r in records]}).execute()
 
-@media (max-width: 1440px) {
-  .gsearch { margin-left: 40px; width: auto; max-width: 680px; }
-  .donut-wrap { gap: 24px; padding-inline: 0; }
-  .stat { gap: 14px; padding: 0 16px; }
-  .stat .ic { width: 60px; height: 60px; }
-  .tabs { margin-left: 8px; }
-  .top { grid-template-columns: 200px 1fr auto; }
-  .app { grid-template-columns: 200px 1fr; }
-  .grid { grid-template-columns: minmax(0, 1fr) 300px; }
-  .stat b { font-size: 26px; }
-  .tabs button { padding: 0 12px; }
-  .filters { grid-template-columns: minmax(0, 1fr) repeat(3, minmax(0, 140px)); }
-  .filters .s:nth-child(2) { margin-left: 0; }
-}
-.me, .logo, .stat span, .legend div, th, td, .tabs button, .write, .thead h2, .filters .s, .bars .col .n { white-space: nowrap; }
-.tablewrap { overflow-x: auto; }
-table { min-width: 720px; }
-@media (max-width: 1180px) {
-  .grid { grid-template-columns: minmax(0, 1fr); }
-  .charts { grid-template-columns: minmax(0, 1fr); }
-  .right { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
-}
-@media (max-width: 900px) {
-  .top { grid-template-columns: 1fr auto; }
-  .gsearch, .me div { display: none; }
-  .app { grid-template-columns: minmax(0, 1fr); }
-  .side { display: none; }
-  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .hello { flex-direction: column; gap: 8px; }
-  .hello .when { padding-top: 0; }
-  .thead { flex-wrap: wrap; }
-  .tabs { margin-left: 0; order: 3; width: 100%; overflow-x: auto; }
-  .filters { grid-template-columns: 1fr 1fr; }
-  .filters .s:first-child { grid-column: 1 / -1; }
-  .filters .s:nth-child(2) { margin-left: 0; }
-  .tablewrap { overflow-x: auto; }
-  table { min-width: 820px; }
-}
-</style>
-</head>
-<body>
+def save_record(svc,record,old_id=None):
+    rows=read_tab(svc,TAB)
+    if old_id:
+        matches=rows.index[rows['통합ID']==old_id].tolist() if not rows.empty else []
+        if len(matches)!=1:raise RuntimeError('수정 대상 ID가 없거나 중복되어 저장을 중단했습니다.')
+        line=matches[0]+2
+        svc.spreadsheets().values().update(spreadsheetId=SID,range=f"'{TAB}'!A{line}:R{line}",valueInputOption='RAW',body={'values':[[safe(record.get(k)) for k in HEAD]]}).execute()
+    else:append_rows(svc,[record])
 
-<header class="top">
-  <div class="logo">
-    <i><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><rect x="3" y="3" width="8" height="8" rx="2"/><path d="M13 13h6a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-6z"/><path d="M11 11l3 3" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg></i>
-    업무관리 시스템
-  </div>
-  <label class="gsearch">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#343a46" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5" stroke-linecap="round"/></svg>
-    <input placeholder="업무, 프로젝트, 담당자 등을 검색하세요.">
-  </label>
-  <div class="tools">
-    <button class="bell" aria-label="알림"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></button>
-    <div class="me">
-      <span class="avatar" style="background:#c98a6b">김</span>
-      <div><b>김지은</b><small>마케팅팀</small></div>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#343a46" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-    </div>
-  </div>
-</header>
+def migration(svc):
+    create_tab(svc)
+    existing=read_tab(svc,TAB)
+    known=set(zip(existing.get('원본시트',pd.Series(dtype=str)),existing.get('원본ID',pd.Series(dtype=str))))
+    additions=[];counts={}
+    for source in ('업무일정','일정관리'):
+        source_df=read_tab(svc,source,'A:P' if source=='업무일정' else 'A:M')
+        counts[source]=0
+        for row in source_df.to_dict('records'):
+            r=normalize(row,source)
+            if r and (source,r['원본ID']) not in known:
+                additions.append(r);known.add((source,r['원본ID']));counts[source]+=1
+    append_rows(svc,additions)
+    return counts
 
-<div class="app">
-  <nav class="side">
-    <a href="#" class="on"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>대시보드</a>
-    <a href="#"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.4 2.6a2 2 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>업무 작성</a>
-    <a href="#"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>업무 현황</a>
-    <a href="#"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg>프로젝트</a>
-    <a href="#"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>일정 관리</a>
-    <a href="#"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>보고서</a>
-    <a href="#"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M16 4a4 4 0 0 1 0 8M22 21a7 7 0 0 0-4-6.3"/></svg>팀원 관리</a>
-    <div class="bottom">
-      <a href="#"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>설정</a>
-      <a href="#"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg>도움말</a>
-    </div>
-  </nav>
+def dt(v):
+    d=pd.to_datetime(v,errors='coerce')
+    return d.date() if pd.notna(d) else None
 
-  <main>
-    <div class="hello">
-      <div>
-        <h1>김지은 님, 오늘도 좋은 하루하세요! 👋</h1>
-        <p>현재 진행 중인 업무 6건이 있습니다.</p>
-      </div>
-      <div class="when">
-        <span>2024년 5월 14일 (화)</span>
-        <span><svg width="26" height="26" viewBox="0 0 24 24"><circle cx="10" cy="10" r="5.5" fill="#ffb31f"/><path d="M8 20h9a3.5 3.5 0 0 0 0-7 4.5 4.5 0 0 0-8.6 1.2A3 3 0 0 0 8 20z" fill="#dfe6f0"/></svg>맑음 22°C</span>
-      </div>
-    </div>
+def form(svc,people,existing=None,key='new'):
+    old=existing or {}
+    with st.form('edit_'+key):
+        title=st.text_input('업무명 *',value=safe(old.get('업무명')))
+        detail=st.text_area('상세내용',value=safe(old.get('상세내용')))
+        c1,c2,c3=st.columns(3)
+        company=c1.text_input('거래처',value=safe(old.get('거래처')))
+        options=list(dict.fromkeys(people+([safe(old.get('담당자'))] if safe(old.get('담당자')) else [])))
+        options=['미지정']+ [p for p in options if p and p!='미지정']
+        owner=c2.selectbox('담당자',options,index=options.index(safe(old.get('담당자'))) if safe(old.get('담당자')) in options else 0)
+        cat_options=list(dict.fromkeys(CATS+([safe(old.get('업무구분'))] if safe(old.get('업무구분')) else [])))
+        category=c3.selectbox('업무구분',cat_options,index=cat_options.index(safe(old.get('업무구분'))) if safe(old.get('업무구분')) in cat_options else 0)
+        c1,c2,c3=st.columns(3)
+        start=c1.date_input('시작일',value=dt(old.get('시작일')) or date.today())
+        due=c2.date_input('마감일',value=dt(old.get('마감일')) or date.today())
+        tm=c3.text_input('시작시간 (HH:MM)',value=safe(old.get('시작시간')))
+        c1,c2,c3=st.columns(3)
+        state_opts=list(dict.fromkeys(STATES+([safe(old.get('진행상태'))] if safe(old.get('진행상태')) else [])))
+        status=c1.selectbox('진행상태',state_opts,index=state_opts.index(safe(old.get('진행상태'))) if safe(old.get('진행상태')) in state_opts else 0)
+        priority=c2.selectbox('우선순위',['낮음','보통','높음','긴급'],index=['낮음','보통','높음','긴급'].index(safe(old.get('우선순위'))) if safe(old.get('우선순위')) in ['낮음','보통','높음','긴급'] else 1)
+        try:p=int(float(old.get('진행률') or 0))
+        except (ValueError,TypeError):p=0
+        progress=c3.slider('진행률',0,100,max(0,min(100,p)))
+        memo=st.text_area('메모',value=safe(old.get('메모')))
+        link=st.text_input('첨부파일 URL',value=safe(old.get('첨부파일URL')))
+        if st.form_submit_button('Google Sheets에 저장',type='primary'):
+            if not title.strip():st.error('업무명을 입력하세요.');return
+            if due<start:st.error('마감일은 시작일 이후여야 합니다.');return
+            if tm:
+                try:datetime.strptime(tm,'%H:%M')
+                except ValueError:st.error('시작시간은 14:00 형식으로 입력하세요.');return
+            now=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            rec={k:safe(old.get(k)) for k in HEAD}
+            rec.update({'통합ID':safe(old.get('통합ID')) or uuid.uuid4().hex,'원본시트':safe(old.get('원본시트')) or '통합업무',
+             '원본ID':safe(old.get('원본ID')) or uuid.uuid4().hex,'업무명':title.strip(),'상세내용':detail,
+             '거래처':company,'담당자':'' if owner=='미지정' else owner,'업무구분':category,
+             '시작일':start.isoformat(),'마감일':due.isoformat(),'시작시간':tm,'진행상태':status,
+             '우선순위':priority,'진행률':str(progress),'메모':memo,'첨부파일URL':link,
+             '작성일':safe(old.get('작성일')) or now,'수정일':now})
+            try:save_record(svc,rec,safe(old.get('통합ID')) or None);st.success('저장되었습니다.');st.rerun()
+            except Exception as exc:st.error(f'저장 실패: {exc}')
 
-    <div class="grid">
-      <div class="left">
-        <div class="stats">
-          <div class="card stat"><div class="ic" style="background:#e5efff"><svg width="34" height="38" viewBox="0 0 24 28"><path d="M3 4a3 3 0 0 1 3-3h9l6 6v17a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3z" fill="#2f7cff"/><path d="M8 13h8M8 17h8M8 21h5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></div><div><span>전체 업무</span><b>24<small>건</small></b></div></div>
-          <div class="card stat"><div class="ic" style="background:#ddf6e8"><svg width="30" height="32" viewBox="0 0 20 22"><path d="M3 2.5v17a1 1 0 0 0 1.5.9l14-8.5a1 1 0 0 0 0-1.8l-14-8.5A1 1 0 0 0 3 2.5z" fill="#22c06b"/></svg></div><div><span>진행 중</span><b>6<small>건</small></b></div></div>
-          <div class="card stat"><div class="ic" style="background:#fff1db"><svg width="38" height="38" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ffa51f"/><path d="m7 12.5 3.2 3L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><span>완료</span><b>15<small>건</small></b></div></div>
-          <div class="card stat"><div class="ic" style="background:#fde5e5"><svg width="38" height="38" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#f04848"/><path d="M12 6.5v7" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="17.3" r="1.5" fill="#fff"/></svg></div><div><span>지연</span><b>3<small>건</small></b></div></div>
-        </div>
+def display_table(data):
+    cols=['업무명','담당자','업무구분','시작일','마감일','진행상태','진행률','거래처']
+    if data.empty:st.info('표시할 업무가 없습니다.')
+    else:st.dataframe(data[[x for x in cols if x in data.columns]],hide_index=True,use_container_width=True)
 
-        <div class="charts">
-          <div class="card chart">
-            <h2>업무 진행 현황</h2>
-            <div class="donut-wrap">
-              <div class="donut">
-                <svg width="166" height="166" viewBox="0 0 42 42" style="transform:rotate(-90deg)">
-                  <circle cx="21" cy="21" r="15.915" fill="none" stroke="#22c06b" stroke-width="8.2" stroke-dasharray="62.5 37.5" stroke-dashoffset="0"/>
-                  <circle cx="21" cy="21" r="15.915" fill="none" stroke="#2f7cff" stroke-width="8.2" stroke-dasharray="25 75" stroke-dashoffset="-62.5"/>
-                  <circle cx="21" cy="21" r="15.915" fill="none" stroke="#f04848" stroke-width="8.2" stroke-dasharray="12.5 87.5" stroke-dashoffset="-87.5"/>
-                </svg>
-                <div class="c">총<br>24건</div>
-              </div>
-              <div class="legend">
-                <div><i style="background:#22c06b"></i>완료<b>15 <small>(62%)</small></b></div>
-                <div><i style="background:#2f7cff"></i>진행 중<b>6 <small>(25%)</small></b></div>
-                <div><i style="background:#f04848"></i>지연<b>3 <small>(13%)</small></b></div>
-              </div>
-            </div>
-          </div>
+try:svc=api();tabs=tab_names(svc)
+except Exception as exc:st.error(f'Google Sheets 연결 실패: {exc}');st.stop()
 
-          <div class="card chart">
-            <h2>부서별 업무 현황</h2>
-            <div class="bars" id="bars"></div>
-          </div>
-        </div>
+st.sidebar.markdown('### ▥  영업팀 대시보드')
+st.sidebar.divider()
+page=st.sidebar.radio('메뉴',['🗓️ 달력','📋 업무현황','📝 회의록','🏢 거래처 특이사항','⚙️ 데이터 통합/설정'],label_visibility='collapsed')
+if st.sidebar.button('↻ 데이터 새로고침',use_container_width=True):st.rerun()
+if TAB not in tabs:
+    st.warning('통합업무 시트가 아직 생성되지 않았습니다. 설정 메뉴에서 최초 통합을 실행하세요.')
+    if page!='⚙️ 데이터 통합/설정':st.stop()
+    df=pd.DataFrame(columns=HEAD)
+else:
+    try:
+        df=read_tab(svc,TAB)
+        if df.empty:df=pd.DataFrame(columns=HEAD)
+        if list(df.columns)!=HEAD:raise RuntimeError('통합업무 헤더가 변경되었습니다.')
+    except Exception as exc:st.error(str(exc));st.stop()
 
-        <div class="card tasks">
-          <div class="thead">
-            <h2>업무 목록<small>24건</small></h2>
-            <div class="tabs" id="tabs">
-              <button class="on" data-f="all">전체 (24)</button>
-              <button data-f="진행 중">진행 중 (6)</button>
-              <button data-f="완료">완료 (15)</button>
-              <button data-f="지연">지연 (3)</button>
-            </div>
-            <button class="write"><svg width="16" height="16" viewBox="0 0 24 24" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>업무 작성</button>
-          </div>
-          <div class="filters">
-            <label class="s"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#343a46" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5" stroke-linecap="round"/></svg><input id="q" placeholder="업무명을 검색하세요."></label>
-            <div class="s sel">전체 기간<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#343a46" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg></div>
-            <div class="s sel">전체 담당자<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#343a46" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg></div>
-            <div class="s sel">전체 상태<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#343a46" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg></div>
-          </div>
-          <div class="tablewrap">
-            <table>
-              <thead><tr><th><span class="chk"></span></th><th style="width:30%">업무명</th><th>프로젝트</th><th>담당자</th><th>우선순위</th><th>상태</th><th>마감일</th><th style="width:40px"><span class="dots">···</span></th></tr></thead>
-              <tbody id="rows"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+try:
+    team=read_tab(svc,'팀원정보','A:H')
+    people=[safe(x) for x in team.get('이름',pd.Series(dtype=str)).tolist() if safe(x)]
+except Exception:people=[]
+people=list(dict.fromkeys(people+[safe(x) for x in df.get('담당자',pd.Series(dtype=str)).tolist() if safe(x)]))
 
-      <aside class="right">
-        <div class="card mini">
-          <div class="h">
-            <h2>5월 일정</h2>
-            <div class="nav">
-              <button aria-label="이전 달"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg></button>
-              <button class="bd" aria-label="다음 달"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 18 6-6-6-6"/></svg></button>
-              <button class="today">오늘</button>
-            </div>
-          </div>
-          <div class="cal" id="cal"></div>
-        </div>
-
-        <div class="card up">
-          <div class="sec-h"><h2>다가오는 일정<small>4건</small></h2><a class="more" href="#">전체보기 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 18 6-6-6-6"/></svg></a></div>
-          <div class="ev"><div class="d">5.15<small>(수)</small></div><div class="ln"><i style="background:#2f7cff"></i></div><div class="t"><b>신규 캠페인 기획안 제출</b><small>10:00 - 11:00 &nbsp;• 마케팅팀</small></div></div>
-          <div class="ev"><div class="d">5.16<small>(목)</small></div><div class="ln"><i style="background:#22c06b"></i></div><div class="t"><b>업체 미팅</b><small>14:00 - 15:00 &nbsp;• 회의실 B</small></div></div>
-          <div class="ev"><div class="d">5.17<small>(금)</small></div><div class="ln"><i style="background:#ffa51f"></i></div><div class="t"><b>홈페이지 리뉴얼 1차 완료</b><small>종일 &nbsp;• 개발팀</small></div></div>
-          <div class="ev"><div class="d">5.22<small>(수)</small></div><div class="ln"><i style="background:#9a7cf2"></i></div><div class="t"><b>월간 운영 회의</b><small>10:00 - 11:00 &nbsp;• 전사</small></div></div>
-        </div>
-
-        <div class="card notice">
-          <div class="sec-h"><h2>공지사항</h2><a class="more" href="#">전체보기 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 18 6-6-6-6"/></svg></a></div>
-          <ul>
-            <li>[안내] 5월 전사 워크숍 일정 안내<small>05.10</small></li>
-            <li>[필독] 보안 정책 개정 안내<small>05.08</small></li>
-            <li>[공지] 사내 시스템 점검 일정<small>05.01</small></li>
-          </ul>
-        </div>
-      </aside>
-    </div>
-  </main>
-</div>
-
-<script>
-/* 부서별 막대 차트 */
-const depts = [["마케팅팀", 8, "#4f9bff"], ["기획팀", 6, "#a184f4"], ["개발팀", 5, "#33c9bb"], ["디자인팀", 3, "#ffb53d"], ["운영팀", 2, "#b8c2d1"]];
-const H = 158, MAX = 10;
-document.getElementById("bars").innerHTML =
-  [0, 2, 4, 6, 8, 10].map(v => `<div class="gl${v === 0 ? " base" : ""}" style="top:${H - v / MAX * H}px"><span>${v}</span></div>`).join("") +
-  `<div class="cols">${depts.map(([n, v, c]) => `<div class="col"><span class="v">${v}</span><div class="b" style="height:${v / MAX * H}px;background:${c}"></div><span class="n">${n}</span></div>`).join("")}</div>`;
-
-/* 업무 목록 */
-const avatarColor = { "김지은": "#c98a6b", "이준호": "#6b7a8f", "박수연": "#a7735a", "최민수": "#7d8796", "정하늘": "#b48366" };
-const tasks = [
-  ["신규 캠페인 기획안 작성", "브랜드 캠페인", "김지은", "높음", "진행 중", "2024-05-15"],
-  ["홈페이지 리뉴얼 콘텐츠 검수", "홈페이지 리뉴얼", "이준호", "보통", "진행 중", "2024-05-17"],
-  ["5월 마케팅 성과 리포트", "월간 리포트", "박수연", "높음", "완료", "2024-05-14"],
-  ["업체 미팅 자료 준비", "파트너십", "최민수", "보통", "진행 중", "2024-05-16"],
-  ["SNS 콘텐츠 디자인 요청", "브랜드 캠페인", "정하늘", "낮음", "지연", "2024-05-12"],
-  ["서비스 개선 의견 정리", "내부 개선", "김지은", "보통", "완료", "2024-05-10"],
-  ["경쟁사 리서치", "시장 조사", "이준호", "낮음", "진행 중", "2024-05-20"],
-];
-const pr = { "높음": "hi", "보통": "mid", "낮음": "lo" };
-const st = { "진행 중": "st-run", "완료": "st-done", "지연": "st-late" };
-let tab = "all";
-function drawRows() {
-  const q = document.getElementById("q").value.trim();
-  document.getElementById("rows").innerHTML = tasks
-    .filter(t => (tab === "all" || t[4] === tab) && (!q || t[0].includes(q)))
-    .map(([title, proj, who, p, s, due]) => `<tr>
-      <td><span class="chk"></span></td><td>${title}</td><td class="p">${proj}</td>
-      <td><span class="who"><span class="avatar sm" style="background:${avatarColor[who]}">${who[0]}</span>${who}</span></td>
-      <td><span class="pill ${pr[p]}">${p}</span></td><td><span class="pill ${st[s]}">${s}</span></td>
-      <td class="${s === "지연" ? "late" : ""}">${due}</td><td class="dots">···</td></tr>`).join("");
-}
-document.getElementById("tabs").addEventListener("click", e => {
-  const b = e.target.closest("button"); if (!b) return;
-  tab = b.dataset.f;
-  document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
-  drawRows();
-});
-document.getElementById("q").addEventListener("input", drawRows);
-drawRows();
-
-/* 미니 달력 (2024년 5월) */
-const marks = { 9: "dot", 17: "dot", 22: "b", 29: "b" };
-let cal = ["일", "월", "화", "수", "목", "금", "토"].map(w => `<div class="w">${w}</div>`).join("");
-[28, 29, 30].forEach(d => cal += `<div class="d o">${d}</div>`);
-for (let d = 1; d <= 31; d++) cal += d === 14 ? `<div class="d t"><span>14</span></div>` : `<div class="d ${marks[d] || ""}">${d}</div>`;
-cal += `<div class="d o">1</div>`;
-document.getElementById("cal").innerHTML = cal;
-</script>
-</body>
-</html>
+st.sidebar.caption('Google Sheets 연결 · 기존 원본 보존')
+st.sidebar.warning('현재는 공유 편집형입니다. 팀원별 로그인/수정 권한은 아직 적용되지 않았습니다.')
+if page=='⚙️ 데이터 통합/설정':
+    st.title('데이터 통합 및 설정')
+    st.write('원본 업무일정·일정관리 시트는 수정하지 않습니다. 통합업무 시트에만 신규 데이터를 추가합니다.')
+    st.info('원본시트 + 원본ID 조합으로 가져온 이력을 식별합니다. 동일 업무처럼 보여도 ID가 다르면 자동 삭제하지 않습니다.')
+    if st.button('기존 업무를 통합업무 시트로 가져오기',type='primary'):
+        try:
+            result=migration(svc)
+            st.success('통합 완료: '+', '.join(f'{k} {v}건 신규 반영' for k,v in result.items()))
+            st.rerun()
+        except Exception as exc:st.error(f'통합 중단: {exc}')
+    st.subheader('현재 통합 현황')
+    st.metric('통합업무 건수',len(df))
+    if not df.empty:st.dataframe(df.groupby('원본시트').size().rename('건수'),use_container_width=True)
+else:
+    if 'person_filter' not in st.session_state:st.session_state.person_filter='전체'
+    choices=['전체']+people
+    if st.session_state.person_filter not in choices:st.session_state.person_filter='전체'
+    person=st.sidebar.selectbox('담당자 선택',choices,key='person_filter')
+    shown=df if person=='전체' else df[df['담당자']==person]
+    st.sidebar.markdown(f'<div class="sidebar-mini"><h4>{date.today().year}년 {date.today().month}월</h4></div>',unsafe_allow_html=True)
+    mini=calendar.Calendar(firstweekday=6).monthdayscalendar(date.today().year,date.today().month)
+    mini_html='<div class="sidebar-mini" style="border:0;padding-top:0"><div class="mini-week">'+''.join(f'<span>{x}</span>' for x in '일월화수목금토')
+    for week in mini:
+        for d in week:mini_html+=f'<span class={"on" if d==date.today().day else ""}>{d or ""}</span>'
+    mini_html+='</div></div>'
+    st.sidebar.markdown(mini_html,unsafe_allow_html=True)
+    st.sidebar.markdown('#### 팀원 보기')
+    st.sidebar.caption('담당자 필터를 변경하면 달력과 업무 목록에 적용됩니다.')
+    if page=='🗓️ 달력':
+        st.markdown('<div class="dashboard-head"><div><h1>캘린더</h1><p>영업팀의 일정을 한눈에 확인하고 일정을 공유하세요.</p></div></div>',unsafe_allow_html=True)
+        if 'month' not in st.session_state:st.session_state.month=date.today().replace(day=1)
+        m=st.session_state.month
+        left,title,right,todaycol,spacer,add=st.columns([.65,2.2,.65,.85,3.2,1.4],vertical_alignment='center')
+        if left.button('❮',key='month_prev',use_container_width=True):
+            st.session_state.month=(pd.Timestamp(m)-pd.DateOffset(months=1)).date();st.rerun()
+        title.markdown(f'### {m.year}년 {m.month}월')
+        if right.button('❯',key='month_next',use_container_width=True):
+            st.session_state.month=(pd.Timestamp(m)+pd.DateOffset(months=1)).date();st.rerun()
+        if todaycol.button('오늘',use_container_width=True):st.session_state.month=date.today().replace(day=1);st.rerun()
+        with add.popover('＋ 일정 추가',use_container_width=True):form(svc,people,key='calendar_new')
+        # HTML은 표시 전용이며, 일정 등록·수정은 Streamlit 위젯으로 수행합니다.
+        palette=['#377af4','#7b45f4','#f59d26','#27bd6a','#ed6978','#23a8bb','#9861db','#dc8a41']
+        def owner_color(owner):
+            if not owner:return '#6c87b4'
+            return palette[sum(ord(ch) for ch in owner)%len(palette)]
+        def pct(row):
+            try:return max(0,min(100,int(float(row.get('진행률') or 0))))
+            except (ValueError,TypeError):return 0
+        def cal_entries(day):
+            daystr=day.isoformat()
+            d=shown[((shown['시작일']!='')&(shown['시작일']<=daystr)&(shown['마감일']>=daystr))|((shown['시작일']=='')&(shown['마감일']==daystr))]
+            return d.sort_values(['시작시간','업무명'],kind='stable')
+        html=['<div class="cal-shell"><div class="cal-weekdays">']
+        html += [f'<div>{d}</div>' for d in ['일','월','화','수','목','금','토']]
+        html.append('</div><div class="cal-grid">')
+        weeks=calendar.Calendar(firstweekday=6).monthdatescalendar(m.year,m.month)
+        for week in weeks:
+            for day in week:
+                outside=' outside' if day.month!=m.month else ''
+                todaycls=' today' if day==date.today() else ''
+                html.append(f'<div class="cal-day{outside}"><div class="day-num{todaycls}">{day.day}</div>')
+                daily=cal_entries(day)
+                for _,r in daily.head(3).iterrows():
+                    owner=safe(r.get('담당자')) or '미지정';color=owner_color(owner)
+                    progress=pct(r)
+                    # 상태별 강조색, 담당자별 식별 색상은 상단 왼쪽 선에 사용
+                    status=safe(r.get('진행상태'))
+                    bg='#e9f9f0' if status=='완료' else '#f0ebff' if status=='진행중' else '#eaf2ff' if status=='미진행' else '#fff3e4' if status=='거의완료' else '#f4f6fa'
+                    fg='#15934c' if status=='완료' else '#7140db' if status=='진행중' else '#2367d6' if status=='미진행' else '#ae6b13' if status=='거의완료' else '#5e7395'
+                    task=escape(safe(r.get('업무명')));owner_html=escape(owner)
+                    tm=escape(safe(r.get('시작시간')))
+                    html.append(f'<div class="cal-event" title="{task} · {owner_html}" style="background:{bg};color:{fg};border-left:3px solid {color}"><div class="event-title">{tm+" " if tm else ""}{task}</div><div class="event-sub"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48%">{owner_html}</span><div class="track"><div class="fill" style="width:{progress}%;background:{fg}"></div></div><b>{progress}%</b></div></div>')
+                if len(daily)>3:html.append(f'<div class="cal-more">+ {len(daily)-3}건 더보기</div>')
+                html.append('</div>')
+        html.append('</div></div>')
+        st.markdown(''.join(html),unsafe_allow_html=True)
+        if people:
+            legend=''.join(f'<span><i style="background:{owner_color(p)}"></i>{escape(p)}</span>' for p in people)
+            st.markdown(f'<div class="cal-legend">{legend}</div>',unsafe_allow_html=True)
+        st.markdown('#### 날짜별 일정 확인')
+        day_choice=st.date_input('확인할 날짜',value=date.today() if date.today().month==m.month and date.today().year==m.year else m,key='calendar_day_select')
+        daily=cal_entries(day_choice)
+        display_table(daily)
+        st.markdown('#### 이번 달 업무 목록')
+        month_start=m.isoformat();next_month=(pd.Timestamp(m)+pd.DateOffset(months=1)).date().isoformat()
+        month_df=shown[((shown['마감일']>=month_start)&(shown['시작일']<next_month))|((shown['시작일']=='')&(shown['마감일']>=month_start)&(shown['마감일']<next_month))]
+        display_table(month_df)
+    elif page=='📋 업무현황':
+        st.markdown("## 📋 업무 현황")
+        st.caption('개인의 업무를 등록하고 마감일까지 관리할 수 있습니다.')
+        today=date.today().isoformat()
+        done=shown['진행상태'].eq('완료')
+        late=(shown['마감일']<today)&(~done)&shown['마감일'].ne('')
+        ongoing=shown['진행상태'].isin(['진행중','거의완료'])&(~late)
+        cards=st.columns(4)
+        for card,label,value in zip(cards,['📄 전체 업무','🔵 진행 중','🟢 완료','🔴 지연'],[len(shown),int(ongoing.sum()),int(done.sum()),int(late.sum())]):
+            card.metric(label,f'{value} 건')
+        left,right=st.columns([3.4,1.25],gap='large')
+        with left:
+            st.markdown('### 업무 목록')
+            view=st.radio('상태별 조회',['전체','진행 중','완료','지연'],horizontal=True,label_visibility='collapsed')
+            q=st.text_input('🔎 업무명, 거래처, 담당자 검색',key='task_search')
+            f1,f2,f3=st.columns(3)
+            owner_filter=f1.selectbox('담당자',['전체']+people,key='task_owner')
+            cat_filter=f2.selectbox('업무구분',['전체']+sorted(set(shown['업무구분'].dropna())-{''}),key='task_category')
+            priority_filter=f3.selectbox('우선순위',['전체','긴급','높음','보통','낮음'],key='task_priority')
+            filtered=shown.copy()
+            if view=='진행 중':filtered=filtered[ongoing]
+            elif view=='완료':filtered=filtered[done]
+            elif view=='지연':filtered=filtered[late]
+            if q:
+                mask=filtered[['업무명','거래처','담당자','상세내용']].fillna('').astype(str).apply(lambda col:col.str.contains(q,case=False,regex=False)).any(axis=1)
+                filtered=filtered[mask]
+            if owner_filter!='전체':filtered=filtered[filtered['담당자']==owner_filter]
+            if cat_filter!='전체':filtered=filtered[filtered['업무구분']==cat_filter]
+            if priority_filter!='전체':filtered=filtered[filtered['우선순위']==priority_filter]
+            cols=['업무명','업무구분','담당자','우선순위','진행상태','마감일','진행률','거래처']
+            if filtered.empty:
+                st.info('조건에 맞는 업무가 없습니다.')
+            else:
+                table_data = filtered[cols].copy()
+                table_data['진행률'] = pd.to_numeric(
+                    table_data['진행률'], errors='coerce'
+                ).fillna(0).clip(0, 100).astype(int)
+                st.dataframe(
+                    table_data,
+                    hide_index=True,
+                    use_container_width=True,
+                    height=580,
+                    column_config={
+                        '진행률': st.column_config.ProgressColumn(
+                            '진행률', min_value=0, max_value=100, format='%d%%'
+                        )
+                    },
+                )
+            if not filtered.empty:
+                ids=filtered['통합ID'].tolist()
+                selected=st.selectbox('수정할 업무 선택',ids,format_func=lambda x:(lambda r:f"{r['업무명']} · {r['담당자']}")(filtered[filtered['통합ID']==x].iloc[0]),key='task_edit_select')
+                with st.expander('✏️ 선택한 업무 수정'):
+                    form(svc,people,filtered[filtered['통합ID']==selected].iloc[0].to_dict(),key='task_modify_'+selected)
+        with right:
+            st.markdown('### ＋ 업무 작성')
+            st.caption('입력 후 등록하면 Google Sheets에 저장됩니다.')
+            form(svc,people,key='task_new_panel')
+    elif page=='📝 회의록':
+        st.title('회의록')
+        st.info('2차 개발에서 전용 회의록 시트와 작성·수정 화면을 연결합니다. 현재는 업무구분이 회의인 항목을 표시합니다.')
+        display_table(shown[shown['업무구분']=='회의'])
+    else:
+        st.title('거래처 특이사항')
+        st.info('2차 개발에서 거래처별 특이사항 기록 기능을 추가합니다. 현재는 거래처가 입력된 업무를 조회할 수 있습니다.')
+        display_table(shown[shown['거래처']!=''])
+    if page=='🗓️ 달력' and not shown.empty:
+        st.subheader('선택 업무 수정')
+        # Index is display-only; write target is always resolved by stable 통합ID.
+        ids=shown['통합ID'].tolist()
+        selected=st.selectbox('수정할 업무',ids,format_func=lambda x: (lambda r:f"{r['업무명']} · {r['담당자']} · {r['마감일']}")(shown[shown['통합ID']==x].iloc[0]))
+        with st.expander('✏️ 업무 수정'):form(svc,people,shown[shown['통합ID']==selected].iloc[0].to_dict(),key='modify_'+selected)

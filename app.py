@@ -334,15 +334,46 @@ else:
         month_df=shown[((shown['마감일']>=month_start)&(shown['시작일']<next_month))|((shown['시작일']=='')&(shown['마감일']>=month_start)&(shown['마감일']<next_month))]
         display_table(month_df)
     elif page=='📋 업무현황':
-        st.title('업무현황')
-        a,b,c=st.columns(3)
-        a.metric('조회 업무',len(shown))
-        b.metric('진행 중',int(shown['진행상태'].isin(['진행중','거의완료']).sum()))
-        c.metric('완료',int((shown['진행상태']=='완료').sum()))
-        q=st.text_input('업무명·거래처 검색')
-        if q:shown=shown[shown['업무명'].str.contains(q,case=False,regex=False,na=False)|shown['거래처'].str.contains(q,case=False,regex=False,na=False)]
-        display_table(shown)
-        with st.expander('＋ 업무 추가'):form(svc,people,key='task_new')
+        st.markdown("## 📋 업무 현황")
+        st.caption('개인의 업무를 등록하고 마감일까지 관리할 수 있습니다.')
+        today=date.today().isoformat()
+        done=shown['진행상태'].eq('완료')
+        late=(shown['마감일']<today)&(~done)&shown['마감일'].ne('')
+        ongoing=shown['진행상태'].isin(['진행중','거의완료'])&(~late)
+        cards=st.columns(4)
+        for card,label,value in zip(cards,['📄 전체 업무','🔵 진행 중','🟢 완료','🔴 지연'],[len(shown),int(ongoing.sum()),int(done.sum()),int(late.sum())]):
+            card.metric(label,f'{value} 건')
+        left,right=st.columns([3.4,1.25],gap='large')
+        with left:
+            st.markdown('### 업무 목록')
+            view=st.radio('상태별 조회',['전체','진행 중','완료','지연'],horizontal=True,label_visibility='collapsed')
+            q=st.text_input('🔎 업무명, 거래처, 담당자 검색',key='task_search')
+            f1,f2,f3=st.columns(3)
+            owner_filter=f1.selectbox('담당자',['전체']+people,key='task_owner')
+            cat_filter=f2.selectbox('업무구분',['전체']+sorted(set(shown['업무구분'].dropna())-{''}),key='task_category')
+            priority_filter=f3.selectbox('우선순위',['전체','긴급','높음','보통','낮음'],key='task_priority')
+            filtered=shown.copy()
+            if view=='진행 중':filtered=filtered[ongoing]
+            elif view=='완료':filtered=filtered[done]
+            elif view=='지연':filtered=filtered[late]
+            if q:
+                mask=filtered[['업무명','거래처','담당자','상세내용']].fillna('').astype(str).apply(lambda col:col.str.contains(q,case=False,regex=False)).any(axis=1)
+                filtered=filtered[mask]
+            if owner_filter!='전체':filtered=filtered[filtered['담당자']==owner_filter]
+            if cat_filter!='전체':filtered=filtered[filtered['업무구분']==cat_filter]
+            if priority_filter!='전체':filtered=filtered[filtered['우선순위']==priority_filter]
+            cols=['업무명','업무구분','담당자','우선순위','진행상태','마감일','진행률','거래처']
+            st.dataframe(filtered.assign(진행률=pd.to_numeric(filtered['진행률'],errors='coerce').fillna(0).clip(0,100).astype(int))[cols],hide_index=True,use_container_width=True,height=580,
+                column_config={'진행률':st.column_config.ProgressColumn('진행률',min_value=0,max_value=100,format='%d%%')}) if not filtered.empty else st.info('조건에 맞는 업무가 없습니다.')
+            if not filtered.empty:
+                ids=filtered['통합ID'].tolist()
+                selected=st.selectbox('수정할 업무 선택',ids,format_func=lambda x:(lambda r:f"{r['업무명']} · {r['담당자']}")(filtered[filtered['통합ID']==x].iloc[0]),key='task_edit_select')
+                with st.expander('✏️ 선택한 업무 수정'):
+                    form(svc,people,filtered[filtered['통합ID']==selected].iloc[0].to_dict(),key='task_modify_'+selected)
+        with right:
+            st.markdown('### ＋ 업무 작성')
+            st.caption('입력 후 등록하면 Google Sheets에 저장됩니다.')
+            form(svc,people,key='task_new_panel')
     elif page=='📝 회의록':
         st.title('회의록')
         st.info('2차 개발에서 전용 회의록 시트와 작성·수정 화면을 연결합니다. 현재는 업무구분이 회의인 항목을 표시합니다.')
@@ -351,7 +382,7 @@ else:
         st.title('거래처 특이사항')
         st.info('2차 개발에서 거래처별 특이사항 기록 기능을 추가합니다. 현재는 거래처가 입력된 업무를 조회할 수 있습니다.')
         display_table(shown[shown['거래처']!=''])
-    if page in ('🗓️ 달력','📋 업무현황') and not shown.empty:
+    if page=='🗓️ 달력' and not shown.empty:
         st.subheader('선택 업무 수정')
         # Index is display-only; write target is always resolved by stable 통합ID.
         ids=shown['통합ID'].tolist()

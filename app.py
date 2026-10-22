@@ -196,6 +196,31 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .meeting-mini-stat b{font-size:16px;color:#143a75;white-space:nowrap}
 .meeting-filter-title{background:#eaf2ff;border-left:4px solid #2468ef;border-radius:9px;padding:12px 15px;color:#17498e;font-size:15px;font-weight:850;margin:12px 0 10px}
 .meeting-filter-title small{display:block;font-size:11px;color:#6981a4;font-weight:450;margin-top:4px}
+
+/* 달력 상세정보 팝업 전용 스타일: 달력과 다른 페이지에는 영향 없음 */
+[data-testid="stDialog"]:has(.cal-detail-marker) [data-testid="stDialogContent"]{background:#f8fbff}
+.cal-detail-marker{display:none}
+.cal-detail-hero{background:linear-gradient(110deg,#eaf2ff,#f8fbff);border:1px solid #cddfff;border-left:5px solid #2469ed;border-radius:14px;padding:19px 21px;margin:3px 0 14px}
+.cal-detail-kicker{color:#2765c5;font-size:12px;font-weight:800;margin-bottom:8px}
+.cal-detail-title{font-size:22px;font-weight:850;color:#142d52;line-height:1.4;margin-bottom:12px;overflow-wrap:anywhere}
+.cal-detail-pills{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+.cal-detail-pills span{font-size:12px;font-weight:700;color:#285b9f;background:white;border:1px solid #d8e5fa;border-radius:7px;padding:6px 10px}
+.cal-detail-dates{font-size:12px;color:#516a8e;margin-bottom:14px}
+.cal-detail-progress-label{display:flex;justify-content:space-between;color:#28578f;font-size:12px;margin-bottom:7px}
+.cal-detail-progress-label strong{font-size:14px;color:#175ed7}
+.cal-detail-track{height:9px;background:#dbe7fa;border-radius:20px;overflow:hidden}
+.cal-detail-track div{height:100%;background:linear-gradient(90deg,#2865ec,#58a1ff);border-radius:20px}
+.cal-detail-content{background:#fff;border:1px solid #e1e9f5;border-radius:12px;padding:16px 19px;margin:0 0 14px}
+.cal-detail-content b{display:block;color:#173e79;font-size:14px;margin-bottom:10px}
+.cal-detail-content div{font-size:13px;color:#3c506d;line-height:1.8;overflow-wrap:anywhere}
+[data-testid="stDialog"]:has(.cal-detail-marker) [data-testid="stExpander"]{border:1px solid #b9d2fb!important;border-radius:12px!important;overflow:hidden;background:#fff}
+[data-testid="stDialog"]:has(.cal-detail-marker) [data-testid="stExpander"] summary{background:#eaf2ff!important;padding:12px!important}
+[data-testid="stDialog"]:has(.cal-detail-marker) [data-testid="stExpander"] summary p{color:#164eac!important;font-weight:800!important}
+[data-testid="stDialog"]:has(.cal-detail-marker) [data-testid="stForm"]{border:0!important;background:#fff!important}
+[data-testid="stDialog"]:has(.cal-detail-marker) [data-testid="stForm"] label p{font-weight:750!important;color:#263f66!important;font-size:12px!important}
+.cal-edit-section{background:#eaf2ff;border-left:4px solid #2169ef;color:#1e64cc;padding:11px 13px;border-radius:7px;margin:17px 0 12px;font-weight:850;font-size:13px}
+.cal-edit-section span{color:#173d78;margin-left:8px}
+[data-testid="stDialog"]:has(.cal-detail-marker) [data-testid="stFormSubmitButton"] button{min-height:47px!important;font-weight:800!important;background:#2169ef!important;color:white!important;border-radius:9px!important}
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'
@@ -306,9 +331,12 @@ def dt(v):
 
 def form(svc,people,existing=None,key='new',compact=False):
     old=existing or {}
+    calendar_edit=key.startswith('calendar_detail_')
     with st.form('edit_'+key):
+        if calendar_edit:st.markdown('<div class="cal-edit-section">01 <span>업무 기본 정보</span></div>',unsafe_allow_html=True)
         title=st.text_input('📝 업무명 *',value=safe(old.get('업무명')),placeholder='무슨 업무인가요? 예: HE 단가 인하 기안')
         detail=st.text_area('📋 상세 업무 내용',value=safe(old.get('상세내용')),placeholder='해야 할 일과 진행 내용을 간단히 적어주세요.',height=75)
+        if calendar_edit:st.markdown('<div class="cal-edit-section">02 <span>거래처 및 담당자</span></div>',unsafe_allow_html=True)
         if compact:st.markdown('<div class="form-section-label">01 · 업무 분류 및 담당</div><div class="section-caption">거래처와 업무 담당자를 지정하세요.</div>',unsafe_allow_html=True)
         c1,c2,c3=st.columns(1 if compact else 3) if not compact else (None,None,None)
         if compact:
@@ -321,6 +349,7 @@ def form(svc,people,existing=None,key='new',compact=False):
         owner=c2.selectbox('담당자',options,index=options.index(safe(old.get('담당자'))) if safe(old.get('담당자')) in options else 0)
         cat_options=list(dict.fromkeys(CATS+([safe(old.get('업무구분'))] if safe(old.get('업무구분')) else [])))
         category=c3.selectbox('업무구분',cat_options,index=cat_options.index(safe(old.get('업무구분'))) if safe(old.get('업무구분')) in cat_options else 0)
+        if calendar_edit:st.markdown('<div class="cal-edit-section">03 <span>일정 및 진행 현황</span></div>',unsafe_allow_html=True)
         if compact:st.markdown('<div class="form-section-label">02 · 일정 및 진행 상태</div><div class="section-caption">업무 기간과 현재 진행 상황을 선택하세요.</div>',unsafe_allow_html=True)
         c1,c2=st.columns(2)
         start=c1.date_input('시작일',value=dt(old.get('시작일')) or date.today())
@@ -333,11 +362,12 @@ def form(svc,people,existing=None,key='new',compact=False):
         try:p=int(float(old.get('진행률') or 0))
         except (ValueError,TypeError):p=0
         progress=st.slider('진행률 (%)',0,100,max(0,min(100,p)))
+        if calendar_edit:st.markdown('<div class="cal-edit-section">04 <span>메모 및 첨부파일</span></div>',unsafe_allow_html=True)
         if compact:st.markdown('<div class="form-section-label">03 · 참고 정보</div><div class="section-caption">메모와 참고 파일이 있다면 추가하세요.</div>',unsafe_allow_html=True)
         memo=st.text_area('메모 (선택)',value=safe(old.get('메모')),height=65,placeholder='참고사항, 인수인계 내용 등')
         link=st.text_input('첨부파일 링크 (선택)',value=safe(old.get('첨부파일URL')),placeholder='Google Drive 파일 URL 붙여넣기')
         st.caption('입력한 업무는 Google Sheets에 저장되며 왼쪽 업무 목록에 표시됩니다.')
-        if st.form_submit_button('＋ 새 업무 등록하기' if compact else 'Google Sheets에 저장',type='primary',use_container_width=compact):
+        if st.form_submit_button('＋ 새 업무 등록하기' if compact else 'Google Sheets에 저장',type='primary',use_container_width=(compact or calendar_edit)):
             if not title.strip():st.error('업무명을 입력하세요.');return
             if due<start:st.error('마감일은 시작일 이후여야 합니다.');return
             if tm:
@@ -474,16 +504,25 @@ else:
         # 기존 달력 HTML/CSS를 유지하면서 업무 카드만 클릭 가능한 링크로 연결합니다.
         @st.dialog('📋 업무 상세정보 · 수정', width='large')
         def calendar_task_detail(task_row):
-            st.subheader(safe(task_row.get('업무명')) or '업무 상세정보')
-            a,b,c=st.columns(3)
-            a.write('**담당자**  '+(safe(task_row.get('담당자')) or '미지정'))
-            b.write('**진행상태**  '+(safe(task_row.get('진행상태')) or '미진행'))
-            c.write('**진행률**  '+safe(task_row.get('진행률') or '0')+'%')
-            st.write('**업무기간**  '+(safe(task_row.get('시작일')) or '미지정')+' ~ '+(safe(task_row.get('마감일')) or '미지정'))
-            st.write('**업무구분**  '+(safe(task_row.get('업무구분')) or '미지정'))
-            st.write('**상세내용**')
-            st.write(safe(task_row.get('상세내용')) or '등록된 상세내용이 없습니다.')
-            with st.expander('✏️ 업무 정보 수정', expanded=False):
+            st.markdown('<div class="cal-detail-marker"></div>',unsafe_allow_html=True)
+            task_title=escape(safe(task_row.get('업무명')) or '업무 상세정보')
+            owner=escape(safe(task_row.get('담당자')) or '미지정')
+            status=escape(safe(task_row.get('진행상태')) or '미진행')
+            category=escape(safe(task_row.get('업무구분')) or '미지정')
+            start_day=escape(safe(task_row.get('시작일')) or '미지정')
+            due_day=escape(safe(task_row.get('마감일')) or '미지정')
+            try:progress=max(0,min(100,int(float(task_row.get('진행률') or 0))))
+            except (ValueError,TypeError):progress=0
+            detail=escape(safe(task_row.get('상세내용')) or '등록된 상세내용이 없습니다.').replace('\n','<br>')
+            st.markdown(f'''<div class="cal-detail-hero"><div class="cal-detail-kicker">📌 선택한 업무</div>
+                <div class="cal-detail-title">{task_title}</div>
+                <div class="cal-detail-pills"><span>👤 {owner}</span><span>● {status}</span><span>📁 {category}</span></div>
+                <div class="cal-detail-dates">📅 {start_day} ~ {due_day}</div>
+                <div class="cal-detail-progress-label"><b>업무 진행률</b><strong>{progress}%</strong></div>
+                <div class="cal-detail-track"><div style="width:{progress}%"></div></div></div>
+                <div class="cal-detail-content"><b>📋 상세 업무 내용</b><div>{detail}</div></div>''',unsafe_allow_html=True)
+            with st.expander('✏️ 업무 정보 수정 · 클릭하여 펼치기', expanded=False):
+                st.caption('수정할 내용을 입력한 뒤 하단의 파란 저장 버튼을 누르세요.')
                 form(svc,people,existing=task_row,key='calendar_detail_'+safe(task_row.get('통합ID')))
             if st.button('닫기',key='calendar_detail_close'):
                 st.query_params.pop('calendar_task',None)

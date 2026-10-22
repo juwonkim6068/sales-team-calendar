@@ -15,7 +15,11 @@ st.markdown("""<style>
 :root{--ink:#172641;--muted:#7283a0;--line:#e3eaf3;--blue:#2169ef}
 html,body,.stApp,[class*="css"]{font-family:'Noto Sans KR',sans-serif}
 .stApp{background:#f8fafd;color:var(--ink)}
-.block-container{max-width:1900px;padding:1.65rem 2rem 3rem}
+/* 상단 Streamlit 도구모음과 페이지 제목이 겹치지 않도록 안전한 공간 확보 */
+.block-container{max-width:1900px;padding:3.85rem 2rem 3rem!important}
+[data-testid="stAppViewBlockContainer"]{padding-top:3.85rem!important}
+[data-testid="stHeader"]{background:transparent!important}
+@media(max-width:1050px){[data-testid="stAppViewBlockContainer"]{padding-top:3.65rem!important}}
 h1,h2,h3{color:#172641!important;letter-spacing:-.04em;font-weight:800!important}
 h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 [data-testid="stSidebar"]{background:linear-gradient(155deg,#253b58,#1b2d47);border-right:0}
@@ -64,7 +68,7 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .sidebar-mini .mini-week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11px;color:#b7c8e2}
 .sidebar-mini .mini-week span{padding:5px 0}
 .sidebar-mini .mini-week .on{background:#2169ef;border-radius:50%;color:white}
-@media(max-width:1050px){.block-container{padding:1rem .7rem}.cal-day{min-height:108px;padding:5px 3px}.cal-event{font-size:9px;padding:4px}.cal-event .event-sub{font-size:9px}}
+@media(max-width:1050px){.block-container{padding:3.65rem .7rem 2rem!important}.cal-day{min-height:108px;padding:5px 3px}.cal-event{font-size:9px;padding:4px}.cal-event .event-sub{font-size:9px}}
 
 .task-card-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:2px 0 10px}
 .task-card-title{font-size:17px;font-weight:800;color:#192c49}

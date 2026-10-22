@@ -486,16 +486,20 @@ else:
             with st.expander('✏️ 업무 정보 수정', expanded=False):
                 form(svc,people,existing=task_row,key='calendar_detail_'+safe(task_row.get('통합ID')))
             if st.button('닫기',key='calendar_detail_close'):
-                st.query_params.pop('calendar_task',None)
+                if 'calendar_task' in st.query_params:
+                    del st.query_params['calendar_task']
                 st.rerun()
         selected_calendar_task=st.query_params.get('calendar_task','')
         if selected_calendar_task:
-            matches=df[df['통합ID'].astype(str)==str(selected_calendar_task)]
-            if len(matches)==1:
-                with st.container(border=True):
-                    calendar_task_detail(matches.iloc[0].to_dict())
+            if '통합ID' not in df.columns:
+                st.warning('업무 ID 열이 없어 상세정보를 표시할 수 없습니다.')
             else:
-                st.query_params.pop('calendar_task',None)
+                matches=df[df['통합ID'].astype(str)==str(selected_calendar_task)]
+                if len(matches)==1:
+                    with st.container(border=True):
+                        calendar_task_detail(matches.iloc[0].to_dict())
+                else:
+                    st.warning('선택한 업무를 찾을 수 없습니다. 달력을 새로고침해 주세요.')
         palette=['#377af4','#7b45f4','#f59d26','#27bd6a','#ed6978','#23a8bb','#9861db','#dc8a41']
         def owner_color(owner):
             if not owner:return '#6c87b4'

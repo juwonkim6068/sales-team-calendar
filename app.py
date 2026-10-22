@@ -119,6 +119,16 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 [data-testid="stColumn"]:has(.new-task-banner) [data-testid="stFormSubmitButton"] button{background:#155ee9!important;min-height:49px!important;font-size:15px!important;box-shadow:0 5px 12px rgba(27,91,209,.2)!important}
 .form-section-label{font-size:12px!important;background:#e6f0ff!important;color:#154eaa!important;border-left:4px solid #2169ef!important;padding:9px 11px!important}
 @media(max-width:850px){.task-card-title{font-size:15px!important}.task-card-meta span{font-size:11px!important}}
+
+.edit-intro{background:#e5efff;border-left:5px solid #2169ef;padding:13px 15px;border-radius:10px;margin:6px 0 12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.edit-intro strong{font-size:16px;color:#164a9c}.edit-intro span{font-size:12px;color:#496b99}
+.edit-section{background:#eef5ff;border-left:4px solid #2169ef;border-radius:8px;padding:10px 12px;margin:13px 0 8px;color:#164a9c;font-size:14px;font-weight:800}
+.edit-section small{color:#5e789b;font-size:11px;font-weight:500;margin-left:10px}
+.edit-save-hint{background:#edf9f2;border:1px solid #bde5ce;color:#167448;border-radius:9px;padding:11px;font-size:12px;font-weight:700;margin:14px 0 7px}
+[data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top) [data-testid="stExpander"] details[open]{background:#fff!important}
+[data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top) [data-testid="stForm"]{background:white!important;border:1px solid #d6e3f4!important;border-radius:12px!important;padding:14px!important}
+[data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top) [data-testid="stForm"] label p{font-size:13px!important;font-weight:800!important;color:#1b467d!important}
+[data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top) [data-testid="stFormSubmitButton"] button{background:#165fe7!important;color:white!important;min-height:48px!important;font-size:15px!important;font-weight:800!important;border-radius:9px!important}
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'
@@ -459,9 +469,10 @@ else:
                             + (f'<span><b>거래처</b>{escape(company_text)}</span>' if company_text else '')
                             + '</div>',unsafe_allow_html=True)
                         st.progress(percent/100,text=f'📊 업무 진행률  {percent}%')
-                        with st.expander('✏️ 업무 내용 · 상태 변경하기  ▾'):
-                            st.caption('각 항목을 수정한 뒤 아래 ‘변경사항 저장’을 눌러주세요.')
+                        with st.expander('✏️ 업무 수정하기 · 클릭해서 항목 변경'):
+                            st.markdown("<div class='edit-intro'><strong>✏️ 업무 정보 수정</strong><span>변경 후 아래 저장 버튼을 누르세요.</span></div>",unsafe_allow_html=True)
                             with st.form('quick_edit_'+task_id):
+                                st.markdown("<div class='edit-section'>01 · 진행 현황 <small>상태 / 우선순위 / 진행률</small></div>",unsafe_allow_html=True)
                                 a,b,c=st.columns([1.1,1,1.3])
                                 states=list(dict.fromkeys(STATES+[status]))
                                 new_status=a.selectbox('진행상태',states,index=states.index(status),key='qs_'+task_id)
@@ -469,6 +480,7 @@ else:
                                 new_priority=b.selectbox('우선순위',priorities,index=priorities.index(priority),key='qp_'+task_id)
                                 new_progress=c.slider('진행률 (%)',0,100,percent,key='qg_'+task_id)
                                 a,b=st.columns(2)
+                                st.markdown("<div class='edit-section'>02 · 기본 정보 <small>업무명 / 담당자 / 마감일</small></div>",unsafe_allow_html=True)
                                 new_title=a.text_input('업무명',value=title,key='qt_'+task_id)
                                 new_owner=b.selectbox('담당자',list(dict.fromkeys(
                                     ['미지정']+people+([owner_text] if owner_text!='담당자 미지정' else []))),
@@ -478,9 +490,11 @@ else:
                                 new_due=a.date_input('마감일',value=dt(task.get('마감일')) or date.today(),key='qd_'+task_id)
                                 new_cat=b.selectbox('업무구분',list(dict.fromkeys(CATS+[category_text])),
                                     index=list(dict.fromkeys(CATS+[category_text])).index(category_text),key='qc_'+task_id)
-                                new_detail=st.text_area('상세내용',value=safe(task.get('상세내용')),key='qdetail_'+task_id)
+                                st.markdown("<div class='edit-section'>03 · 업무 내용 <small>상세내용 / 거래처</small></div>",unsafe_allow_html=True)
+                                new_detail=st.text_area('상세내용' ,value=safe(task.get('상세내용')),key='qdetail_'+task_id)
                                 new_company=st.text_input('거래처',value=company_text,key='qcompany_'+task_id)
-                                if st.form_submit_button('변경사항 저장',type='primary'):
+                                st.markdown("<div class='edit-save-hint'>✓ 변경 내용을 확인하고 저장하세요. Google Sheets에 반영됩니다.</div>",unsafe_allow_html=True)
+                                if st.form_submit_button('✓ 변경사항 저장하기',type='primary',use_container_width=True):
                                     if not new_title.strip():
                                         st.error('업무명을 입력하세요.')
                                     elif dt(task.get('시작일')) and new_due<dt(task.get('시작일')):

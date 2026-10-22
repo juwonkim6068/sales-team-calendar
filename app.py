@@ -161,6 +161,26 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
   margin-top:10px!important;
 }
 
+
+/* Meeting-specific visual hierarchy */
+.meeting-hero{background:linear-gradient(110deg,#eaf2ff,#f8fbff);border:1px solid #cbdfff;border-left:5px solid #2468ed;border-radius:14px;padding:15px 19px;margin:6px 0 18px}
+.meeting-hero strong{display:block;color:#153c81;font-size:19px;font-weight:850;margin-bottom:4px}
+.meeting-hero span{color:#587193;font-size:12px}
+.meeting-list-card{padding:3px 0 2px}
+.meeting-list-title{font-size:18px;font-weight:850;color:#18355e;overflow-wrap:anywhere;line-height:1.5;margin-bottom:9px}
+.meeting-pills{display:flex;flex-wrap:wrap;gap:7px;margin:9px 0}
+.meeting-pills span{background:#edf4ff;color:#285da5;border:1px solid #d8e7ff;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:750}
+.meeting-excerpt{background:#f5f8fc;border-radius:9px;padding:10px 12px;color:#50647f;font-size:12px;line-height:1.65;overflow-wrap:anywhere;margin:9px 0}
+.meeting-detail-header{background:linear-gradient(105deg,#e8f2ff,#f8fbff);border-left:5px solid #2169ef;border-radius:10px;padding:15px;margin:0 0 14px}
+.meeting-detail-header strong{font-size:20px;color:#143867;overflow-wrap:anywhere}
+.meeting-detail-header small{display:block;margin-top:8px;color:#627895}
+.meeting-section{font-size:14px;font-weight:850;color:#1d529d;background:#edf5ff;border-left:4px solid #2b75ed;border-radius:7px;padding:10px 12px;margin:18px 0 9px}
+.meeting-body{background:#fff;border:1px solid #e0e9f5;border-radius:10px;padding:14px 15px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.75;font-size:13px;color:#344763;min-height:48px}
+.meeting-date-box{background:#eaf2ff;border-radius:11px;text-align:center;padding:12px 4px;color:#2c5b9b;font-size:13px;font-weight:800}
+.meeting-date-box strong{font-size:25px;color:#143e81}
+[data-testid="stVerticalBlockBorderWrapper"]:has(.meeting-list-card){border:1px solid #d7e4f7!important;border-left:4px solid #3477ed!important;border-radius:14px!important;box-shadow:0 4px 15px rgba(25,72,142,.06)!important;padding:15px!important;margin-bottom:10px}
+[data-testid="stVerticalBlockBorderWrapper"]:has(.meeting-detail-header){border:1px solid #d1e0f5!important;border-radius:15px!important;padding:17px!important;background:#fbfdff!important}
+
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'
@@ -607,50 +627,57 @@ else:
         for col,name,num in [(a,'🗓️ 이번 달 회의',sum(x['날짜'].startswith(date.today().strftime('%Y-%m')) for x in meetings)),(b,'🟢 완료된 To-Do',completed),(c,'🟠 진행 중 To-Do',max(0,len(todos)-completed-delayed)),(d,'🔴 지연된 To-Do',delayed)]:
             col.metric(name,f'{num} 건')
         st.caption('To-Do는 후속조치의 줄 단위이며 완료/지연 표시로 집계합니다.')
-        f1,f2,f3,f4=st.columns([1,1,1,2])
-        kind=f1.selectbox('회의구분',['전체']+sorted(set(x['구분'] for x in meetings)))
-        attendee=f2.selectbox('참석자',['전체']+sorted(set(p.strip() for x in meetings for p in x['참석자'].split(',') if p.strip())))
-        author=f3.selectbox('작성자',['전체']+sorted(set(x['작성자'] for x in meetings if x['작성자'])))
-        q=f4.text_input('검색',placeholder='회의 제목, 내용, 참석자 검색')
+        with st.container(border=True):
+            f1,f2,f3,f4=st.columns([1,1,1,2])
+            kind=f1.selectbox('회의구분',['전체']+sorted(set(x['구분'] for x in meetings)))
+            attendee=f2.selectbox('참석자',['전체']+sorted(set(p.strip() for x in meetings for p in x['참석자'].split(',') if p.strip())))
+            author=f3.selectbox('작성자',['전체']+sorted(set(x['작성자'] for x in meetings if x['작성자'])))
+            q=f4.text_input('검색',placeholder='회의 제목, 내용, 참석자 검색')
         filtered=[r for r in meetings if (kind=='전체' or r['구분']==kind) and (attendee=='전체' or attendee in r['참석자']) and (author=='전체' or r['작성자']==author) and (not q or q.lower() in ' '.join(r.values()).lower())]
         filtered.sort(key=lambda r:r['날짜']+' '+r['시작'],reverse=True)
         left,right=st.columns([1.2,1],gap='large')
         with left:
+            st.markdown('<div class="meeting-hero"><strong>📌 회의록 목록 · 한눈에 확인</strong><span>회의 카드를 선택하면 참석자, 회의 내용과 결정사항을 오른쪽에서 확인할 수 있습니다.</span></div>',unsafe_allow_html=True)
             a,b=st.columns([2,1])
-            a.markdown(f'### 회의록 목록 ({len(filtered)}건)')
-            if b.button('＋ 새 회의록 작성',type='primary'):
-                st.session_state['meeting_id']='NEW'
+            a.markdown(f'#### 등록된 회의 ({len(filtered)}건)')
+            if b.button('＋ 새 회의록 작성',type='primary',use_container_width=True):
+                st.session_state['meeting_id']='NEW';st.rerun()
             for r in filtered:
                 with st.container(border=True):
-                    a,b=st.columns([1,5])
-                    a.markdown(f"### 📅 {escape(r['날짜'][5:])}")
-                    b.markdown(f"**{escape(r['제목'])}**")
-                    b.caption(f"{r['구분']} · {r['부서']} · {r['시작']}~{r['종료']} · 참석 {len([x for x in r['참석자'].split(',') if x.strip()])}명")
-                    b.caption(r['회의내용'][:110] or '회의 내용 없음')
-                    if b.button('상세 보기 →',key='meeting_'+r['ID']):
+                    a,b=st.columns([1,5],gap='medium')
+                    date_text=escape(r['날짜'][5:] or '미정')
+                    a.markdown(f'<div class="meeting-date-box">📅<div><strong>{date_text}</strong></div></div>',unsafe_allow_html=True)
+                    title=escape(r['제목'] or '제목 없음')
+                    summary=escape((r['회의내용'] or '회의 내용이 아직 작성되지 않았습니다.')[:150])
+                    pills=[('회의구분',r['구분']),('부서',r['부서']),('시간',r['시작']+' ~ '+r['종료']),
+                           ('참석',str(len([x for x in r['참석자'].split(',') if x.strip()]))+'명')]
+                    tags=''.join('<span>'+escape(k)+' · '+escape(v)+'</span>' for k,v in pills if v)
+                    b.markdown('<div class="meeting-list-card"><div class="meeting-list-title">'+title+
+                               '</div><div class="meeting-pills">'+tags+
+                               '</div><div class="meeting-excerpt">'+summary+'</div></div>',unsafe_allow_html=True)
+                    if b.button('📖 회의 내용 자세히 보기 →',key='meeting_'+r['ID'],use_container_width=True):
                         st.session_state['meeting_id']=r['ID'];st.rerun()
             if not filtered:st.info('조건에 맞는 회의록이 없습니다.')
         with right:
             selected=st.session_state.get('meeting_id')
             record=next((x for x in meetings if x['ID']==selected),None)
             if selected=='NEW':
-                st.markdown('### ✍️ 새 회의록 작성')
+                st.markdown('<div class="meeting-hero"><strong>✍️ 새 회의록 작성</strong><span>회의 정보, 안건, 결정사항과 후속조치를 작성해 저장하세요.</span></div>',unsafe_allow_html=True)
                 with st.container(border=True):meeting_form()
             elif record:
                 with st.container(border=True):
-                    st.markdown('### 📋 회의록 상세')
-                    st.markdown(f"### {escape(record['제목'])}")
-                    st.caption(f"📅 {record['날짜']} · 🕒 {record['시작']}~{record['종료']} · 📍 {record['장소']}")
-                    st.caption(f"{record['구분']} · {record['부서']} · 작성자 {record['작성자']}")
-                    for label,key in [('👥 참석자','참석자'),('📑 회의 내용','회의내용'),('✅ 주요 결정사항','결정사항'),('📌 후속조치','후속조치')]:
-                        st.markdown('**'+label+'**')
-                        st.text(record[key] or '미입력')
-                with st.expander('✏️ 회의록 수정'):
+                    title=escape(record['제목'] or '제목 없음')
+                    subtitle=escape(record['날짜']+' · '+record['시작']+'~'+record['종료']+' · '+record['장소'])
+                    st.markdown('<div class="meeting-detail-header"><strong>📋 '+title+'</strong><small>📅 '+subtitle+'</small></div>',unsafe_allow_html=True)
+                    st.markdown('<div class="meeting-pills"><span>'+escape(record['구분'])+'</span><span>'+escape(record['부서'])+'</span><span>작성자 · '+escape(record['작성자'] or '미입력')+'</span></div>',unsafe_allow_html=True)
+                    for label,key in [('👥 참석자','참석자'),('📝 회의 내용','회의내용'),('✅ 주요 결정사항','결정사항'),('📌 후속조치 / To-Do','후속조치')]:
+                        st.markdown('<div class="meeting-section">'+label+'</div>',unsafe_allow_html=True)
+                        st.markdown('<div class="meeting-body">'+escape(record[key] or '아직 입력된 내용이 없습니다.')+'</div>',unsafe_allow_html=True)
+                with st.expander('✏️ 이 회의록 수정하기'):
                     meeting_form(record)
             else:
-                st.markdown('### 📋 회의록 상세')
-                st.info('왼쪽에서 회의록을 선택하거나 새 회의록을 작성하세요.')
-                if st.button('＋ 새 회의록 작성',key='new_meeting_side',type='primary'):
+                st.markdown('<div class="meeting-hero"><strong>📋 회의록 상세</strong><span>왼쪽 목록에서 회의를 선택하거나 새 회의록을 작성하세요.</span></div>',unsafe_allow_html=True)
+                if st.button('＋ 새 회의록 작성',key='new_meeting_side',type='primary',use_container_width=True):
                     st.session_state['meeting_id']='NEW';st.rerun()
     else:
         st.title('거래처 특이사항')

@@ -181,6 +181,16 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 [data-testid="stVerticalBlockBorderWrapper"]:has(.meeting-list-card){border:1px solid #d7e4f7!important;border-left:4px solid #3477ed!important;border-radius:14px!important;box-shadow:0 4px 15px rgba(25,72,142,.06)!important;padding:15px!important;margin-bottom:10px}
 [data-testid="stVerticalBlockBorderWrapper"]:has(.meeting-detail-header){border:1px solid #d1e0f5!important;border-radius:15px!important;padding:17px!important;background:#fbfdff!important}
 
+
+.meeting-topbar{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;margin:5px 0 20px}
+.meeting-top-title{font-size:30px;font-weight:900;color:#142e53;line-height:1.3}
+.meeting-top-title small{display:block;font-size:12px;font-weight:450;color:#71819b;margin-top:9px}
+.meeting-mini-stats{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.meeting-mini-stat{background:#fff;border:1px solid #dce7f7;border-radius:10px;padding:9px 12px;min-width:94px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 9px rgba(30,75,140,.04)}
+.meeting-mini-stat span{font-size:11px;color:#607796;white-space:nowrap}
+.meeting-mini-stat b{font-size:16px;color:#143a75;white-space:nowrap}
+.meeting-filter-title{background:#eaf2ff;border-left:4px solid #2468ef;border-radius:9px;padding:12px 15px;color:#17498e;font-size:15px;font-weight:850;margin:12px 0 10px}
+.meeting-filter-title small{display:block;font-size:11px;color:#6981a4;font-weight:450;margin-top:4px}
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'
@@ -616,32 +626,33 @@ else:
                 form(svc,people,key='task_new_panel',compact=True)
 
     elif page=='📝 회의록':
-        st.markdown('## 👥 회의록')
-        st.caption('영업팀 회의 내용을 기록하고 공유하는 공간입니다.')
         try:meetings=meeting_data()
         except Exception as e:st.error(f'회의록 연결 오류: {e}');st.stop()
         todos=[line for r in meetings for line in r['후속조치'].splitlines() if line.strip()]
         completed=sum('완료' in x for x in todos)
         delayed=sum('지연' in x for x in todos)
-        a,b,c,d=st.columns(4)
-        for col,name,num in [(a,'🗓️ 이번 달 회의',sum(x['날짜'].startswith(date.today().strftime('%Y-%m')) for x in meetings)),(b,'🟢 완료된 To-Do',completed),(c,'🟠 진행 중 To-Do',max(0,len(todos)-completed-delayed)),(d,'🔴 지연된 To-Do',delayed)]:
-            col.metric(name,f'{num} 건')
-        st.caption('To-Do는 후속조치의 줄 단위이며 완료/지연 표시로 집계합니다.')
+        monthly=sum(x['날짜'].startswith(date.today().strftime('%Y-%m')) for x in meetings)
+        st.markdown(
+            '<div class="meeting-topbar"><div class="meeting-top-title">👥 회의록'
+            '<small>영업팀 회의 내용을 기록하고 공유하는 공간입니다.</small></div>'
+            '<div class="meeting-mini-stats">'
+            + ''.join(f'<div class="meeting-mini-stat"><span>{label}</span><b>{num}건</b></div>'
+              for label,num in [('📅 이번 달 회의',monthly),('🟢 완료',completed),
+                                ('🟠 진행 중',max(0,len(todos)-completed-delayed)),('🔴 지연',delayed)])
+            + '</div></div>',unsafe_allow_html=True)
+        st.markdown('<div class="meeting-filter-title">🔎 회의록 검색 및 필터 <small>원하는 회의 내용을 빠르게 찾아보세요.</small></div>',unsafe_allow_html=True)
         with st.container(border=True):
-            f1,f2,f3,f4=st.columns([1,1,1,2])
+            q=st.text_input('회의록 통합 검색',placeholder='회의 제목, 내용, 참석자, 작성자 검색',key='meeting_search')
+            f1,f2,f3=st.columns(3)
             kind=f1.selectbox('회의구분',['전체']+sorted(set(x['구분'] for x in meetings)))
             attendee=f2.selectbox('참석자',['전체']+sorted(set(p.strip() for x in meetings for p in x['참석자'].split(',') if p.strip())))
             author=f3.selectbox('작성자',['전체']+sorted(set(x['작성자'] for x in meetings if x['작성자'])))
-            q=f4.text_input('검색',placeholder='회의 제목, 내용, 참석자 검색')
         filtered=[r for r in meetings if (kind=='전체' or r['구분']==kind) and (attendee=='전체' or attendee in r['참석자']) and (author=='전체' or r['작성자']==author) and (not q or q.lower() in ' '.join(r.values()).lower())]
         filtered.sort(key=lambda r:r['날짜']+' '+r['시작'],reverse=True)
-        left,right=st.columns([1.2,1],gap='large')
+        left,right=st.columns([3.1,1.45],gap='medium')
         with left:
             st.markdown('<div class="meeting-hero"><strong>📌 회의록 목록 · 한눈에 확인</strong><span>회의 카드를 선택하면 참석자, 회의 내용과 결정사항을 오른쪽에서 확인할 수 있습니다.</span></div>',unsafe_allow_html=True)
-            a,b=st.columns([2,1])
-            a.markdown(f'#### 등록된 회의 ({len(filtered)}건)')
-            if b.button('＋ 새 회의록 작성',type='primary',use_container_width=True):
-                st.session_state['meeting_id']='NEW';st.rerun()
+            st.markdown(f'#### 등록된 회의 ({len(filtered)}건)')
             for r in filtered:
                 with st.container(border=True):
                     a,b=st.columns([1,5],gap='medium')
@@ -661,10 +672,12 @@ else:
         with right:
             selected=st.session_state.get('meeting_id')
             record=next((x for x in meetings if x['ID']==selected),None)
-            if selected=='NEW':
+            if selected in (None,'NEW') or (selected and record is None):
                 st.markdown('<div class="meeting-hero"><strong>✍️ 새 회의록 작성</strong><span>회의 정보, 안건, 결정사항과 후속조치를 작성해 저장하세요.</span></div>',unsafe_allow_html=True)
                 with st.container(border=True):meeting_form()
             elif record:
+                if st.button('＋ 새 회의록 작성으로 돌아가기',key='meeting_back_to_new',use_container_width=True):
+                    st.session_state['meeting_id']='NEW';st.rerun()
                 with st.container(border=True):
                     title=escape(record['제목'] or '제목 없음')
                     subtitle=escape(record['날짜']+' · '+record['시작']+'~'+record['종료']+' · '+record['장소'])
@@ -675,10 +688,6 @@ else:
                         st.markdown('<div class="meeting-body">'+escape(record[key] or '아직 입력된 내용이 없습니다.')+'</div>',unsafe_allow_html=True)
                 with st.expander('✏️ 이 회의록 수정하기'):
                     meeting_form(record)
-            else:
-                st.markdown('<div class="meeting-hero"><strong>📋 회의록 상세</strong><span>왼쪽 목록에서 회의를 선택하거나 새 회의록을 작성하세요.</span></div>',unsafe_allow_html=True)
-                if st.button('＋ 새 회의록 작성',key='new_meeting_side',type='primary',use_container_width=True):
-                    st.session_state['meeting_id']='NEW';st.rerun()
     else:
         st.title('거래처 특이사항')
         st.info('2차 개발에서 거래처별 특이사항 기록 기능을 추가합니다. 현재는 거래처가 입력된 업무를 조회할 수 있습니다.')

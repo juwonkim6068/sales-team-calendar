@@ -161,17 +161,6 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
   margin-top:10px!important;
 }
 
-
-/* 업무 현황: 제목 오른쪽의 소형 요약 배지 */
-.task-overview-header{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin:0 0 14px;padding:5px 0 10px}
-.task-overview-title h2{font-size:27px!important;font-weight:850!important;color:#172d4e;margin:0 0 5px!important;line-height:1.25}
-.task-overview-title p{font-size:12px;color:#71819b;margin:0}
-.compact-stats{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-.compact-stat{display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:91px;padding:9px 12px;border-radius:11px;border:1px solid rgba(49,89,151,.10)}
-.compact-stat span{font-size:11px;font-weight:750;white-space:nowrap}
-.compact-stat strong{font-size:21px;line-height:1.2;font-weight:850}
-.compact-stat small{font-size:11px;font-weight:600;margin-left:3px}
-@media(max-width:900px){.task-overview-header{align-items:flex-start}.compact-stats{justify-content:flex-start}.compact-stat{min-width:76px;padding:7px 9px}.compact-stat strong{font-size:18px}}
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'
@@ -335,6 +324,51 @@ def display_table(data):
     if data.empty:st.info('표시할 업무가 없습니다.')
     else:st.dataframe(data[[x for x in cols if x in data.columns]],hide_index=True,use_container_width=True)
 
+
+MEETING_TAB='회의록DB'
+MEETING_FIELDS=['ID','제목','구분','부서','날짜','시작','종료','장소','참석자','작성자','회의내용','결정사항','후속조치','작성일']
+def meeting_data():
+    if MEETING_TAB not in tab_names(svc):
+        svc.spreadsheets().batchUpdate(spreadsheetId=SID,body={'requests':[{'addSheet':{'properties':{'title':MEETING_TAB}}}]}).execute()
+    vals=svc.spreadsheets().values().get(spreadsheetId=SID,range="'회의록DB'!A:N").execute().get('values',[])
+    if not vals:
+        svc.spreadsheets().values().update(spreadsheetId=SID,range="'회의록DB'!A1:N1",valueInputOption='RAW',body={'values':[MEETING_FIELDS]}).execute()
+        return []
+    if vals[0]!=MEETING_FIELDS:raise ValueError('회의록DB 열 구성이 다릅니다. 기존 데이터를 보호하기 위해 중단합니다.')
+    return [dict(zip(MEETING_FIELDS,row+['']*(len(MEETING_FIELDS)-len(row)))) for row in vals[1:] if row and row[0]]
+def meeting_save(r):
+    data=meeting_data()
+    ids=[x['ID'] for x in data]
+    values=[str(r.get(k,'')) for k in MEETING_FIELDS]
+    if r['ID'] in ids:
+        n=ids.index(r['ID'])+2
+        svc.spreadsheets().values().update(spreadsheetId=SID,range=f"'회의록DB'!A{n}:N{n}",valueInputOption='RAW',body={'values':[values]}).execute()
+    else:
+        svc.spreadsheets().values().append(spreadsheetId=SID,range="'회의록DB'!A:N",valueInputOption='RAW',insertDataOption='INSERT_ROWS',body={'values':[values]}).execute()
+def meeting_form(r=None):
+    r=r or {}
+    with st.form('meeting_form_'+r.get('ID','new')):
+        title=st.text_input('회의 제목 *',r.get('제목',''),placeholder='예: 영업부 주간 회의')
+        a,b=st.columns(2)
+        kind=a.selectbox('회의구분',['정기회의','업무회의','거래처 미팅','기타'],index=['정기회의','업무회의','거래처 미팅','기타'].index(r.get('구분','정기회의')) if r.get('구분','정기회의') in ['정기회의','업무회의','거래처 미팅','기타'] else 0)
+        dept=b.text_input('부서',r.get('부서','영업부'))
+        a,b,c=st.columns(3)
+        day=a.date_input('회의일',date.fromisoformat(r['날짜']) if r.get('날짜') and len(r['날짜'])==10 else date.today())
+        start=b.text_input('시작시간',r.get('시작','10:00'))
+        end=c.text_input('종료시간',r.get('종료','11:00'))
+        place=st.text_input('장소',r.get('장소',''))
+        attendees=st.text_input('참석자 (쉼표 구분)',r.get('참석자',''))
+        author=st.text_input('작성자',r.get('작성자',''))
+        content=st.text_area('회의 내용',r.get('회의내용',''),height=160)
+        decisions=st.text_area('주요 결정사항',r.get('결정사항',''),height=100)
+        actions=st.text_area('후속조치 / To-Do',r.get('후속조치',''),height=100,placeholder='담당자 | 할 일 | 기한 | 진행상태')
+        if st.form_submit_button('💾 회의록 저장',type='primary',use_container_width=True):
+            if not title.strip():st.error('회의 제목을 입력하세요.')
+            else:
+                record=dict(zip(MEETING_FIELDS,[r.get('ID') or str(uuid.uuid4()),title,kind,dept,day.isoformat(),start,end,place,attendees,author,content,decisions,actions,r.get('작성일') or datetime.now().isoformat(timespec='minutes')]))
+                try:meeting_save(record);st.success('저장되었습니다.');st.rerun()
+                except Exception as e:st.error(f'저장 실패: {e}')
+
 try:svc=api();tabs=tab_names(svc)
 except Exception as exc:st.error(f'Google Sheets 연결 실패: {exc}');st.stop()
 
@@ -449,27 +483,15 @@ else:
         month_df=shown[((shown['마감일']>=month_start)&(shown['시작일']<next_month))|((shown['시작일']=='')&(shown['마감일']>=month_start)&(shown['마감일']<next_month))]
         display_table(month_df)
     elif page=='📋 업무현황':
+        st.markdown("## 📋 업무 현황")
+        st.caption('개인의 업무를 등록하고 마감일까지 관리할 수 있습니다.')
         today=date.today().isoformat()
         done=shown['진행상태'].eq('완료')
         late=(shown['마감일']<today)&(~done)&shown['마감일'].ne('')
         ongoing=shown['진행상태'].isin(['진행중','거의완료'])&(~late)
-        summary_items=[('전체 업무',len(shown),'#376de0','#e9f1ff'),
-                       ('진행 중',int(ongoing.sum()),'#286cdd','#e9f1ff'),
-                       ('완료',int(done.sum()),'#159665','#e8f8f0'),
-                       ('지연',int(late.sum()),'#df4457','#fff0f1')]
-        summary_html=''.join(
-            f'<div class="compact-stat" style="background:{bg};">'
-            f'<span style="color:{color};">{label}</span>'
-            f'<strong style="color:{color};">{value}<small>건</small></strong></div>'
-            for label,value,color,bg in summary_items
-        )
-        st.markdown(
-            '<div class="task-overview-header">'
-            '<div class="task-overview-title"><h2>📋 업무 현황</h2>'
-            '<p>업무를 등록하고 마감일까지 관리하세요.</p></div>'
-            f'<div class="compact-stats">{summary_html}</div></div>',
-            unsafe_allow_html=True,
-        )
+        cards=st.columns(4)
+        for card,label,value in zip(cards,['📄 전체 업무','🔵 진행 중','🟢 완료','🔴 지연'],[len(shown),int(ongoing.sum()),int(done.sum()),int(late.sum())]):
+            card.metric(label,f'{value} 건')
         left,right=st.columns([3.1,1.45],gap='medium')
         with left:
             st.markdown('<div class="task-list-head"><strong>📌 업무 목록 · 한눈에 확인</strong><small>업무별 상태와 마감일을 확인하고 아래 파란 수정란을 눌러 바로 변경하세요.</small></div>',unsafe_allow_html=True)
@@ -572,10 +594,64 @@ else:
             st.info('✍️ **여기에서 새 업무를 작성합니다.** 업무명을 먼저 입력한 후 아래 **파란 등록 버튼**을 누르세요.')
             with st.container(border=True):
                 form(svc,people,key='task_new_panel',compact=True)
+
     elif page=='📝 회의록':
-        st.title('회의록')
-        st.info('2차 개발에서 전용 회의록 시트와 작성·수정 화면을 연결합니다. 현재는 업무구분이 회의인 항목을 표시합니다.')
-        display_table(shown[shown['업무구분']=='회의'])
+        st.markdown('## 👥 회의록')
+        st.caption('영업팀 회의 내용을 기록하고 공유하는 공간입니다.')
+        try:meetings=meeting_data()
+        except Exception as e:st.error(f'회의록 연결 오류: {e}');st.stop()
+        todos=[line for r in meetings for line in r['후속조치'].splitlines() if line.strip()]
+        completed=sum('완료' in x for x in todos)
+        delayed=sum('지연' in x for x in todos)
+        a,b,c,d=st.columns(4)
+        for col,name,num in [(a,'🗓️ 이번 달 회의',sum(x['날짜'].startswith(date.today().strftime('%Y-%m')) for x in meetings)),(b,'🟢 완료된 To-Do',completed),(c,'🟠 진행 중 To-Do',max(0,len(todos)-completed-delayed)),(d,'🔴 지연된 To-Do',delayed)]:
+            col.metric(name,f'{num} 건')
+        st.caption('To-Do는 후속조치의 줄 단위이며 완료/지연 표시로 집계합니다.')
+        f1,f2,f3,f4=st.columns([1,1,1,2])
+        kind=f1.selectbox('회의구분',['전체']+sorted(set(x['구분'] for x in meetings)))
+        attendee=f2.selectbox('참석자',['전체']+sorted(set(p.strip() for x in meetings for p in x['참석자'].split(',') if p.strip())))
+        author=f3.selectbox('작성자',['전체']+sorted(set(x['작성자'] for x in meetings if x['작성자'])))
+        q=f4.text_input('검색',placeholder='회의 제목, 내용, 참석자 검색')
+        filtered=[r for r in meetings if (kind=='전체' or r['구분']==kind) and (attendee=='전체' or attendee in r['참석자']) and (author=='전체' or r['작성자']==author) and (not q or q.lower() in ' '.join(r.values()).lower())]
+        filtered.sort(key=lambda r:r['날짜']+' '+r['시작'],reverse=True)
+        left,right=st.columns([1.2,1],gap='large')
+        with left:
+            a,b=st.columns([2,1])
+            a.markdown(f'### 회의록 목록 ({len(filtered)}건)')
+            if b.button('＋ 새 회의록 작성',type='primary'):
+                st.session_state['meeting_id']='NEW'
+            for r in filtered:
+                with st.container(border=True):
+                    a,b=st.columns([1,5])
+                    a.markdown(f"### 📅 {escape(r['날짜'][5:])}")
+                    b.markdown(f"**{escape(r['제목'])}**")
+                    b.caption(f"{r['구분']} · {r['부서']} · {r['시작']}~{r['종료']} · 참석 {len([x for x in r['참석자'].split(',') if x.strip()])}명")
+                    b.caption(r['회의내용'][:110] or '회의 내용 없음')
+                    if b.button('상세 보기 →',key='meeting_'+r['ID']):
+                        st.session_state['meeting_id']=r['ID'];st.rerun()
+            if not filtered:st.info('조건에 맞는 회의록이 없습니다.')
+        with right:
+            selected=st.session_state.get('meeting_id')
+            record=next((x for x in meetings if x['ID']==selected),None)
+            if selected=='NEW':
+                st.markdown('### ✍️ 새 회의록 작성')
+                with st.container(border=True):meeting_form()
+            elif record:
+                with st.container(border=True):
+                    st.markdown('### 📋 회의록 상세')
+                    st.markdown(f"### {escape(record['제목'])}")
+                    st.caption(f"📅 {record['날짜']} · 🕒 {record['시작']}~{record['종료']} · 📍 {record['장소']}")
+                    st.caption(f"{record['구분']} · {record['부서']} · 작성자 {record['작성자']}")
+                    for label,key in [('👥 참석자','참석자'),('📑 회의 내용','회의내용'),('✅ 주요 결정사항','결정사항'),('📌 후속조치','후속조치')]:
+                        st.markdown('**'+label+'**')
+                        st.text(record[key] or '미입력')
+                with st.expander('✏️ 회의록 수정'):
+                    meeting_form(record)
+            else:
+                st.markdown('### 📋 회의록 상세')
+                st.info('왼쪽에서 회의록을 선택하거나 새 회의록을 작성하세요.')
+                if st.button('＋ 새 회의록 작성',key='new_meeting_side',type='primary'):
+                    st.session_state['meeting_id']='NEW';st.rerun()
     else:
         st.title('거래처 특이사항')
         st.info('2차 개발에서 거래처별 특이사항 기록 기능을 추가합니다. 현재는 거래처가 입력된 업무를 조회할 수 있습니다.')

@@ -195,6 +195,28 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .meeting-mini-stat b{font-size:16px;color:#143a75;white-space:nowrap}
 .meeting-filter-title{background:#eaf2ff;border-left:4px solid #2468ef;border-radius:9px;padding:12px 15px;color:#17498e;font-size:15px;font-weight:850;margin:12px 0 10px}
 .meeting-filter-title small{display:block;font-size:11px;color:#6981a4;font-weight:450;margin-top:4px}
+
+/* 회의록 미니멀 스타일: 중첩 테두리 대신 간격과 배경색으로 구분 */
+.meeting-hero{background:transparent!important;border:0!important;border-left:0!important;
+  border-radius:0!important;padding:2px 0 8px!important;margin:9px 0 6px!important}
+.meeting-hero strong{font-size:17px!important;color:#183b72!important}
+.meeting-filter-title{background:transparent!important;border:0!important;border-left:0!important;
+  padding:4px 0 8px!important;margin:14px 0 4px!important;font-size:16px!important}
+.meeting-list-card{background:#fff!important;border:1px solid #e6edf5!important;
+  border-radius:13px!important;padding:15px 16px!important;margin:10px 0 14px!important;
+  box-shadow:0 3px 12px rgba(25,60,110,.035)!important}
+.meeting-list-title{font-size:17px!important;margin-bottom:7px!important}
+.meeting-excerpt{background:#f6f8fb!important;border:0!important;padding:9px 11px!important;margin:8px 0 0!important}
+.meeting-pills span{border:0!important;background:#edf3fc!important}
+.meeting-date-box{background:#edf3fc!important;border:0!important}
+.meeting-detail-header{border:0!important;background:#edf4ff!important;padding:14px!important}
+.meeting-section{border:0!important;background:transparent!important;padding:0!important;
+  margin:20px 0 8px!important;color:#2457a1!important}
+.meeting-body{border:0!important;background:#f5f8fc!important;padding:12px 14px!important}
+/* 선택자 범위는 회의록 마커를 포함한 영역으로 한정 */
+[data-testid="stVerticalBlockBorderWrapper"]:has(.meeting-list-card){border:0!important;box-shadow:none!important;padding:0!important;margin-bottom:2px!important;background:transparent!important}
+[data-testid="stVerticalBlockBorderWrapper"]:has(.meeting-detail-header){border:0!important;box-shadow:none!important;padding:0!important;background:transparent!important}
+
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'
@@ -645,7 +667,7 @@ else:
                                 ('🟠 진행 중',max(0,len(todos)-completed-delayed)),('🔴 지연',delayed)])
             + '</div></div>',unsafe_allow_html=True)
         st.markdown('<div class="meeting-filter-title">🔎 회의록 검색 및 필터 <small>원하는 회의 내용을 빠르게 찾아보세요.</small></div>',unsafe_allow_html=True)
-        with st.container(border=True):
+        with st.container():
             q=st.text_input('회의록 통합 검색',placeholder='회의 제목, 내용, 참석자, 작성자 검색',key='meeting_search')
             f1,f2,f3=st.columns(3)
             kind=f1.selectbox('회의구분',['전체']+sorted(set(x['구분'] for x in meetings)))
@@ -658,7 +680,7 @@ else:
             st.markdown('<div class="meeting-hero"><strong>📌 회의록 목록 · 한눈에 확인</strong><span>회의 카드를 선택하면 참석자, 회의 내용과 결정사항을 오른쪽에서 확인할 수 있습니다.</span></div>',unsafe_allow_html=True)
             st.markdown(f'#### 등록된 회의 ({len(filtered)}건)')
             for r in filtered:
-                with st.container(border=True):
+                with st.container():
                     a,b=st.columns([1,5],gap='medium')
                     date_text=escape(r['날짜'][5:] or '미정')
                     a.markdown(f'<div class="meeting-date-box">📅<div><strong>{date_text}</strong></div></div>',unsafe_allow_html=True)
@@ -678,11 +700,11 @@ else:
             record=next((x for x in meetings if x['ID']==selected),None)
             if selected in (None,'NEW') or (selected and record is None):
                 st.markdown('<div class="meeting-hero"><strong>✍️ 새 회의록 작성</strong><span>회의 정보, 안건, 결정사항과 후속조치를 작성해 저장하세요.</span></div>',unsafe_allow_html=True)
-                with st.container(border=True):meeting_form()
+                with st.container():meeting_form()
             elif record:
                 if st.button('＋ 새 회의록 작성으로 돌아가기',key='meeting_back_to_new',use_container_width=True):
                     st.session_state['meeting_id']='NEW';st.rerun()
-                with st.container(border=True):
+                with st.container():
                     title=escape(record['제목'] or '제목 없음')
                     subtitle=escape(record['날짜']+' · '+record['시작']+'~'+record['종료']+' · '+record['장소'])
                     st.markdown('<div class="meeting-detail-header"><strong>📋 '+title+'</strong><small>📅 '+subtitle+'</small></div>',unsafe_allow_html=True)

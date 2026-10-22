@@ -363,8 +363,24 @@ else:
             if cat_filter!='전체':filtered=filtered[filtered['업무구분']==cat_filter]
             if priority_filter!='전체':filtered=filtered[filtered['우선순위']==priority_filter]
             cols=['업무명','업무구분','담당자','우선순위','진행상태','마감일','진행률','거래처']
-            st.dataframe(filtered.assign(진행률=pd.to_numeric(filtered['진행률'],errors='coerce').fillna(0).clip(0,100).astype(int))[cols],hide_index=True,use_container_width=True,height=580,
-                column_config={'진행률':st.column_config.ProgressColumn('진행률',min_value=0,max_value=100,format='%d%%')}) if not filtered.empty else st.info('조건에 맞는 업무가 없습니다.')
+            if filtered.empty:
+                st.info('조건에 맞는 업무가 없습니다.')
+            else:
+                table_data = filtered[cols].copy()
+                table_data['진행률'] = pd.to_numeric(
+                    table_data['진행률'], errors='coerce'
+                ).fillna(0).clip(0, 100).astype(int)
+                st.dataframe(
+                    table_data,
+                    hide_index=True,
+                    use_container_width=True,
+                    height=580,
+                    column_config={
+                        '진행률': st.column_config.ProgressColumn(
+                            '진행률', min_value=0, max_value=100, format='%d%%'
+                        )
+                    },
+                )
             if not filtered.empty:
                 ids=filtered['통합ID'].tolist()
                 selected=st.selectbox('수정할 업무 선택',ids,format_func=lambda x:(lambda r:f"{r['업무명']} · {r['담당자']}")(filtered[filtered['통합ID']==x].iloc[0]),key='task_edit_select')

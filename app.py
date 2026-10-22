@@ -221,6 +221,41 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .cal-edit-section{background:#eaf2ff;border-left:4px solid #2169ef;color:#1e64cc;padding:11px 13px;border-radius:7px;margin:17px 0 12px;font-weight:850;font-size:13px}
 .cal-edit-section span{color:#173d78;margin-left:8px}
 [data-testid="stDialog"]:has(.cal-detail-marker) [data-testid="stFormSubmitButton"] button{min-height:47px!important;font-weight:800!important;background:#2169ef!important;color:white!important;border-radius:9px!important}
+
+/* Mobile-only layout: desktop geometry and styles remain unchanged. */
+@media (max-width: 767px) {
+  .block-container { padding: 3.2rem .65rem 2rem !important; }
+  [data-testid="stAppViewBlockContainer"] { padding-top: 3.2rem !important; }
+  .dashboard-head h1 { font-size: 1.55rem !important; }
+  .dashboard-head p { font-size: 12px !important; line-height: 1.55; }
+  /* Keep month navigation and add-task controls in a compact two-row toolbar. */
+  .st-key-calendar_toolbar [data-testid="stHorizontalBlock"] {
+    display: grid !important;
+    grid-template-columns: 46px minmax(0, 1fr) 46px 72px !important;
+    gap: 7px !important;
+    align-items: center !important;
+  }
+  .st-key-calendar_toolbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+    width: auto !important; min-width: 0 !important; flex: none !important;
+  }
+  .st-key-calendar_toolbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(1) { grid-column: 1; grid-row: 1; }
+  .st-key-calendar_toolbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2) { grid-column: 2; grid-row: 1; }
+  .st-key-calendar_toolbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(3) { grid-column: 3; grid-row: 1; }
+  .st-key-calendar_toolbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(4) { grid-column: 4; grid-row: 1; }
+  .st-key-calendar_toolbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(5) { display:none !important; }
+  .st-key-calendar_toolbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(6) { grid-column: 1 / -1; grid-row: 2; }
+  .st-key-calendar_toolbar h3 { font-size: 1.05rem !important; margin: 0 !important; white-space:nowrap; text-align:center; }
+  .st-key-calendar_toolbar [data-testid="stButton"] button { min-height: 39px !important; padding: 0 4px !important; }
+  .st-key-calendar_toolbar [data-testid="stPopover"] button { min-height: 40px !important; }
+  /* Month grid retains seven columns; horizontal scroll prevents tiny unusable cells. */
+  .cal-shell { width:100%; max-width:100%; overflow-x:auto !important; overflow-y:hidden; -webkit-overflow-scrolling:touch; }
+  .cal-weekdays, .cal-grid { min-width: 700px; }
+  .cal-day { min-height: 105px !important; padding: 6px 5px !important; }
+  .cal-event { font-size: 10px !important; padding: 5px 4px !important; }
+  .cal-event .event-sub { font-size: 9px !important; }
+  .cal-legend { justify-content:flex-start; gap:8px; font-size:11px; }
+  [data-testid="stDialog"] { max-width: calc(100vw - 16px) !important; }
+}
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'
@@ -499,14 +534,15 @@ else:
         st.markdown('<div class="dashboard-head"><div><h1>캘린더</h1><p>영업팀의 일정을 한눈에 확인하고 일정을 공유하세요.</p></div></div>',unsafe_allow_html=True)
         if 'month' not in st.session_state:st.session_state.month=date.today().replace(day=1)
         m=st.session_state.month
-        left,title,right,todaycol,spacer,add=st.columns([.65,2.2,.65,.85,3.2,1.4],vertical_alignment='center')
-        if left.button('❮',key='month_prev',use_container_width=True):
-            st.session_state.month=(pd.Timestamp(m)-pd.DateOffset(months=1)).date();st.rerun()
-        title.markdown(f'### {m.year}년 {m.month}월')
-        if right.button('❯',key='month_next',use_container_width=True):
-            st.session_state.month=(pd.Timestamp(m)+pd.DateOffset(months=1)).date();st.rerun()
-        if todaycol.button('오늘',use_container_width=True):st.session_state.month=date.today().replace(day=1);st.rerun()
-        with add.popover('＋ 일정 추가',use_container_width=True):form(svc,people,key='calendar_new')
+        with st.container(key='calendar_toolbar'):
+            left,title,right,todaycol,spacer,add=st.columns([.65,2.2,.65,.85,3.2,1.4],vertical_alignment='center')
+            if left.button('❮',key='month_prev',use_container_width=True):
+                st.session_state.month=(pd.Timestamp(m)-pd.DateOffset(months=1)).date();st.rerun()
+            title.markdown(f'### {m.year}년 {m.month}월')
+            if right.button('❯',key='month_next',use_container_width=True):
+                st.session_state.month=(pd.Timestamp(m)+pd.DateOffset(months=1)).date();st.rerun()
+            if todaycol.button('오늘',use_container_width=True):st.session_state.month=date.today().replace(day=1);st.rerun()
+            with add.popover('＋ 일정 추가',use_container_width=True):form(svc,people,key='calendar_new')
         st.markdown('<style>.cal-event:is(a){display:block;text-decoration:none!important;cursor:pointer}.cal-event:is(a):hover{text-decoration:none!important;filter:brightness(.98)}</style>',unsafe_allow_html=True)
         # 기존 달력 HTML/CSS를 유지하면서 업무 카드만 클릭 가능한 링크로 연결합니다.
         @st.dialog('📋 업무 상세정보 · 수정', width='large')

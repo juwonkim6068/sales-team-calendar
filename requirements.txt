@@ -2,3 +2,4 @@ streamlit>=1.43,<2
 pandas>=2.2,<3
 google-auth>=2,<3
 google-api-python-client>=2,<3
+pyarrow>=17,<25

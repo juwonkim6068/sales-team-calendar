@@ -131,138 +131,229 @@ def editor(existing=None,key="new"):
                     st.rerun()
                 except Exception as exc:st.error(f"저장 실패: {exc}")
 
-st.sidebar.title("▣ 영업팀 일정 관리")
-page=st.sidebar.radio("메뉴",["🏠 홈","🗓️ 캘린더","📋 업무 현황","🏢 거래처 관리","👥 담당자별 현황","⚙️ 설정"],label_visibility="collapsed")
-if st.sidebar.button("🔄 데이터 새로고침",use_container_width=True):st.rerun()
-st.sidebar.caption("Google Sheets 저장 / 공유 업무 일정")
+
+st.markdown("""<style>
+.block-container{max-width:1700px;padding-top:1.5rem;padding-bottom:3rem}
+[data-testid="stSidebar"]{background:linear-gradient(155deg,#15233b,#101b2e)}
+[data-testid="stSidebar"] [data-testid="stRadio"] label{color:#e6eeff}
+[data-testid="stSidebar"] button{border-radius:9px}
+h1,h2,h3{color:#142846;letter-spacing:-.03em}
+[data-testid="stVerticalBlockBorderWrapper"]{border-color:#e1e8f3}
+[data-testid="stButton"] button[kind="primary"]{background:#1769ec}
+div[data-testid="stMetric"]{box-shadow:0 4px 16px rgba(22,46,81,.04)}
+</style>""",unsafe_allow_html=True)
+
+def person_palette(name):
+    palette=["#3b82f6","#a78bfa","#fb923c","#fb7185","#34d399","#60a5fa","#fbbf24","#c084fc","#2dd4bf"]
+    return palette[sum(ord(ch) for ch in str(name))%len(palette)]
+
+def month_shift(first,delta):
+    y=first.year+(first.month-1+delta)//12
+    m=(first.month-1+delta)%12+1
+    return date(y,m,1)
+
+def calendar_card(row):
+    stat=state(row)
+    bg,fg={
+        "미시작":("#eaf2ff","#1556a8"),
+        "진행중":("#eae8ff","#6941c6"),
+        "거의완료":("#fff1dd","#a15d00"),
+        "완료":("#e4f8eb","#137e46"),
+        "지연":("#ffe8ea","#b42332")
+    }.get(stat,("#eaf2ff","#1556a8"))
+    title=escape(str(row.get("업무명","")))
+    company=escape(str(row.get("거래처","")))
+    owner=escape(str(row.get("담당자","")))
+    tm=escape(str(row.get("시작시간","")))
+    try: progress=max(0,min(100,int(float(row.get("진행률") or 0))))
+    except (ValueError,TypeError):progress=0
+    return f"""<div style="background:{bg};border-radius:8px;padding:7px 8px;margin:5px 0;color:{fg};font-size:12px;line-height:1.45">
+      <div style="font-weight:700">{tm} {title}</div>
+      <div style="font-size:11px;opacity:.8">{company or '내부업무'} · {owner}</div>
+      <div style="display:flex;align-items:center;gap:5px;margin-top:4px">
+       <div style="height:5px;border-radius:5px;background:#ffffffa8;flex:1;overflow:hidden"><div style="height:5px;width:{progress}%;background:{fg}"></div></div>
+       <span style="font-size:10px">{progress}%</span></div></div>"""
+
+
+st.sidebar.markdown("## 📊 영업팀 일정 관리")
+page=st.sidebar.radio("관리 메뉴",["🏠 홈","🗓️ 캘린더","📋 업무 현황","🏢 거래처 관리","👥 담당자별 현황","⚙️ 설정"],label_visibility="collapsed")
+if st.sidebar.button("🔄 데이터 새로고침",use_container_width=True):
+    st.rerun()
+st.sidebar.caption("Google Sheets · 일정 자동 저장")
 
 try:
     api,sid,df=connect()
 except Exception as exc:
-    st.error(f"연결 또는 초기화 실패: {exc}")
-    st.code('[team_calendar]\nspreadsheet_id = "구글시트_ID"',language="toml")
-    st.info("기존 서비스 계정 설정을 유지하고 [team_calendar]를 추가하세요. 서비스 계정을 Google Sheets 편집자로 공유해야 합니다.")
+    st.error(f"Google Sheets 연결 실패: {exc}")
+    st.info("Secrets에 [team_calendar] spreadsheet_id 및 [gcp_service_account] 인증 정보를 확인하고, 서비스 계정에 시트 편집 권한을 부여하세요.")
     st.stop()
 
 today=date.today()
-people=sorted(v for v in df["담당자"].unique() if v)
-companies=sorted(v for v in df["거래처"].unique() if v)
+people=sorted([str(x) for x in df["담당자"].dropna().unique() if str(x).strip()])
+companies=sorted([str(x) for x in df["거래처"].dropna().unique() if str(x).strip()])
+if "view_person" not in st.session_state:st.session_state.view_person="전체"
+if st.session_state.view_person not in ["전체"]+people:st.session_state.view_person="전체"
+if "cal_month" not in st.session_state:st.session_state.cal_month=today.replace(day=1)
 
-def filters(prefix):
-    a,b,c=st.columns([2,1,1])
-    query=a.text_input("검색",placeholder="업무명 / 거래처 / 메모",key=prefix+"q")
-    person=b.selectbox("담당자",["전체"]+people,key=prefix+"p")
-    status=c.selectbox("상태",["전체"]+STATES+["지연"],key=prefix+"s")
-    out=df.copy()
-    if query:
-        mask=pd.Series(False,index=out.index)
-        for name in ["업무명","거래처","메모"]:
-            mask|=out[name].str.contains(query,case=False,regex=False,na=False)
-        out=out[mask]
-    if person!="전체":out=out[out["담당자"]==person]
-    if status!="전체":out=out[out.apply(state,axis=1)==status]
-    return out
+st.sidebar.divider()
+st.sidebar.markdown("#### 담당자")
+for person in ["전체"]+people:
+    count=len(df) if person=="전체" else int((df["담당자"]==person).sum())
+    mark="🔵" if st.session_state.view_person==person else "▫️"
+    if st.sidebar.button(f"{mark}  {person}  ({count})",key="side_person_"+person,use_container_width=True):
+        st.session_state.view_person=person
+        st.rerun()
+
+st.sidebar.divider()
+st.sidebar.markdown(f"**{st.session_state.cal_month.year}년 {st.session_state.cal_month.month}월**")
+small=calendar.monthcalendar(st.session_state.cal_month.year,st.session_state.cal_month.month)
+st.sidebar.caption("월   화   수   목   금   토   일")
+for week in small:
+    st.sidebar.caption("   ".join(f"{x:2d}" if x else "  " for x in week))
+
+def filtered_rows(key,show_search=True):
+    data=df.copy()
+    person=st.session_state.view_person
+    if person!="전체":data=data[data["담당자"]==person]
+    if show_search:
+        q=st.text_input("🔎 업무명, 거래처, 메모 검색",key="query_"+key,placeholder="검색어 입력")
+        if q:
+            mask=pd.Series(False,index=data.index)
+            for col in ("업무명","거래처","메모"):
+                mask |= data[col].astype(str).str.contains(q,case=False,regex=False,na=False)
+            data=data[mask]
+    return data
 
 def table(data):
     if data.empty:
-        st.info("표시할 일정이 없습니다.")
-        return
-    st.dataframe(data[["마감일","시작시간","업무명","거래처","담당자","업무구분","진행상태","진행률"]],
-        hide_index=True,use_container_width=True)
+        st.info("조건에 해당하는 일정이 없습니다.")
+    else:
+        cols=["마감일","시작시간","업무명","거래처","담당자","업무구분","진행상태","진행률"]
+        st.dataframe(data[cols],hide_index=True,use_container_width=True,height=min(500,70+len(data)*35))
 
-def edit_selection(data,prefix):
+def edit_pick(data,key):
     if data.empty:return
     ids=data.index.tolist()
-    selected=st.selectbox("수정할 일정 선택",ids,key=prefix,
+    idx=st.selectbox("수정할 업무 선택",ids,key="pick_"+key,
         format_func=lambda i:f"{data.loc[i,'마감일']} · {data.loc[i,'담당자']} · {data.loc[i,'업무명']}")
-    with st.expander("선택 일정 수정"):
-        editor(data.loc[selected].to_dict(),key=prefix+str(selected))
+    with st.expander("✏️ 선택한 업무 수정"):
+        editor(data.loc[idx].to_dict(),key="edit_"+key+"_"+str(idx))
 
-if page=="🏠 홈":
-    st.title("영업팀 업무 현황")
-    incomplete=df[df["진행상태"]!="완료"]
-    overdue=incomplete[incomplete.apply(state,axis=1)=="지연"]
-    due_today=df[df["마감일"]==str(today)]
-    for col,label,value in zip(st.columns(4),["전체 일정","미완료","지연","오늘 마감"],[len(df),len(incomplete),len(overdue),len(due_today)]):
-        col.metric(label,f"{value:,}건")
-    st.subheader("최근 업무")
-    table(df.tail(20))
-    with st.expander("＋ 새 일정 등록"):editor(key="home")
-
-elif page=="🗓️ 캘린더":
+if page=="🗓️ 캘린더":
     st.title("캘린더")
-    st.caption("담당자별 일정, 진행률, 거래처 정보를 월간 달력에서 확인합니다.")
-    if "cal_month" not in st.session_state:st.session_state["cal_month"]=today.replace(day=1)
-    month=st.session_state["cal_month"]
-    a,b,c,d=st.columns([1,3,1,1])
-    if a.button("❮ 이전"):
-        st.session_state["cal_month"]=(month-timedelta(days=1)).replace(day=1);st.rerun()
-    b.markdown(f"### {month.year}년 {month.month}월")
-    if c.button("다음 ❯"):
-        st.session_state["cal_month"]=(month.replace(day=28)+timedelta(days=4)).replace(day=1);st.rerun()
-    if d.button("오늘"):
-        st.session_state["cal_month"]=today.replace(day=1);st.rerun()
-    shown=filters("calendar")
-    monthly=shown[shown["마감일"].str.startswith(f"{month.year}-{month.month:02d}-")]
-    for col,label,num in zip(st.columns(4),["월간 일정","미완료","지연","완료"],[
-        len(monthly),sum(monthly["진행상태"]!="완료"),sum(monthly.apply(state,axis=1)=="지연"),sum(monthly["진행상태"]=="완료")]):
-        col.metric(label,f"{num:,}건")
-    st.caption("🔵 미시작　🟣 진행중　🟠 거의완료　🟢 완료　🔴 지연")
-    for col,weekday in zip(st.columns(7),["일","월","화","수","목","금","토"]):col.markdown(f"**{weekday}**")
-    for week in calendar.Calendar(firstweekday=6).monthdatescalendar(month.year,month.month):
-        for col,day in zip(st.columns(7,gap="small"),week):
-            with col:
-                with st.container(border=True):
-                    st.markdown(f'<div class="cal">{day.day}</div>',unsafe_allow_html=True)
-                    dayrows=shown[shown["마감일"]==day.isoformat()]
-                    for _,r in dayrows.head(3).iterrows():
-                        cls={"미시작":"todo","진행중":"active","거의완료":"near","완료":"done","지연":"late"}.get(state(r),"todo")
-                        label=escape((r["시작시간"]+" "+r["거래처"]+" "+r["업무명"]).strip())
-                        st.markdown(f'<div class="event {cls}">{label}<br>{escape(r["담당자"])} · {escape(r["진행률"])}%</div>',unsafe_allow_html=True)
-                        if st.button("상세",key=f"detail_{day}_{r['일정ID']}"):
-                            st.session_state["selected_id"]=r["일정ID"]
-                    if len(dayrows)>3:st.caption(f"+{len(dayrows)-3}건")
-                    if dayrows.empty:st.markdown('<div style="height:28px"></div>',unsafe_allow_html=True)
-    selected_id=st.session_state.get("selected_id")
-    if selected_id and selected_id in df["일정ID"].values:
-        with st.expander("선택한 일정 수정",expanded=True):
-            row=df[df["일정ID"]==selected_id].iloc[0]
-            editor(row.to_dict(),key="cal_selected_"+selected_id)
-    with st.expander("＋ 일정 등록"):editor(key="calendar_new")
-    st.subheader("월간 전체 일정")
-    table(monthly)
-    edit_selection(monthly,"calendar_edit")
+    st.caption("영업팀의 일정을 한눈에 확인하고 담당자별로 관리하세요.")
+    with st.container(border=True):
+        nav1,nav2,nav3,nav4,nav5,nav6=st.columns([.55,2,.55,.9,1.5,1.5])
+        if nav1.button("❮",use_container_width=True):
+            st.session_state.cal_month=month_shift(st.session_state.cal_month,-1);st.rerun()
+        nav2.markdown(f"### {st.session_state.cal_month.year}년 {st.session_state.cal_month.month}월")
+        if nav3.button("❯",use_container_width=True):
+            st.session_state.cal_month=month_shift(st.session_state.cal_month,1);st.rerun()
+        if nav4.button("오늘",use_container_width=True):
+            st.session_state.cal_month=today.replace(day=1);st.rerun()
+        person_choice=nav5.selectbox("담당자",["전체"]+people,
+            index=(["전체"]+people).index(st.session_state.view_person),key="calendar_person")
+        if person_choice!=st.session_state.view_person:
+            st.session_state.view_person=person_choice;st.rerun()
+        cat_choice=nav6.selectbox("업무 구분",["전체"]+CATS,key="calendar_category")
+        s1,s2,s3=st.columns([1.5,1.5,1])
+        stat_choice=s1.selectbox("진행 상태",["전체"]+STATES+["지연"],key="calendar_status")
+        keyword=s2.text_input("검색",placeholder="업무명 · 거래처",key="calendar_search")
+        with s3.popover("＋ 일정 추가",use_container_width=True):
+            editor(key="calendar_add")
+        st.caption("🔵 미시작　🟣 진행중　🟠 거의완료　🟢 완료　🔴 지연")
+        shown=df.copy()
+        if st.session_state.view_person!="전체":
+            shown=shown[shown["담당자"]==st.session_state.view_person]
+        if cat_choice!="전체":shown=shown[shown["업무구분"]==cat_choice]
+        if stat_choice!="전체":shown=shown[shown.apply(state,axis=1)==stat_choice]
+        if keyword:
+            shown=shown[shown[["업무명","거래처","메모"]].astype(str).apply(
+                lambda s:s.str.contains(keyword,case=False,regex=False,na=False)).any(axis=1)]
+        weeknames=["일","월","화","수","목","금","토"]
+        for col,name in zip(st.columns(7,gap="small"),weeknames):
+            col.markdown(f"<div style='text-align:center;font-weight:700;color:#405878;padding:7px'>{name}</div>",unsafe_allow_html=True)
+        month=st.session_state.cal_month
+        for week in calendar.Calendar(firstweekday=6).monthdatescalendar(month.year,month.month):
+            for col,day in zip(st.columns(7,gap="small"),week):
+                with col:
+                    with st.container(border=True):
+                        is_current=day.month==month.month
+                        color="#1d4ed8" if day==today else ("#273d5b" if is_current else "#b3bfd0")
+                        st.markdown(f"<div style='font-size:14px;font-weight:700;color:{color}'>{day.day}</div>",unsafe_allow_html=True)
+                        entries=shown[shown["마감일"]==day.isoformat()]
+                        if len(entries):
+                            for _,row in entries.head(3).iterrows():
+                                st.markdown(calendar_card(row),unsafe_allow_html=True)
+                            if len(entries)>3:st.caption(f"+ {len(entries)-3}건 더보기")
+                        else:st.markdown("<div style='height:37px'></div>",unsafe_allow_html=True)
+                        if len(entries):
+                            if st.button(f"상세 {len(entries)}건",key="day_"+day.isoformat(),use_container_width=True):
+                                st.session_state.selected_day=day.isoformat()
+        selected=st.session_state.get("selected_day")
+        if selected:
+            daydata=shown[shown["마감일"]==selected]
+            with st.expander(f"📅 {selected} 일정 상세",expanded=True):
+                table(daydata)
+                edit_pick(daydata,"calendar_day")
+    st.subheader("이번 달 일정 목록")
+    month_data=shown[shown["마감일"].str.startswith(f"{month.year}-{month.month:02d}",na=False)]
+    table(month_data)
+    edit_pick(month_data,"calendar_month")
+
+elif page=="🏠 홈":
+    st.title("영업팀 업무 대시보드")
+    st.caption("전체 업무 진행 현황과 담당자별 일정 요약")
+    data=filtered_rows("home",False)
+    unfinished=data[data["진행상태"]!="완료"]
+    late=unfinished[unfinished.apply(state,axis=1)=="지연"]
+    today_due=data[data["마감일"]==today.isoformat()]
+    for col,label,value in zip(st.columns(4),["전체 업무","진행·미시작","지연 업무","오늘 마감"],
+        [len(data),len(unfinished),len(late),len(today_due)]):
+        col.metric(label,f"{value:,}건")
+    st.subheader("다가오는 일정")
+    upcoming=data[(data["마감일"]>=today.isoformat()) & (data["진행상태"]!="완료")].sort_values("마감일")
+    table(upcoming.head(20))
+    with st.expander("＋ 업무 등록"):editor(key="home_add")
 
 elif page=="📋 업무 현황":
     st.title("업무 현황")
-    shown=filters("tasks")
-    table(shown)
-    with st.expander("＋ 새 업무 등록"):editor(key="tasks_new")
-    edit_selection(shown,"tasks_edit")
+    data=filtered_rows("tasks")
+    a,b=st.columns(2)
+    category=a.selectbox("업무 구분",["전체"]+CATS,key="task_category")
+    status=b.selectbox("진행 상태",["전체"]+STATES+["지연"],key="task_status")
+    if category!="전체":data=data[data["업무구분"]==category]
+    if status!="전체":data=data[data.apply(state,axis=1)==status]
+    table(data)
+    with st.expander("＋ 업무 등록"):editor(key="tasks_add")
+    edit_pick(data,"tasks")
 
 elif page=="🏢 거래처 관리":
-    st.title("거래처 관리")
-    st.caption("현재 일정에 등록된 거래처 기준입니다.")
+    st.title("거래처별 일정")
     if companies:
-        company=st.selectbox("거래처",companies)
-        chosen=df[df["거래처"]==company]
-        st.metric("관련 일정",f"{len(chosen):,}건")
-        table(chosen)
-        edit_selection(chosen,"company_edit")
+        company=st.selectbox("거래처 선택",companies)
+        data=df[df["거래처"]==company]
+        if st.session_state.view_person!="전체":data=data[data["담당자"]==st.session_state.view_person]
+        st.metric("등록 업무",f"{len(data):,}건")
+        table(data)
+        edit_pick(data,"company")
     else:st.info("등록된 거래처가 없습니다.")
 
 elif page=="👥 담당자별 현황":
-    st.title("담당자별 현황")
-    if not df.empty:
-        summary=df.groupby("담당자").agg(전체=("일정ID","count"),완료=("진행상태",lambda x:sum(x=="완료"))).reset_index()
-        summary["미완료"]=summary["전체"]-summary["완료"]
-        st.dataframe(summary,hide_index=True,use_container_width=True)
-        table(filters("people"))
+    st.title("담당자별 업무 현황")
+    if len(df):
+        rows=[]
+        for person in people:
+            part=df[df["담당자"]==person]
+            rows.append({"담당자":person,"전체":len(part),"완료":sum(part["진행상태"]=="완료"),
+                "지연":sum(part.apply(state,axis=1)=="지연")})
+        st.dataframe(pd.DataFrame(rows),hide_index=True,use_container_width=True)
+        table(filtered_rows("people"))
     else:st.info("등록된 업무가 없습니다.")
 
 else:
     st.title("설정")
-    st.success("Google Sheets 연결 성공")
-    st.write("사용 시트: 일정관리")
-    st.warning("현재는 공유 편집형입니다. 구글 계정별 로그인과 본인 업무만 수정하는 권한은 구현되어 있지 않습니다.")
-    st.caption("기존 시트를 삭제하거나 덮어쓰지 않으며 일정관리 시트가 없을 때만 새로 생성합니다.")
+    st.success("Google Sheets 연결 정상")
+    st.write("저장 시트: `일정관리`")
+    st.caption("일정은 Google Sheets에 직접 저장됩니다. 기존 데이터는 유지합니다.")
+    st.warning("현재는 공유 편집형입니다. 사용자별 Google 로그인과 본인 업무만 수정하는 권한은 별도 구현이 필요합니다.")

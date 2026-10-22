@@ -71,6 +71,13 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .task-tags{display:flex;gap:7px}.task-tags span{font-size:12px;font-weight:700;border-radius:30px;padding:5px 11px}
 .task-card-meta{font-size:12px;color:#71819b;margin-bottom:13px;line-height:1.8}
 [data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top){border-radius:16px!important;box-shadow:0 4px 18px rgba(31,67,122,.045)!important}
+
+.new-task-banner{background:linear-gradient(120deg,#1557d6,#428bff);border-radius:16px;padding:21px 19px;color:white;margin:0 0 12px;box-shadow:0 10px 22px rgba(27,95,218,.17)}
+.new-task-kicker{font-size:10px;letter-spacing:.15em;font-weight:800;opacity:.82;margin-bottom:8px}
+.new-task-title{font-size:22px;font-weight:800;letter-spacing:-.035em}
+.new-task-desc{font-size:12px;margin-top:7px;color:#e9f2ff}
+.form-section-label{font-size:12px;font-weight:800;color:#2465d6;margin:18px 0 9px;padding:8px 10px;background:#f0f6ff;border-left:3px solid #2874ee;border-radius:5px}
+@media(min-width:1100px){[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stVerticalBlockBorderWrapper"]{border-radius:16px!important}}
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'
@@ -179,32 +186,40 @@ def dt(v):
     d=pd.to_datetime(v,errors='coerce')
     return d.date() if pd.notna(d) else None
 
-def form(svc,people,existing=None,key='new'):
+def form(svc,people,existing=None,key='new',compact=False):
     old=existing or {}
     with st.form('edit_'+key):
-        title=st.text_input('업무명 *',value=safe(old.get('업무명')))
-        detail=st.text_area('상세내용',value=safe(old.get('상세내용')))
-        c1,c2,c3=st.columns(3)
-        company=c1.text_input('거래처',value=safe(old.get('거래처')))
+        title=st.text_input('업무명 *',value=safe(old.get('업무명')),placeholder='예: 거래처 공급조건 검토')
+        detail=st.text_area('상세내용',value=safe(old.get('상세내용')),placeholder='업무 목적과 진행할 내용을 입력하세요.',height=110)
+        if compact:st.markdown('<div class="form-section-label">01 · 업무 분류 및 담당</div>',unsafe_allow_html=True)
+        c1,c2,c3=st.columns(1 if compact else 3) if not compact else (None,None,None)
+        if compact:
+            company=st.text_input('관련 거래처',value=safe(old.get('거래처')),placeholder='선택사항 · 거래처명 입력')
+            c2,c3=st.columns(2)
+        else:
+            company=c1.text_input('거래처',value=safe(old.get('거래처')))
         options=list(dict.fromkeys(people+([safe(old.get('담당자'))] if safe(old.get('담당자')) else [])))
         options=['미지정']+ [p for p in options if p and p!='미지정']
         owner=c2.selectbox('담당자',options,index=options.index(safe(old.get('담당자'))) if safe(old.get('담당자')) in options else 0)
         cat_options=list(dict.fromkeys(CATS+([safe(old.get('업무구분'))] if safe(old.get('업무구분')) else [])))
         category=c3.selectbox('업무구분',cat_options,index=cat_options.index(safe(old.get('업무구분'))) if safe(old.get('업무구분')) in cat_options else 0)
-        c1,c2,c3=st.columns(3)
+        if compact:st.markdown('<div class="form-section-label">02 · 일정 및 진행 상태</div>',unsafe_allow_html=True)
+        c1,c2=st.columns(2)
         start=c1.date_input('시작일',value=dt(old.get('시작일')) or date.today())
         due=c2.date_input('마감일',value=dt(old.get('마감일')) or date.today())
-        tm=c3.text_input('시작시간 (HH:MM)',value=safe(old.get('시작시간')))
-        c1,c2,c3=st.columns(3)
+        tm=st.text_input('시작시간 (선택 · HH:MM)',value=safe(old.get('시작시간')),placeholder='예: 09:00') if compact else st.text_input('시작시간 (HH:MM)',value=safe(old.get('시작시간')))
+        c1,c2=st.columns(2)
         state_opts=list(dict.fromkeys(STATES+([safe(old.get('진행상태'))] if safe(old.get('진행상태')) else [])))
         status=c1.selectbox('진행상태',state_opts,index=state_opts.index(safe(old.get('진행상태'))) if safe(old.get('진행상태')) in state_opts else 0)
         priority=c2.selectbox('우선순위',['낮음','보통','높음','긴급'],index=['낮음','보통','높음','긴급'].index(safe(old.get('우선순위'))) if safe(old.get('우선순위')) in ['낮음','보통','높음','긴급'] else 1)
         try:p=int(float(old.get('진행률') or 0))
         except (ValueError,TypeError):p=0
-        progress=c3.slider('진행률',0,100,max(0,min(100,p)))
-        memo=st.text_area('메모',value=safe(old.get('메모')))
-        link=st.text_input('첨부파일 URL',value=safe(old.get('첨부파일URL')))
-        if st.form_submit_button('Google Sheets에 저장',type='primary'):
+        progress=st.slider('진행률 (%)',0,100,max(0,min(100,p)))
+        if compact:st.markdown('<div class="form-section-label">03 · 추가 정보 (선택)</div>',unsafe_allow_html=True)
+        memo=st.text_area('메모',value=safe(old.get('메모')),height=75)
+        link=st.text_input('첨부파일 링크',value=safe(old.get('첨부파일URL')),placeholder='https://...')
+        st.caption('※ 업무명과 날짜를 확인한 뒤 등록하세요. Google Sheets에 저장됩니다.')
+        if st.form_submit_button('＋ 새 업무 등록하기' if compact else 'Google Sheets에 저장',type='primary',use_container_width=compact):
             if not title.strip():st.error('업무명을 입력하세요.');return
             if due<start:st.error('마감일은 시작일 이후여야 합니다.');return
             if tm:
@@ -439,9 +454,10 @@ else:
                                         except Exception as exc:
                                             st.error(f'저장 실패: {exc}')
         with right:
-            st.markdown('### ＋ 업무 작성')
-            st.caption('입력 후 등록하면 Google Sheets에 저장됩니다.')
-            form(svc,people,key='task_new_panel')
+            st.markdown('''<div class="new-task-banner"><div class="new-task-kicker">✦ NEW TASK</div><div class="new-task-title">＋ 새 업무 등록</div><div class="new-task-desc">새로운 업무를 작성하고 팀원과 공유하세요.</div></div>''',unsafe_allow_html=True)
+            st.info('📝 오른쪽 입력란에서 업무를 작성하고 아래 파란 버튼으로 등록하세요.',icon=None)
+            with st.container(border=True):
+                form(svc,people,key='task_new_panel',compact=True)
     elif page=='📝 회의록':
         st.title('회의록')
         st.info('2차 개발에서 전용 회의록 시트와 작성·수정 화면을 연결합니다. 현재는 업무구분이 회의인 항목을 표시합니다.')

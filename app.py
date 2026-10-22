@@ -195,27 +195,6 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .meeting-mini-stat b{font-size:16px;color:#143a75;white-space:nowrap}
 .meeting-filter-title{background:#eaf2ff;border-left:4px solid #2468ef;border-radius:9px;padding:12px 15px;color:#17498e;font-size:15px;font-weight:850;margin:12px 0 10px}
 .meeting-filter-title small{display:block;font-size:11px;color:#6981a4;font-weight:450;margin-top:4px}
-
-/* Sidebar navigation: clean clickable rows without radio circles */
-[data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"]{gap:5px!important}
-[data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label{display:flex!important;align-items:center!important;min-height:43px;padding:11px 14px!important;border-radius:10px!important;transition:background .15s}
-[data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label [data-testid="stRadioButtonIcon"],
-[data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label [data-baseweb="radio"],
-[data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label > div:first-child:has(input),
-[data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label input{display:none!important}
-[data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked){background:linear-gradient(100deg,#2b65bb,#31568c)!important;box-shadow:inset 3px 0 #8eb8ff}
-[data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label:hover{background:#355779!important}
-/* Calendar cells use native Streamlit buttons so each appointment is clickable */
-.calendar-cell-marker{height:26px;font-weight:800;color:#213b63;font-size:12px;padding:2px 0 0 2px}
-.calendar-cell-marker.today{color:#2169ef}
-.calendar-cell-marker.outside{color:#9fb0c9}
-[data-testid="stVerticalBlockBorderWrapper"]:has(.calendar-cell-marker){min-height:123px!important;border-radius:0!important;border:1px solid #e1e8f2!important;box-shadow:none!important;padding:7px!important;background:#fff!important}
-[data-testid="stVerticalBlockBorderWrapper"]:has(.calendar-cell-marker.outside){background:#f7f9fc!important}
-[data-testid="stVerticalBlockBorderWrapper"]:has(.calendar-cell-marker) [data-testid="stButton"] button{min-height:37px!important;height:auto!important;white-space:normal!important;text-align:left!important;justify-content:flex-start!important;padding:6px 7px!important;background:#eef2ff!important;color:#2850a5!important;border:0!important;border-left:3px solid #5678e5!important;font-size:10px!important;line-height:1.4!important;font-weight:700!important;width:100%!important}
-[data-testid="stVerticalBlockBorderWrapper"]:has(.calendar-cell-marker) [data-testid="stButton"] button:hover{background:#dce8ff!important;color:#153e90!important}
-[data-testid="stVerticalBlockBorderWrapper"]:has(.calendar-cell-marker) [data-testid="stVerticalBlock"]{gap:3px!important}
-@media(max-width:1050px){[data-testid="stVerticalBlockBorderWrapper"]:has(.calendar-cell-marker){min-height:96px!important;padding:4px!important}}
-
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'
@@ -374,31 +353,6 @@ def form(svc,people,existing=None,key='new',compact=False):
             try:save_record(svc,rec,safe(old.get('통합ID')) or None);st.success('저장되었습니다.');st.rerun()
             except Exception as exc:st.error(f'저장 실패: {exc}')
 
-@st.dialog('📋 일정 상세정보 및 수정',width='large')
-def calendar_task_dialog(task_id,svc,people):
-    # 원본 데이터를 ID로 재조회하여 다른 일정이 수정되는 일을 방지합니다.
-    current=read_tab(svc,TAB)
-    if current.empty or '통합ID' not in current.columns:
-        st.error('업무 데이터를 찾을 수 없습니다.');return
-    matches=current[current['통합ID'].astype(str)==str(task_id)]
-    if len(matches)!=1:
-        st.error('해당 업무를 찾을 수 없거나 중복되어 수정할 수 없습니다.');return
-    item=matches.iloc[0].to_dict()
-    st.markdown(f"### {escape(safe(item.get('업무명')))}")
-    st.caption('아래에서 상세정보를 확인하고 필요한 항목을 수정한 뒤 저장하세요.')
-    a,b,c=st.columns(3)
-    a.markdown('**담당자**  '+escape(safe(item.get('담당자')) or '미지정'))
-    b.markdown('**진행상태**  '+escape(safe(item.get('진행상태'))))
-    c.markdown('**진행률**  '+escape(safe(item.get('진행률')) or '0')+'%')
-    with st.expander('📝 상세내용 및 참고사항',expanded=True):
-        st.write(item.get('상세내용') or '상세내용 없음')
-        st.caption('거래처: '+(item.get('거래처') or '-')+' · 우선순위: '+(item.get('우선순위') or '-'))
-        if item.get('메모'):st.write('메모: '+item['메모'])
-        if item.get('첨부파일URL') and item['첨부파일URL'].startswith(('https://','http://')):
-            st.link_button('📎 첨부파일 열기',item['첨부파일URL'])
-    st.markdown('#### ✏️ 업무 정보 수정')
-    form(svc,people,existing=item,key='calendar_modal_'+str(task_id))
-
 def display_table(data):
     cols=['업무명','담당자','업무구분','시작일','마감일','진행상태','진행률','거래처']
     if data.empty:st.info('표시할 업무가 없습니다.')
@@ -515,37 +469,45 @@ else:
             st.session_state.month=(pd.Timestamp(m)+pd.DateOffset(months=1)).date();st.rerun()
         if todaycol.button('오늘',use_container_width=True):st.session_state.month=date.today().replace(day=1);st.rerun()
         with add.popover('＋ 일정 추가',use_container_width=True):form(svc,people,key='calendar_new')
-        # 달력 일정은 실제 Streamlit 버튼으로 렌더링하여 클릭하면 상세/수정 팝업이 열립니다.
+        # HTML은 표시 전용이며, 일정 등록·수정은 Streamlit 위젯으로 수행합니다.
+        palette=['#377af4','#7b45f4','#f59d26','#27bd6a','#ed6978','#23a8bb','#9861db','#dc8a41']
+        def owner_color(owner):
+            if not owner:return '#6c87b4'
+            return palette[sum(ord(ch) for ch in owner)%len(palette)]
+        def pct(row):
+            try:return max(0,min(100,int(float(row.get('진행률') or 0))))
+            except (ValueError,TypeError):return 0
         def cal_entries(day):
             daystr=day.isoformat()
             d=shown[((shown['시작일']!='')&(shown['시작일']<=daystr)&(shown['마감일']>=daystr))|((shown['시작일']=='')&(shown['마감일']==daystr))]
             return d.sort_values(['시작시간','업무명'],kind='stable')
-        weekcols=st.columns(7,gap='small')
-        for col,weekday in zip(weekcols,['일','월','화','수','목','금','토']):
-            col.markdown(f'<div style="text-align:center;font-weight:800;color:#526785;padding:8px">{weekday}</div>',unsafe_allow_html=True)
+        html=['<div class="cal-shell"><div class="cal-weekdays">']
+        html += [f'<div>{d}</div>' for d in ['일','월','화','수','목','금','토']]
+        html.append('</div><div class="cal-grid">')
         weeks=calendar.Calendar(firstweekday=6).monthdatescalendar(m.year,m.month)
-        for week_no,week in enumerate(weeks):
-            daycols=st.columns(7,gap='small')
-            for col,day in zip(daycols,week):
-                with col:
-                    with st.container(border=True):
-                        cls='today' if day==date.today() else 'outside' if day.month!=m.month else ''
-                        st.markdown(f'<div class="calendar-cell-marker {cls}">{day.day}</div>',unsafe_allow_html=True)
-                        daily=cal_entries(day)
-                        for _,task in daily.head(3).iterrows():
-                            task_id=safe(task.get('통합ID'))
-                            if not task_id:continue
-                            title=safe(task.get('업무명')) or '제목 없음'
-                            owner=safe(task.get('담당자')) or '미지정'
-                            try:progress=max(0,min(100,int(float(task.get('진행률') or 0))))
-                            except (ValueError,TypeError):progress=0
-                            tm=safe(task.get('시작시간'))
-                            caption=(tm+' ' if tm else '')+title+' · '+owner+' '+str(progress)+'%'
-                            if st.button(caption,key=f'cal_event_{day.isoformat()}_{task_id}',use_container_width=True,help='클릭하여 상세정보 확인 및 수정'):
-                                calendar_task_dialog(task_id,svc,people)
-                        if len(daily)>3:
-                            st.caption(f'+ {len(daily)-3}건 더보기')
-        st.caption('💡 달력의 업무를 클릭하면 상세정보와 수정창이 팝업으로 열립니다.')
+        for week in weeks:
+            for day in week:
+                outside=' outside' if day.month!=m.month else ''
+                todaycls=' today' if day==date.today() else ''
+                html.append(f'<div class="cal-day{outside}"><div class="day-num{todaycls}">{day.day}</div>')
+                daily=cal_entries(day)
+                for _,r in daily.head(3).iterrows():
+                    owner=safe(r.get('담당자')) or '미지정';color=owner_color(owner)
+                    progress=pct(r)
+                    # 상태별 강조색, 담당자별 식별 색상은 상단 왼쪽 선에 사용
+                    status=safe(r.get('진행상태'))
+                    bg='#e9f9f0' if status=='완료' else '#f0ebff' if status=='진행중' else '#eaf2ff' if status=='미진행' else '#fff3e4' if status=='거의완료' else '#f4f6fa'
+                    fg='#15934c' if status=='완료' else '#7140db' if status=='진행중' else '#2367d6' if status=='미진행' else '#ae6b13' if status=='거의완료' else '#5e7395'
+                    task=escape(safe(r.get('업무명')));owner_html=escape(owner)
+                    tm=escape(safe(r.get('시작시간')))
+                    html.append(f'<div class="cal-event" title="{task} · {owner_html}" style="background:{bg};color:{fg};border-left:3px solid {color}"><div class="event-title">{tm+" " if tm else ""}{task}</div><div class="event-sub"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48%">{owner_html}</span><div class="track"><div class="fill" style="width:{progress}%;background:{fg}"></div></div><b>{progress}%</b></div></div>')
+                if len(daily)>3:html.append(f'<div class="cal-more">+ {len(daily)-3}건 더보기</div>')
+                html.append('</div>')
+        html.append('</div></div>')
+        st.markdown(''.join(html),unsafe_allow_html=True)
+        if people:
+            legend=''.join(f'<span><i style="background:{owner_color(p)}"></i>{escape(p)}</span>' for p in people)
+            st.markdown(f'<div class="cal-legend">{legend}</div>',unsafe_allow_html=True)
         st.markdown('#### 날짜별 일정 확인')
         day_choice=st.date_input('확인할 날짜',value=date.today() if date.today().month==m.month and date.today().year==m.year else m,key='calendar_day_select')
         daily=cal_entries(day_choice)

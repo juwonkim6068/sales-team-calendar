@@ -129,6 +129,39 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 [data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top) [data-testid="stForm"]{background:white!important;border:1px solid #d6e3f4!important;border-radius:12px!important;padding:14px!important}
 [data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top) [data-testid="stForm"] label p{font-size:13px!important;font-weight:800!important;color:#1b467d!important}
 [data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top) [data-testid="stFormSubmitButton"] button{background:#165fe7!important;color:white!important;min-height:48px!important;font-size:15px!important;font-weight:800!important;border-radius:9px!important}
+
+/* New task form: consistent rhythm and aligned section headings */
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stVerticalBlock"]{gap:0.85rem!important}
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] .form-section-label{
+  display:block!important;box-sizing:border-box!important;width:100%!important;
+  margin:20px 0 12px!important;padding:12px 14px!important;
+  font-size:12px!important;line-height:1.5!important;border-radius:8px!important;
+  background:#e8f1ff!important;border-left:4px solid #236af0!important;
+}
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] .form-section-label){
+  margin-top:10px!important;margin-bottom:8px!important;
+}
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stWidgetLabel"]{
+  margin-bottom:7px!important;
+}
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stWidgetLabel"] p{
+  font-size:12px!important;line-height:1.45!important;
+}
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stHorizontalBlock"]{
+  gap:14px!important;align-items:start!important;
+}
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stTextInput"],
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stSelectbox"],
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stDateInput"],
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stTextArea"]{
+  margin-bottom:3px!important;
+}
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"]{
+  padding:20px 16px 22px!important;
+}
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stFormSubmitButton"]{
+  margin-top:12px!important;
+}
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'

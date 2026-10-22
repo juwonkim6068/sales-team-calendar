@@ -521,16 +521,16 @@ else:
         done=shown['진행상태'].eq('완료')
         late=(shown['마감일']<today)&(~done)&shown['마감일'].ne('')
         ongoing=shown['진행상태'].isin(['진행중','거의완료'])&(~late)
-        # 제목 우측에 작은 요약 지표를 배치하여 목록 공간을 확보합니다.
-        stats=[('📄','전체 업무',len(shown)),('🔵','진행 중',int(ongoing.sum())),
-               ('🟢','완료',int(done.sum())),('🔴','지연',int(late.sum()))]
+        # 회의록과 동일한 상단 제목 + 우측 소형 통계 카드 디자인
+        stats=[('📄 전체 업무',len(shown)),('🔵 진행 중',int(ongoing.sum())),
+               ('🟢 완료',int(done.sum())),('🔴 지연',int(late.sum()))]
         stats_html=''.join(
-            f'<div class="task-mini-stat"><span>{icon} {label}</span><strong>{value}<small>건</small></strong></div>'
-            for icon,label,value in stats)
+            f'<div class="meeting-mini-stat"><span>{label}</span><b>{value}건</b></div>'
+            for label,value in stats)
         st.markdown(
-            '<div class="task-page-heading"><div class="task-page-heading-text">'
-            '<h2>📋 업무 현황</h2><p>개인의 업무를 등록하고 마감일까지 관리할 수 있습니다.</p>'
-            '</div><div class="task-mini-stats">'+stats_html+'</div></div>',
+            '<div class="meeting-topbar"><div class="meeting-top-title">📋 업무 현황'
+            '<small>개인의 업무를 등록하고 마감일까지 관리할 수 있습니다.</small></div>'
+            '<div class="meeting-mini-stats">'+stats_html+'</div></div>',
             unsafe_allow_html=True)
         left,right=st.columns([3.1,1.45],gap='medium')
         with left:

@@ -9,49 +9,55 @@ import streamlit as st
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
-st.set_page_config(page_title='영업부 통합 업무관리', page_icon='🗓️', layout='wide')
+st.set_page_config(page_title='영업팀 대시보드', page_icon='📊', layout='wide', initial_sidebar_state='expanded')
 st.markdown("""<style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
-:root{--navy:#13243b;--blue:#2563eb;--ink:#182b47;--muted:#6f8098;--line:#e5ebf4;--bg:#f5f7fb}
-html,body,[class*="css"],.stApp{font-family:'DM Sans','Noto Sans KR',sans-serif}
-.stApp{background:var(--bg);color:var(--ink)}
-.block-container{max-width:1580px;padding:2.15rem 2.2rem 4rem}
-h1{font-size:1.85rem!important;font-weight:800!important;letter-spacing:-.045em!important;color:var(--ink)!important;margin-bottom:.45rem!important}
-h2,h3{font-weight:750!important;letter-spacing:-.03em!important;color:var(--ink)!important}
-p{line-height:1.7}
-[data-testid="stSidebar"]{background:linear-gradient(170deg,#14263f 0%,#0c182a 100%);border-right:1px solid #24364c}
-[data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding-top:1.6rem}
-[data-testid="stSidebar"] h1,[data-testid="stSidebar"] h2,[data-testid="stSidebar"] h3,[data-testid="stSidebar"] p,[data-testid="stSidebar"] label{color:#edf4ff!important}
-[data-testid="stSidebar"] [role="radiogroup"] label{border-radius:11px;padding:9px 11px;margin:3px 0;transition:background .2s}
-[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#263c59}
-[data-testid="stSidebar"] [data-testid="stAlert"]{background:#25344b;color:#dce6f5;border:1px solid #3a4b62;border-radius:12px}
-[data-testid="stSidebar"] [data-testid="stAlert"] p{font-size:.77rem!important}
-[data-testid="stSidebar"] button{background:#233b5a;color:white;border-color:#36506f;width:100%}
-[data-testid="stSidebar"] button:hover{border-color:#7ba8f8;color:white}
-[data-testid="stMetric"]{background:white;border:1px solid var(--line);border-radius:15px;padding:18px 20px;box-shadow:0 4px 16px rgba(24,43,71,.035)}
-[data-testid="stMetricLabel"]{color:var(--muted)}
-[data-testid="stMetricValue"]{color:var(--ink);font-weight:800}
-[data-testid="stVerticalBlockBorderWrapper"]{background:white;border:1px solid var(--line)!important;border-radius:14px!important;box-shadow:0 3px 12px rgba(30,53,89,.035)}
-[data-testid="stDataFrame"]{border-radius:12px;overflow:hidden}
-.stButton button{border-radius:10px;font-weight:650;min-height:38px;border-color:#dbe4f1}
-.stButton button[kind="primary"],button[kind="primary"]{background:#2563eb;border-color:#2563eb;color:white}
-.stButton button[kind="primary"]:hover{background:#1d4ed8;border-color:#1d4ed8}
-[data-testid="stTextInput"] input,[data-testid="stSelectbox"]>div>div,[data-testid="stTextArea"] textarea{border-radius:10px;border-color:#dce5f1}
-[data-testid="stExpander"]{background:white;border:1px solid var(--line);border-radius:13px;overflow:hidden}
-[data-testid="stAlert"]{border-radius:12px}
-.event{font-size:11px;line-height:1.45;padding:7px 8px;border-radius:8px;margin:4px 0;background:#eaf1ff;color:#1e4b91;border-left:3px solid #4e86e7;overflow-wrap:anywhere;font-weight:650}
-.event small{font-weight:500;color:#6681a8}
-.brand-header{background:linear-gradient(115deg,#152a48,#244e83);color:white;padding:22px 26px;border-radius:18px;margin-bottom:24px;box-shadow:0 10px 26px rgba(27,59,101,.12)}
-.brand-header .eyebrow{font-size:11px;letter-spacing:.16em;font-weight:800;color:#9ec7ff;margin-bottom:6px}
-.brand-header .heading{font-size:24px;font-weight:800;letter-spacing:-.04em}
-.brand-header .sub{font-size:12px;color:#c5d8f2;margin-top:5px}
-.section-note{color:#718198;font-size:13px;margin-top:-6px;margin-bottom:14px}
-.calendar-weekday{background:#eaf0f8;border-radius:8px;text-align:center;padding:9px 0;font-weight:750;font-size:12px;color:#526783;margin-bottom:6px}
-.calendar-date{font-size:14px;font-weight:800;color:#293e59;margin-bottom:6px}
-.calendar-date.today{display:inline-flex;align-items:center;justify-content:center;background:#2563eb;color:white;width:27px;height:27px;border-radius:50%}
-.calendar-date.outside{color:#b6c1cf}
-[data-testid="stSidebarNav"]{display:none}
-@media(max-width:900px){.block-container{padding:1.2rem .75rem 3rem}.brand-header{padding:18px}.brand-header .heading{font-size:20px}.event{font-size:10px;padding:5px}}
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
+:root{--ink:#172641;--muted:#7283a0;--line:#e3eaf3;--blue:#2169ef}
+html,body,.stApp,[class*="css"]{font-family:'Noto Sans KR',sans-serif}
+.stApp{background:#f8fafd;color:var(--ink)}
+.block-container{max-width:1900px;padding:1.65rem 2rem 3rem}
+h1,h2,h3{color:#172641!important;letter-spacing:-.04em;font-weight:800!important}
+h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
+[data-testid="stSidebar"]{background:linear-gradient(155deg,#19273d,#111d30);border-right:0}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding-top:1.5rem}
+[data-testid="stSidebar"] h1,[data-testid="stSidebar"] h2,[data-testid="stSidebar"] h3,[data-testid="stSidebar"] p,[data-testid="stSidebar"] label{color:#eaf1ff!important}
+[data-testid="stSidebar"] [role="radiogroup"] label{padding:10px 12px;margin:3px 0;border-radius:9px}
+[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#273f62}
+[data-testid="stSidebar"] [data-testid="stAlert"]{background:#253750;color:white;border:1px solid #435572}
+[data-testid="stSidebar"] button{background:#273b57;color:#fff;border:1px solid #3b506c}
+[data-testid="stSidebar"] button:hover{color:white;border-color:#6d9fff}
+[data-testid="stVerticalBlockBorderWrapper"],[data-testid="stMetric"]{background:#fff;border:1px solid var(--line)!important;border-radius:11px!important;box-shadow:0 4px 20px rgba(30,55,90,.035)}
+[data-testid="stMetric"]{padding:14px 18px}
+.stButton button{border-radius:8px;font-weight:700;border-color:#dce4f0;min-height:38px}
+.stButton button[kind="primary"],button[kind="primary"]{background:#2169ef;color:white;border-color:#2169ef}
+[data-testid="stExpander"]{border-radius:10px;background:white;border:1px solid var(--line)}
+[data-testid="stTextInput"] input,[data-testid="stSelectbox"]>div>div,[data-testid="stTextArea"] textarea{border-radius:8px;border-color:#dce5f1}
+.dashboard-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px}
+.dashboard-head h1{margin:0!important}
+.dashboard-head p{color:#657895;font-size:13px;margin:4px 0 0}
+.cal-shell{background:#fff;border:1px solid #dfe7f1;border-radius:11px;overflow:hidden;box-shadow:0 6px 24px rgba(23,45,77,.04);margin-top:12px}
+.cal-weekdays{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:#f7f9fc;border-bottom:1px solid #dfe7f1}
+.cal-weekdays div{text-align:center;padding:13px 0;color:#506481;font-size:12px;font-weight:700;border-right:1px solid #e2e9f2}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.cal-day{min-height:139px;border-right:1px solid #e2e9f2;border-bottom:1px solid #e2e9f2;padding:10px 8px;min-width:0;background:white}
+.cal-day.outside{background:#fafbfd}
+.cal-day .day-num{font-size:13px;color:#243754;font-weight:750;margin-bottom:8px}
+.cal-day.outside .day-num{color:#a8b6cb}
+.cal-day .day-num.today{display:inline-block;background:#2169ef;color:#fff;padding:3px 8px;border-radius:20px}
+.cal-event{border-radius:7px;padding:7px 7px 6px;margin:4px 0;font-size:11px;line-height:1.45;overflow:hidden}
+.cal-event .event-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700}
+.cal-event .event-sub{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:5px;font-size:10px}
+.cal-event .track{height:5px;border-radius:8px;background:rgba(70,100,145,.13);flex:1;overflow:hidden}
+.cal-event .fill{height:100%;border-radius:8px}
+.cal-more{font-size:11px;color:#7385a0;margin:5px}
+.cal-legend{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:15px;padding:12px 2px;color:#50627e;font-size:12px}
+.cal-legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
+.sidebar-mini{border-top:1px solid #35465d;padding-top:16px;margin-top:20px;color:#e9f0ff}
+.sidebar-mini h4{font-size:13px;margin:0 0 9px;color:white}
+.sidebar-mini .mini-week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11px;color:#b7c8e2}
+.sidebar-mini .mini-week span{padding:5px 0}
+.sidebar-mini .mini-week .on{background:#2169ef;border-radius:50%;color:white}
+@media(max-width:1050px){.block-container{padding:1rem .7rem}.cal-day{min-height:108px;padding:5px 3px}.cal-event{font-size:9px;padding:4px}.cal-event .event-sub{font-size:9px}}
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'
@@ -210,13 +216,10 @@ def display_table(data):
 try:svc=api();tabs=tab_names(svc)
 except Exception as exc:st.error(f'Google Sheets 연결 실패: {exc}');st.stop()
 
-st.sidebar.markdown('### ◈ PSG CHEM')
-st.sidebar.caption('SALES OPERATIONS  /  WORKSPACE')
+st.sidebar.markdown('### ▥  영업팀 대시보드')
 st.sidebar.divider()
-page=st.sidebar.radio('메뉴',['🗓️ 달력','📋 업무현황','📝 회의록','🏢 거래처 특이사항','⚙️ 데이터 통합/설정'])
-st.sidebar.caption('● Google Sheets 연결 · 원본 데이터 보존')
-if st.sidebar.button('🔄 새로고침'):st.rerun()
-
+page=st.sidebar.radio('메뉴',['🗓️ 달력','📋 업무현황','📝 회의록','🏢 거래처 특이사항','⚙️ 데이터 통합/설정'],label_visibility='collapsed')
+if st.sidebar.button('↻ 데이터 새로고침',use_container_width=True):st.rerun()
 if TAB not in tabs:
     st.warning('통합업무 시트가 아직 생성되지 않았습니다. 설정 메뉴에서 최초 통합을 실행하세요.')
     if page!='⚙️ 데이터 통합/설정':st.stop()
@@ -234,8 +237,8 @@ try:
 except Exception:people=[]
 people=list(dict.fromkeys(people+[safe(x) for x in df.get('담당자',pd.Series(dtype=str)).tolist() if safe(x)]))
 
-st.sidebar.warning('현재 버전은 공유 편집형입니다. 개인별 수정 권한은 로그인 기능 구축 후 적용됩니다.')
-st.markdown('''<div class="brand-header"><div class="eyebrow">PSG CHEM · SALES TEAM</div><div class="heading">영업부 통합 업무관리</div><div class="sub">팀 일정 · 업무 진행 현황 · 회의 · 거래처 기록을 한 곳에서 관리합니다.</div></div>''',unsafe_allow_html=True)
+st.sidebar.caption('Google Sheets 연결 · 기존 원본 보존')
+st.sidebar.warning('현재는 공유 편집형입니다. 팀원별 로그인/수정 권한은 아직 적용되지 않았습니다.')
 if page=='⚙️ 데이터 통합/설정':
     st.title('데이터 통합 및 설정')
     st.write('원본 업무일정·일정관리 시트는 수정하지 않습니다. 통합업무 시트에만 신규 데이터를 추가합니다.')
@@ -255,37 +258,71 @@ else:
     if st.session_state.person_filter not in choices:st.session_state.person_filter='전체'
     person=st.sidebar.selectbox('담당자 선택',choices,key='person_filter')
     shown=df if person=='전체' else df[df['담당자']==person]
+    st.sidebar.markdown(f'<div class="sidebar-mini"><h4>{date.today().year}년 {date.today().month}월</h4></div>',unsafe_allow_html=True)
+    mini=calendar.Calendar(firstweekday=6).monthdayscalendar(date.today().year,date.today().month)
+    mini_html='<div class="sidebar-mini" style="border:0;padding-top:0"><div class="mini-week">'+''.join(f'<span>{x}</span>' for x in '일월화수목금토')
+    for week in mini:
+        for d in week:mini_html+=f'<span class={"on" if d==date.today().day else ""}>{d or ""}</span>'
+    mini_html+='</div></div>'
+    st.sidebar.markdown(mini_html,unsafe_allow_html=True)
+    st.sidebar.markdown('#### 팀원 보기')
+    st.sidebar.caption('담당자 필터를 변경하면 달력과 업무 목록에 적용됩니다.')
     if page=='🗓️ 달력':
-        st.title('월간 업무 캘린더')
-        st.markdown('<div class="section-note">월별 업무 일정과 담당자별 진행 현황을 한눈에 확인하세요.</div>',unsafe_allow_html=True)
-        total=len(shown); done=int((shown['진행상태']=='완료').sum()) if total else 0
-        overdue=int(((shown['마감일']<date.today().isoformat())&(shown['마감일']!='')&(shown['진행상태']!='완료')).sum()) if total else 0
-        for col,label,value in zip(st.columns(3),['전체 업무','완료 업무','기한 경과'],[total,done,overdue]):col.metric(label,f'{value:,}건')
+        st.markdown('<div class="dashboard-head"><div><h1>캘린더</h1><p>영업팀의 일정을 한눈에 확인하고 일정을 공유하세요.</p></div></div>',unsafe_allow_html=True)
         if 'month' not in st.session_state:st.session_state.month=date.today().replace(day=1)
         m=st.session_state.month
-        a,b,c,d=st.columns([1,4,1,1])
-        if a.button('◀ 이전 달'):
-            st.session_state.month=(m.replace(day=1)-pd.DateOffset(months=1)).date() if isinstance(m,pd.Timestamp) else (pd.Timestamp(m)-pd.DateOffset(months=1)).date();st.rerun()
-        b.subheader(f'{m.year}년 {m.month}월')
-        if c.button('다음 달 ▶'):
+        left,title,right,todaycol,spacer,add=st.columns([.65,2.2,.65,.85,3.2,1.4],vertical_alignment='center')
+        if left.button('❮',key='month_prev',use_container_width=True):
+            st.session_state.month=(pd.Timestamp(m)-pd.DateOffset(months=1)).date();st.rerun()
+        title.markdown(f'### {m.year}년 {m.month}월')
+        if right.button('❯',key='month_next',use_container_width=True):
             st.session_state.month=(pd.Timestamp(m)+pd.DateOffset(months=1)).date();st.rerun()
-        if d.button('오늘'):st.session_state.month=date.today().replace(day=1);st.rerun()
-        with st.expander('＋ 새 일정 등록'):form(svc,people,key='calendar_new')
-        for col,weekday in zip(st.columns(7,gap='small'),['일','월','화','수','목','금','토']):
-            col.markdown(f'<div class="calendar-weekday">{weekday}</div>',unsafe_allow_html=True)
-        for week in calendar.Calendar(firstweekday=6).monthdatescalendar(m.year,m.month):
-            cols=st.columns(7,gap='small')
-            for col,day in zip(cols,week):
-                with col:
-                    with st.container(border=True):
-                        dayclass='today' if day==date.today() else ('outside' if day.month!=m.month else '')
-                        st.markdown(f'<div class="calendar-date {dayclass}">{day.day}</div>',unsafe_allow_html=True)
-                        daily=shown[(shown['시작일']<=day.isoformat()) & (shown['마감일']>=day.isoformat())]
-                        daily=pd.concat([daily,shown[(shown['시작일']=='')&(shown['마감일']==day.isoformat())]]).drop_duplicates(subset=['통합ID'])
-                        for _,r in daily.head(4).iterrows():
-                            st.markdown(f'<div class="event">{escape(safe(r["업무명"]))}<br><small>{escape(safe(r["담당자"]))}</small></div>',unsafe_allow_html=True)
-                        if len(daily)>4:st.caption(f'+{len(daily)-4}건')
-        st.subheader('이번 달 업무 목록')
+        if todaycol.button('오늘',use_container_width=True):st.session_state.month=date.today().replace(day=1);st.rerun()
+        with add.popover('＋ 일정 추가',use_container_width=True):form(svc,people,key='calendar_new')
+        # HTML은 표시 전용이며, 일정 등록·수정은 Streamlit 위젯으로 수행합니다.
+        palette=['#377af4','#7b45f4','#f59d26','#27bd6a','#ed6978','#23a8bb','#9861db','#dc8a41']
+        def owner_color(owner):
+            if not owner:return '#6c87b4'
+            return palette[sum(ord(ch) for ch in owner)%len(palette)]
+        def pct(row):
+            try:return max(0,min(100,int(float(row.get('진행률') or 0))))
+            except (ValueError,TypeError):return 0
+        def cal_entries(day):
+            daystr=day.isoformat()
+            d=shown[((shown['시작일']!='')&(shown['시작일']<=daystr)&(shown['마감일']>=daystr))|((shown['시작일']=='')&(shown['마감일']==daystr))]
+            return d.sort_values(['시작시간','업무명'],kind='stable')
+        html=['<div class="cal-shell"><div class="cal-weekdays">']
+        html += [f'<div>{d}</div>' for d in ['일','월','화','수','목','금','토']]
+        html.append('</div><div class="cal-grid">')
+        weeks=calendar.Calendar(firstweekday=6).monthdatescalendar(m.year,m.month)
+        for week in weeks:
+            for day in week:
+                outside=' outside' if day.month!=m.month else ''
+                todaycls=' today' if day==date.today() else ''
+                html.append(f'<div class="cal-day{outside}"><div class="day-num{todaycls}">{day.day}</div>')
+                daily=cal_entries(day)
+                for _,r in daily.head(3).iterrows():
+                    owner=safe(r.get('담당자')) or '미지정';color=owner_color(owner)
+                    progress=pct(r)
+                    # 상태별 강조색, 담당자별 식별 색상은 상단 왼쪽 선에 사용
+                    status=safe(r.get('진행상태'))
+                    bg='#e9f9f0' if status=='완료' else '#f0ebff' if status=='진행중' else '#eaf2ff' if status=='미진행' else '#fff3e4' if status=='거의완료' else '#f4f6fa'
+                    fg='#15934c' if status=='완료' else '#7140db' if status=='진행중' else '#2367d6' if status=='미진행' else '#ae6b13' if status=='거의완료' else '#5e7395'
+                    task=escape(safe(r.get('업무명')));owner_html=escape(owner)
+                    tm=escape(safe(r.get('시작시간')))
+                    html.append(f'<div class="cal-event" title="{task} · {owner_html}" style="background:{bg};color:{fg};border-left:3px solid {color}"><div class="event-title">{tm+" " if tm else ""}{task}</div><div class="event-sub"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48%">{owner_html}</span><div class="track"><div class="fill" style="width:{progress}%;background:{fg}"></div></div><b>{progress}%</b></div></div>')
+                if len(daily)>3:html.append(f'<div class="cal-more">+ {len(daily)-3}건 더보기</div>')
+                html.append('</div>')
+        html.append('</div></div>')
+        st.markdown(''.join(html),unsafe_allow_html=True)
+        if people:
+            legend=''.join(f'<span><i style="background:{owner_color(p)}"></i>{escape(p)}</span>' for p in people)
+            st.markdown(f'<div class="cal-legend">{legend}</div>',unsafe_allow_html=True)
+        st.markdown('#### 날짜별 일정 확인')
+        day_choice=st.date_input('확인할 날짜',value=date.today() if date.today().month==m.month and date.today().year==m.year else m,key='calendar_day_select')
+        daily=cal_entries(day_choice)
+        display_table(daily)
+        st.markdown('#### 이번 달 업무 목록')
         month_start=m.isoformat();next_month=(pd.Timestamp(m)+pd.DateOffset(months=1)).date().isoformat()
         month_df=shown[((shown['마감일']>=month_start)&(shown['시작일']<next_month))|((shown['시작일']=='')&(shown['마감일']>=month_start)&(shown['마감일']<next_month))]
         display_table(month_df)

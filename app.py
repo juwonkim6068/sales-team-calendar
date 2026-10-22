@@ -78,6 +78,25 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .new-task-desc{font-size:12px;margin-top:7px;color:#e9f2ff}
 .form-section-label{font-size:12px;font-weight:800;color:#2465d6;margin:18px 0 9px;padding:8px 10px;background:#f0f6ff;border-left:3px solid #2874ee;border-radius:5px}
 @media(min-width:1100px){[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stVerticalBlockBorderWrapper"]{border-radius:16px!important}}
+
+/* Compact task cards and clear field-value pairs */
+.task-card-top{margin:0 0 5px!important;gap:8px!important}
+.task-card-title{font-size:15px!important;line-height:1.4!important}
+.task-tags span{font-size:11px!important;padding:3px 9px!important}
+.task-card-meta{display:flex;flex-wrap:wrap;gap:6px;margin:5px 0 7px!important;line-height:1.3!important}
+.task-card-meta span{display:inline-flex;align-items:center;gap:6px;background:#f4f7fc;border:1px solid #e8edf5;padding:5px 8px;border-radius:7px;color:#334966;font-size:11px}
+.task-card-meta b{color:#7183a0;font-weight:700}
+[data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top){padding:12px 14px!important}
+[data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top) [data-testid="stExpander"]{margin-top:4px!important}
+[data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top) [data-testid="stProgress"]{margin-bottom:0!important}
+/* Clear, denser new-task form */
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] label p{font-size:12px;font-weight:700;color:#334767}
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stVerticalBlock"]{gap:.45rem}
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] textarea{min-height:64px!important}
+[data-testid="stColumn"]:has(.new-task-banner) [data-testid="stForm"] [data-testid="stFormSubmitButton"] button{min-height:43px;border-radius:10px;font-weight:800}
+.new-task-banner{padding:15px 16px!important;margin-bottom:7px!important}
+.new-task-title{font-size:19px!important}.new-task-desc{font-size:11px!important}
+.form-section-label{margin:10px 0 5px!important;padding:6px 9px!important;font-size:11px!important}
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'
@@ -189,12 +208,12 @@ def dt(v):
 def form(svc,people,existing=None,key='new',compact=False):
     old=existing or {}
     with st.form('edit_'+key):
-        title=st.text_input('업무명 *',value=safe(old.get('업무명')),placeholder='예: 거래처 공급조건 검토')
-        detail=st.text_area('상세내용',value=safe(old.get('상세내용')),placeholder='업무 목적과 진행할 내용을 입력하세요.',height=110)
+        title=st.text_input('① 업무명 *',value=safe(old.get('업무명')),placeholder='무슨 업무인가요? 예: HE 단가 인하 기안')
+        detail=st.text_area('② 업무 내용',value=safe(old.get('상세내용')),placeholder='해야 할 일과 진행 내용을 간단히 적어주세요.',height=75)
         if compact:st.markdown('<div class="form-section-label">01 · 업무 분류 및 담당</div>',unsafe_allow_html=True)
         c1,c2,c3=st.columns(1 if compact else 3) if not compact else (None,None,None)
         if compact:
-            company=st.text_input('관련 거래처',value=safe(old.get('거래처')),placeholder='선택사항 · 거래처명 입력')
+            company=st.text_input('관련 거래처 (선택)',value=safe(old.get('거래처')),placeholder='예: 효성 / 해당 없으면 비워두세요')
             c2,c3=st.columns(2)
         else:
             company=c1.text_input('거래처',value=safe(old.get('거래처')))
@@ -215,10 +234,10 @@ def form(svc,people,existing=None,key='new',compact=False):
         try:p=int(float(old.get('진행률') or 0))
         except (ValueError,TypeError):p=0
         progress=st.slider('진행률 (%)',0,100,max(0,min(100,p)))
-        if compact:st.markdown('<div class="form-section-label">03 · 추가 정보 (선택)</div>',unsafe_allow_html=True)
-        memo=st.text_area('메모',value=safe(old.get('메모')),height=75)
-        link=st.text_input('첨부파일 링크',value=safe(old.get('첨부파일URL')),placeholder='https://...')
-        st.caption('※ 업무명과 날짜를 확인한 뒤 등록하세요. Google Sheets에 저장됩니다.')
+        if compact:st.markdown('<div class="form-section-label">03 · 참고 정보</div>',unsafe_allow_html=True)
+        memo=st.text_area('메모 (선택)',value=safe(old.get('메모')),height=65,placeholder='참고사항, 인수인계 내용 등')
+        link=st.text_input('첨부파일 링크 (선택)',value=safe(old.get('첨부파일URL')),placeholder='Google Drive 파일 URL 붙여넣기')
+        st.caption('입력한 업무는 Google Sheets에 저장되며 왼쪽 업무 목록에 표시됩니다.')
         if st.form_submit_button('＋ 새 업무 등록하기' if compact else 'Google Sheets에 저장',type='primary',use_container_width=compact):
             if not title.strip():st.error('업무명을 입력하세요.');return
             if due<start:st.error('마감일은 시작일 이후여야 합니다.');return
@@ -364,9 +383,10 @@ else:
         cards=st.columns(4)
         for card,label,value in zip(cards,['📄 전체 업무','🔵 진행 중','🟢 완료','🔴 지연'],[len(shown),int(ongoing.sum()),int(done.sum()),int(late.sum())]):
             card.metric(label,f'{value} 건')
-        left,right=st.columns([3.4,1.25],gap='large')
+        left,right=st.columns([3.1,1.45],gap='medium')
         with left:
             st.markdown('### 업무 목록')
+            st.caption('업무 카드를 선택하면 진행상태, 우선순위, 담당자 등을 바로 변경할 수 있습니다.')
             view=st.radio('상태별 조회',['전체','진행 중','완료','지연'],horizontal=True,label_visibility='collapsed')
             q=st.text_input('🔎 업무명, 거래처, 담당자 검색',key='task_search')
             f1,f2,f3=st.columns(3)
@@ -383,7 +403,7 @@ else:
             if owner_filter!='전체':filtered=filtered[filtered['담당자']==owner_filter]
             if cat_filter!='전체':filtered=filtered[filtered['업무구분']==cat_filter]
             if priority_filter!='전체':filtered=filtered[filtered['우선순위']==priority_filter]
-            st.caption(f'검색 결과 {len(filtered)}건 · 카드를 펼치면 항목별로 수정할 수 있습니다.')
+            st.caption(f'표시 중인 업무 {len(filtered)}건  |  업무별 ‘수정하기’를 눌러 내용을 변경하세요.')
             if filtered.empty:
                 st.info('조건에 맞는 업무가 없습니다.')
             else:
@@ -410,12 +430,15 @@ else:
                             f'<div class="task-card-top"><div class="task-card-title">{escape(title)}</div>'
                             f'<div class="task-tags"><span style="background:{sbg};color:{sfg}">{escape(status)}</span>'
                             f'<span style="background:{pbg};color:{pfg}">{escape(priority)}</span></div></div>'
-                            f'<div class="task-card-meta">👤 {escape(owner_text)}　 ·　 '
-                            f'📁 {escape(category_text)}　 ·　 📅 {escape(due_text)}'
-                            + (f'　 ·　 🏢 {escape(company_text)}' if company_text else '')
+                            f'<div class="task-card-meta">'
+                            f'<span><b>담당자</b>{escape(owner_text)}</span>'
+                            f'<span><b>업무구분</b>{escape(category_text)}</span>'
+                            f'<span><b>마감일</b>{escape(due_text)}</span>'
+                            + (f'<span><b>거래처</b>{escape(company_text)}</span>' if company_text else '')
                             + '</div>',unsafe_allow_html=True)
-                        st.progress(percent/100,text=f'진행률 {percent}%')
-                        with st.expander('✏️ 클릭하여 진행상태 · 진행률 · 우선순위 등 수정'):
+                        st.progress(percent/100,text=f'진행률 · {percent}%')
+                        with st.expander('✏️ 이 업무 수정하기 · 클릭해서 펼치기'):
+                            st.caption('각 항목을 수정한 뒤 아래 ‘변경사항 저장’을 눌러주세요.')
                             with st.form('quick_edit_'+task_id):
                                 a,b,c=st.columns([1.1,1,1.3])
                                 states=list(dict.fromkeys(STATES+[status]))
@@ -455,7 +478,7 @@ else:
                                             st.error(f'저장 실패: {exc}')
         with right:
             st.markdown('''<div class="new-task-banner"><div class="new-task-kicker">✦ NEW TASK</div><div class="new-task-title">＋ 새 업무 등록</div><div class="new-task-desc">새로운 업무를 작성하고 팀원과 공유하세요.</div></div>''',unsafe_allow_html=True)
-            st.info('📝 오른쪽 입력란에서 업무를 작성하고 아래 파란 버튼으로 등록하세요.',icon=None)
+            st.caption('필수 항목: 업무명 · 시작일 · 마감일  |  나머지는 필요에 따라 입력')
             with st.container(border=True):
                 form(svc,people,key='task_new_panel',compact=True)
     elif page=='📝 회의록':

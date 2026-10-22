@@ -221,37 +221,6 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .cal-edit-section{background:#eaf2ff;border-left:4px solid #2169ef;color:#1e64cc;padding:11px 13px;border-radius:7px;margin:17px 0 12px;font-weight:850;font-size:13px}
 .cal-edit-section span{color:#173d78;margin-left:8px}
 [data-testid="stDialog"]:has(.cal-detail-marker) [data-testid="stFormSubmitButton"] button{min-height:47px!important;font-weight:800!important;background:#2169ef!important;color:white!important;border-radius:9px!important}
-
-/* Sidebar only: soft background, clean text-and-emoji navigation */
-[data-testid="stSidebar"]{background:#eef4fb!important;border-right:1px solid #dce6f2!important}
-[data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding-top:1.5rem!important}
-[data-testid="stSidebar"] h1,[data-testid="stSidebar"] h2,[data-testid="stSidebar"] h3,[data-testid="stSidebar"] p,[data-testid="stSidebar"] label{color:#263d5c!important}
-[data-testid="stSidebar"] hr{border-color:#d9e3f0!important}
-[data-testid="stSidebar"] [role="radiogroup"]{gap:4px!important}
-[data-testid="stSidebar"] [role="radiogroup"] label{display:flex!important;align-items:center!important;padding:11px 13px!important;margin:2px 0!important;border-radius:10px!important;background:transparent!important;border:1px solid transparent!important;transition:background .15s ease!important;min-height:43px!important}
-[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#e0eaf8!important}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked),[data-testid="stSidebar"] [role="radiogroup"] label:has([aria-checked="true"]){background:#d9e8ff!important;border-color:#c4d9ff!important}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{color:#1457ba!important;font-weight:800!important}
-[data-testid="stSidebar"] [role="radiogroup"] label p{color:#304966!important;font-size:13px!important;font-weight:650!important;margin:0!important}
-/* Hide only the menu radio indicator, including Streamlit BaseWeb wrappers */
-[data-testid="stSidebar"] [role="radiogroup"] label input[type="radio"],
-[data-testid="stSidebar"] [role="radiogroup"] label [data-testid="stRadioButtonIcon"],
-[data-testid="stSidebar"] [role="radiogroup"] label [data-baseweb="radio"],
-[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child:has(input),
-[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child:has([data-testid="stRadioButtonIcon"]),
-[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child:not(:has(p)){display:none!important}
-[data-testid="stSidebar"] [data-testid="stAlert"]{background:#e3edfa!important;border:1px solid #d0e0f2!important;border-radius:10px!important}
-[data-testid="stSidebar"] [data-testid="stAlert"] *{color:#365574!important}
-[data-testid="stSidebar"] button{background:#fff!important;color:#2d5484!important;border:1px solid #cad9ed!important;border-radius:9px!important}
-[data-testid="stSidebar"] button:hover{background:#e3efff!important;color:#1554ae!important;border-color:#9dbfea!important}
-[data-testid="stSidebar"] [data-testid="stSelectbox"] [data-baseweb="select"]>div{background:#fff!important;border-color:#cfdaea!important}
-[data-testid="stSidebar"] [data-testid="stSelectbox"] *{color:#2b4362!important}
-.sidebar-mini{border-top:1px solid #d9e3f0!important;color:#526c8d!important}
-.sidebar-mini h4{color:#263d5c!important}
-.sidebar-mini .mini-week{color:#526c8d!important}
-.sidebar-mini .mini-week .on{background:#2169ef!important;color:#fff!important}
-[data-testid="stSidebar"] [data-testid="stCaptionContainer"] *{color:#71849f!important}
-
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'

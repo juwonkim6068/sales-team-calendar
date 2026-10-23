@@ -251,6 +251,55 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
   .cal-detail-title {font-size:18px;}
   [data-testid="stDataFrame"] {max-width:100%;}
 }
+
+/* 2026-10-23: 모바일 전용 정렬 개선. PC 및 Python 로직 변경 없음. */
+@media screen and (max-width: 767px) {
+  html, body, .stApp {overflow-x:hidden!important;}
+  [data-testid="stAppViewBlockContainer"] {padding:3.35rem 12px 2rem!important;max-width:100%!important;}
+  [data-testid="stMainBlockContainer"] {max-width:100%!important;}
+  .dashboard-head {margin:0 0 12px!important;}
+  .dashboard-head h1 {font-size:1.55rem!important;line-height:1.3!important;}
+  .dashboard-head p {font-size:12px!important;line-height:1.6!important;}
+  /* 달력 상단 6개 컬럼을 모바일에서 2행으로 재배치 */
+  [data-testid="stHorizontalBlock"]:has(.st-key-month_prev):has(.st-key-month_next) {
+    display:grid!important;grid-template-columns:44px minmax(0,1fr) 44px!important;
+    gap:8px!important;align-items:center!important;
+  }
+  [data-testid="stHorizontalBlock"]:has(.st-key-month_prev):has(.st-key-month_next) > [data-testid="stColumn"] {
+    width:auto!important;min-width:0!important;flex:none!important;
+  }
+  [data-testid="stHorizontalBlock"]:has(.st-key-month_prev):has(.st-key-month_next) > [data-testid="stColumn"]:nth-child(1){grid-column:1;grid-row:1;}
+  [data-testid="stHorizontalBlock"]:has(.st-key-month_prev):has(.st-key-month_next) > [data-testid="stColumn"]:nth-child(2){grid-column:2;grid-row:1;text-align:center;}
+  [data-testid="stHorizontalBlock"]:has(.st-key-month_prev):has(.st-key-month_next) > [data-testid="stColumn"]:nth-child(2) h3{font-size:1.2rem!important;margin:0!important;white-space:nowrap;}
+  [data-testid="stHorizontalBlock"]:has(.st-key-month_prev):has(.st-key-month_next) > [data-testid="stColumn"]:nth-child(3){grid-column:3;grid-row:1;}
+  [data-testid="stHorizontalBlock"]:has(.st-key-month_prev):has(.st-key-month_next) > [data-testid="stColumn"]:nth-child(4){grid-column:1 / 2;grid-row:2;}
+  [data-testid="stHorizontalBlock"]:has(.st-key-month_prev):has(.st-key-month_next) > [data-testid="stColumn"]:nth-child(5){display:none!important;}
+  [data-testid="stHorizontalBlock"]:has(.st-key-month_prev):has(.st-key-month_next) > [data-testid="stColumn"]:nth-child(6){grid-column:2 / 4;grid-row:2;}
+  [data-testid="stHorizontalBlock"]:has(.st-key-month_prev):has(.st-key-month_next) button{min-height:40px!important;padding:5px 6px!important;font-size:13px!important;}
+  /* 달력은 좁은 화면에서도 7일을 보이되 일정 내용은 줄임 */
+  .cal-shell{width:100%!important;max-width:100%!important;overflow:hidden!important;margin-top:10px!important;}
+  .cal-weekdays{grid-template-columns:repeat(7,minmax(0,1fr))!important;}
+  .cal-weekdays > *{min-width:0!important;font-size:10px!important;padding:9px 0!important;}
+  .cal-day{min-width:0!important;min-height:73px!important;padding:5px 2px!important;overflow:hidden!important;}
+  .cal-day .day-num{font-size:11px!important;margin-bottom:4px!important;}
+  .cal-event{min-width:0!important;padding:3px 2px!important;margin:2px 0!important;border-radius:4px!important;}
+  .cal-event .event-title{font-size:9px!important;line-height:1.35!important;overflow:hidden!important;text-overflow:ellipsis!important;}
+  .cal-event .event-sub{display:none!important;}
+  .cal-legend{justify-content:flex-start!important;gap:7px!important;font-size:10px!important;}
+  /* 카드, 회의록, 업무 입력란 가독성 */
+  .task-card-top{align-items:flex-start!important;}
+  .task-card-title{font-size:15px!important;line-height:1.45!important;overflow-wrap:anywhere!important;}
+  .task-tags,.task-card-meta,.meeting-pills{flex-wrap:wrap!important;gap:5px!important;}
+  .task-card-meta span,.meeting-pills span{max-width:100%!important;overflow-wrap:anywhere!important;}
+  .new-task-banner{padding:14px!important;border-radius:12px!important;}
+  .new-task-title{font-size:19px!important;}
+  .meeting-hero{padding:13px!important;}
+  .meeting-list-title{font-size:15px!important;overflow-wrap:anywhere!important;}
+  .meeting-mini-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;}
+  [data-testid="stDataFrame"], [data-testid="stDataEditor"]{max-width:100%!important;}
+  [data-testid="stForm"] input,[data-testid="stForm"] textarea{font-size:16px!important;}
+  [data-testid="stDialog"] [role="dialog"]{max-width:calc(100vw - 16px)!important;}
+}
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'

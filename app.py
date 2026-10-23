@@ -347,84 +347,72 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 @media(max-width:767px){.task-deadline-banner{padding:9px 10px}.task-dday-tag{white-space:normal}}
 
 
-/* Sidebar visual refresh only — application logic and main content unchanged */
-[data-testid="stSidebar"] {
-  background:#f5f8fe!important;
-  border-right:1px solid #dce6f5!important;
-  box-shadow:3px 0 20px rgba(34,71,124,.035);
+/* Sidebar only: compact professional navigation, inspired by supplied reference app. */
+[data-testid="stSidebar"]{
+ background:#ffffff!important;
+ border-right:1px solid #e5ebf3!important;
+ box-shadow:2px 0 14px rgba(27,47,79,.025)!important;
 }
-[data-testid="stSidebar"] [data-testid="stSidebarContent"] {
-  padding-top:1.65rem;
+[data-testid="stSidebar"] [data-testid="stSidebarContent"]{
+ padding:1.25rem .85rem 1.5rem!important;
 }
-[data-testid="stSidebar"] h1,
-[data-testid="stSidebar"] h2,
-[data-testid="stSidebar"] h3,
-[data-testid="stSidebar"] h4,
-[data-testid="stSidebar"] p,
-[data-testid="stSidebar"] label {color:#243b60!important}
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3 {
-  font-size:1.05rem!important;
-  letter-spacing:-.035em;
-  color:#19365f!important;
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:.35rem!important}
+[data-testid="stSidebar"] h1,[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3,[data-testid="stSidebar"] h4,
+[data-testid="stSidebar"] p,[data-testid="stSidebar"] label{color:#344054!important}
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3{
+ font-size:1.02rem!important;font-weight:800!important;letter-spacing:-.035em!important;
+ color:#172b49!important;margin:.15rem 0 .35rem!important;
 }
-[data-testid="stSidebar"] hr {border-color:#dfe8f5!important;opacity:1}
-[data-testid="stSidebar"] [role="radiogroup"] {gap:4px}
-[data-testid="stSidebar"] [role="radiogroup"] label {
-  padding:11px 13px!important;
-  margin:2px 0!important;
-  border-radius:11px!important;
-  border:1px solid transparent!important;
-  transition:background .15s ease,border-color .15s ease;
+[data-testid="stSidebar"] hr{border-color:#e9eef5!important;opacity:1!important;margin:.75rem 0!important}
+[data-testid="stSidebar"] [role="radiogroup"]{gap:3px!important}
+[data-testid="stSidebar"] [role="radiogroup"] label{
+ min-height:40px!important;padding:10px 11px!important;margin:1px 0!important;
+ border-radius:9px!important;border:1px solid transparent!important;
+ background:transparent!important;cursor:pointer;
+ transition:background .15s ease,color .15s ease!important;
 }
-[data-testid="stSidebar"] [role="radiogroup"] label:hover {
-  background:#e8f0ff!important;
-  border-color:#d5e4ff!important;
+[data-testid="stSidebar"] [role="radiogroup"] label p{
+ color:#536477!important;font-size:12.5px!important;font-weight:600!important;
+ line-height:1.45!important;margin:0!important;
 }
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
-  background:#e2edff!important;
-  border-color:#bfd6ff!important;
-  box-shadow:inset 3px 0 0 #2169ef!important;
+[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#f2f6fc!important}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){
+ background:#edf4ff!important;border-color:#dbe8ff!important;
+ box-shadow:inset 3px 0 0 #2169ef!important;
 }
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {
-  color:#1557c6!important;
-  font-weight:800!important;
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{
+ color:#195ecb!important;font-weight:800!important;
 }
-[data-testid="stSidebar"] button {
-  background:#fff!important;
-  color:#24569c!important;
-  border:1px solid #cddcf0!important;
-  border-radius:10px!important;
-  box-shadow:0 2px 6px rgba(26,67,121,.035);
+[data-testid="stSidebar"] button{
+ background:#fff!important;color:#355c92!important;
+ border:1px solid #dce5f0!important;border-radius:9px!important;
+ box-shadow:none!important;font-size:12px!important;
 }
-[data-testid="stSidebar"] button:hover {
-  background:#edf4ff!important;
-  border-color:#8fb7ff!important;
-  color:#1557c6!important;
+[data-testid="stSidebar"] button:hover{
+ background:#f1f6ff!important;color:#1557c6!important;border-color:#bfd5f8!important;
 }
-[data-testid="stSidebar"] [data-testid="stAlert"] {
-  background:#eaf2ff!important;
-  color:#3c5c8a!important;
-  border:1px solid #d5e4fa!important;
-  border-radius:11px!important;
+[data-testid="stSidebar"] [data-testid="stAlert"]{
+ background:#f4f7fb!important;color:#64748b!important;
+ border:1px solid #e6edf5!important;border-radius:9px!important;
 }
 [data-testid="stSidebar"] [data-testid="stAlert"] p,
-[data-testid="stSidebar"] [data-testid="stAlert"] span {color:#3c5c8a!important}
-[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p {color:#7a8da9!important}
-[data-testid="stSidebar"] [data-testid="stSelectbox"] > div > div {
-  background:#fff!important;
-  border-color:#d6e2f3!important;
-  border-radius:9px!important;
-  color:#243b60!important;
+[data-testid="stSidebar"] [data-testid="stAlert"] span{color:#64748b!important;font-size:11px!important}
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p{color:#8a98aa!important;font-size:11px!important}
+[data-testid="stSidebar"] [data-testid="stSelectbox"] > div > div{
+ background:#f8fafc!important;border:1px solid #e0e7f0!important;
+ border-radius:9px!important;color:#344054!important;
 }
-[data-testid="stSidebar"] .sidebar-mini {
-  border-top:1px solid #dfe8f5!important;
-  color:#536b90!important;
+[data-testid="stSidebar"] .sidebar-mini{
+ border-top:1px solid #e9eef5!important;color:#64748b!important;
+ margin-top:12px!important;padding-top:14px!important;
 }
-[data-testid="stSidebar"] .sidebar-mini h4 {color:#254268!important}
-[data-testid="stSidebar"] .sidebar-mini .mini-week {color:#7185a3!important}
-[data-testid="stSidebar"] .sidebar-mini .mini-week .on {
-  background:#2169ef!important;
-  color:#fff!important;
+[data-testid="stSidebar"] .sidebar-mini h4{color:#344054!important;font-size:12px!important}
+[data-testid="stSidebar"] .sidebar-mini .mini-week{color:#7c8b9d!important;font-size:10px!important}
+[data-testid="stSidebar"] .sidebar-mini .mini-week .on{background:#2169ef!important;color:white!important}
+@media(max-width:767px){
+ [data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding:1rem .8rem!important}
+ [data-testid="stSidebar"] [role="radiogroup"] label{min-height:44px!important}
 }
 
 </style>""",unsafe_allow_html=True)

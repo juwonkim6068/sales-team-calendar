@@ -346,6 +346,87 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .task-dday-none{background:#eef1f5;color:#637084}
 @media(max-width:767px){.task-deadline-banner{padding:9px 10px}.task-dday-tag{white-space:normal}}
 
+
+/* Sidebar visual refresh only — application logic and main content unchanged */
+[data-testid="stSidebar"] {
+  background:#f5f8fe!important;
+  border-right:1px solid #dce6f5!important;
+  box-shadow:3px 0 20px rgba(34,71,124,.035);
+}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+  padding-top:1.65rem;
+}
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] h4,
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] label {color:#243b60!important}
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3 {
+  font-size:1.05rem!important;
+  letter-spacing:-.035em;
+  color:#19365f!important;
+}
+[data-testid="stSidebar"] hr {border-color:#dfe8f5!important;opacity:1}
+[data-testid="stSidebar"] [role="radiogroup"] {gap:4px}
+[data-testid="stSidebar"] [role="radiogroup"] label {
+  padding:11px 13px!important;
+  margin:2px 0!important;
+  border-radius:11px!important;
+  border:1px solid transparent!important;
+  transition:background .15s ease,border-color .15s ease;
+}
+[data-testid="stSidebar"] [role="radiogroup"] label:hover {
+  background:#e8f0ff!important;
+  border-color:#d5e4ff!important;
+}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
+  background:#e2edff!important;
+  border-color:#bfd6ff!important;
+  box-shadow:inset 3px 0 0 #2169ef!important;
+}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {
+  color:#1557c6!important;
+  font-weight:800!important;
+}
+[data-testid="stSidebar"] button {
+  background:#fff!important;
+  color:#24569c!important;
+  border:1px solid #cddcf0!important;
+  border-radius:10px!important;
+  box-shadow:0 2px 6px rgba(26,67,121,.035);
+}
+[data-testid="stSidebar"] button:hover {
+  background:#edf4ff!important;
+  border-color:#8fb7ff!important;
+  color:#1557c6!important;
+}
+[data-testid="stSidebar"] [data-testid="stAlert"] {
+  background:#eaf2ff!important;
+  color:#3c5c8a!important;
+  border:1px solid #d5e4fa!important;
+  border-radius:11px!important;
+}
+[data-testid="stSidebar"] [data-testid="stAlert"] p,
+[data-testid="stSidebar"] [data-testid="stAlert"] span {color:#3c5c8a!important}
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p {color:#7a8da9!important}
+[data-testid="stSidebar"] [data-testid="stSelectbox"] > div > div {
+  background:#fff!important;
+  border-color:#d6e2f3!important;
+  border-radius:9px!important;
+  color:#243b60!important;
+}
+[data-testid="stSidebar"] .sidebar-mini {
+  border-top:1px solid #dfe8f5!important;
+  color:#536b90!important;
+}
+[data-testid="stSidebar"] .sidebar-mini h4 {color:#254268!important}
+[data-testid="stSidebar"] .sidebar-mini .mini-week {color:#7185a3!important}
+[data-testid="stSidebar"] .sidebar-mini .mini-week .on {
+  background:#2169ef!important;
+  color:#fff!important;
+}
+
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'

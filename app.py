@@ -12,35 +12,26 @@ from googleapiclient.discovery import build
 
 st.set_page_config(page_title='영업팀 대시보드', page_icon='📊', layout='wide', initial_sidebar_state='expanded')
 st.markdown("""<style>
-/* 완료 업무: 배너 내부 두 열 정렬 (절대 위치 사용 안 함) */
-[data-testid="stHorizontalBlock"]:has(.completed-delete-anchor){
-  background:#eaf8ef!important;border:1px solid #a8dfb9!important;
-  border-radius:10px!important;padding:10px 12px!important;
-  align-items:center!important;gap:10px!important;
-  margin-bottom:12px!important;
+/* 완료 배너 삭제 버튼의 외형 및 내부 여백만 조정 (기능/배치 구조 유지) */
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor){
+  position:relative!important;
 }
-[data-testid="stHorizontalBlock"]:has(.completed-delete-anchor) [data-testid="stColumn"]{
-  min-width:0!important;
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) > [data-testid="stElementContainer"]:has([data-testid="stButton"]){
+  position:absolute!important;right:22px!important;top:16px!important;
+  width:auto!important;z-index:2!important;
 }
-[data-testid="stHorizontalBlock"]:has(.completed-delete-anchor) [data-testid="stButton"] button{
-  width:100%!important;min-height:34px!important;padding:5px 9px!important;
-  background:#fff!important;color:#b42332!important;
-  border:1px solid #e9b5b8!important;border-radius:8px!important;
-  font-size:12px!important;font-weight:700!important;
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) [data-testid="stButton"] button{
+  min-height:30px!important;padding:4px 10px!important;
+  background:#f5fff8!important;color:#168449!important;border:1px solid #a8dfb9!important;
+  border-radius:7px!important;font-size:12px!important;font-weight:700!important;
   box-shadow:none!important;
 }
-[data-testid="stHorizontalBlock"]:has(.completed-delete-anchor) [data-testid="stButton"] button:hover{
-  background:#fff3f3!important;border-color:#d95e68!important;
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) .task-completed-banner{
+  padding-right:112px!important;
 }
-.completed-delete-anchor{display:none!important}
-.completed-banner-content{display:flex;align-items:center;gap:10px;color:#126b39;min-width:0}
-.completed-banner-content strong{display:block;font-size:15px;font-weight:800}
-.completed-banner-content small{display:block;font-size:12px;color:#327c52;margin-top:2px}
 @media(max-width:767px){
- [data-testid="stHorizontalBlock"]:has(.completed-delete-anchor){padding:9px!important;gap:7px!important;flex-wrap:nowrap!important}
- [data-testid="stHorizontalBlock"]:has(.completed-delete-anchor) [data-testid="stButton"] button{font-size:11px!important;padding:5px!important}
- .completed-banner-content strong{font-size:13px!important}
- .completed-banner-content small{font-size:11px!important}
+ [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) > [data-testid="stElementContainer"]:has([data-testid="stButton"]){right:16px!important;top:13px!important}
+ [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) .task-completed-banner{padding-right:100px!important}
 }
 
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
@@ -852,18 +843,17 @@ else:
                                 '<small>오늘까지 완료해야 하는 업무입니다.</small></span></div>',
                                 unsafe_allow_html=True)
                         if is_completed:
-                            # 완료 배너를 실제 Streamlit 두 열로 구성하여 버튼이 경계를 넘지 않도록 합니다.
-                            banner_text, banner_action = st.columns([5.8, 1.0], gap='small', vertical_alignment='center')
-                            with banner_text:
+                            # 완료 배너 오른쪽에 실제 Streamlit 삭제 버튼을 배치합니다.
+                            # 삭제는 확인 대화상자에서 '예'를 누른 경우에만 실행됩니다.
+                            with st.container():
+                                st.markdown('<span class="completed-delete-anchor"></span>', unsafe_allow_html=True)
                                 st.markdown(
-                                    '<span class="completed-delete-anchor"></span>'
-                                    '<div class="completed-banner-content">'
+                                    '<div class="task-completed-banner">'
                                     '<span class="task-completed-icon">✓</span>'
                                     '<span><strong>완료된 업무</strong><small>이 업무는 완료 처리되었습니다.</small></span>'
                                     '</div>', unsafe_allow_html=True)
-                            with banner_action:
-                                if st.button('🗑 삭제', key='open_delete_' + task_id,
-                                             type='secondary', use_container_width=True):
+                                if st.button('🗑️ 삭제', key='open_delete_' + task_id,
+                                             type='secondary'):
                                     confirm_completed_task_delete(svc, task_id)
                         st.markdown(
                             f'<div class="task-card-top"><div class="task-card-title">{escape(title)}'

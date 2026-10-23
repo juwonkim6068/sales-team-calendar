@@ -540,8 +540,8 @@ def form(svc,people,existing=None,key='new',compact=False):
             rec.update({'통합ID':safe(old.get('통합ID')) or uuid.uuid4().hex,'원본시트':safe(old.get('원본시트')) or '통합업무',
              '원본ID':safe(old.get('원본ID')) or uuid.uuid4().hex,'업무명':title.strip(),'상세내용':detail,
              '거래처':company,'담당자':'' if owner=='미지정' else owner,'업무구분':category,
-             '시작일':start.isoformat(),'마감일':due.isoformat(),'시작시간':tm,'진행상태':status,
-             '우선순위':priority,'진행률':str(progress),'메모':memo,'첨부파일URL':link,
+             '시작일':start.isoformat(),'마감일':due.isoformat(),'시작시간':tm,'진행상태':('완료' if progress == 100 or status == '완료' else status),
+             '우선순위':priority,'진행률':str(100 if status == '완료' else progress),'메모':memo,'첨부파일URL':link,
              '작성일':safe(old.get('작성일')) or now,'수정일':now})
             try:
                 save_record(svc,rec,safe(old.get('통합ID')) or None)
@@ -902,8 +902,8 @@ else:
                                     else:
                                         record={k:safe(task.get(k)) for k in HEAD}
                                         record.update({'업무명':new_title.strip(),'담당자':'' if new_owner=='미지정' else new_owner,
-                                            '업무구분':new_cat,'진행상태':new_status,'우선순위':new_priority,
-                                            '진행률':str(new_progress),'마감일':new_due.isoformat(),
+                                            '업무구분':new_cat,'진행상태':('완료' if new_progress == 100 or new_status == '완료' else new_status),'우선순위':new_priority,
+                                            '진행률':str(100 if new_status == '완료' else new_progress),'마감일':new_due.isoformat(),
                                             '상세내용':new_detail,'거래처':new_company,
                                             '수정일':datetime.now().strftime('%Y-%m-%d %H:%M:%S')})
                                         try:

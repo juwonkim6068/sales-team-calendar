@@ -413,6 +413,25 @@ def save_record(svc,record,old_id=None):
         svc.spreadsheets().values().update(spreadsheetId=SID,range=f"'{TAB}'!A{line}:R{line}",valueInputOption='RAW',body={'values':[[safe(record.get(k)) for k in HEAD]]}).execute()
     else:append_rows(svc,[record])
 
+def delete_completed_record(svc, record_id):
+    """Delete exactly one completed task from the integrated sheet by stable ID."""
+    rows = read_tab(svc, TAB)
+    matches = rows.index[rows['통합ID'] == record_id].tolist() if not rows.empty else []
+    if len(matches) != 1:
+        raise RuntimeError('삭제 대상이 없거나 ID가 중복되어 삭제하지 않았습니다. 새로고침 후 확인하세요.')
+    row_idx = matches[0]
+    if safe(rows.iloc[row_idx].get('진행상태')) != '완료':
+        raise RuntimeError('완료 상태인 업무만 삭제할 수 있습니다.')
+    sheets = svc.spreadsheets().get(spreadsheetId=SID, fields='sheets(properties(sheetId,title))').execute().get('sheets', [])
+    ids = [sh['properties']['sheetId'] for sh in sheets if sh['properties'].get('title') == TAB]
+    if len(ids) != 1:
+        raise RuntimeError('통합업무 시트를 확인할 수 없어 삭제하지 않았습니다.')
+    # pandas index 0 is sheet row 2 (zero-based startIndex=1).
+    svc.spreadsheets().batchUpdate(spreadsheetId=SID, body={'requests': [
+        {'deleteDimension': {'range': {'sheetId': ids[0], 'dimension': 'ROWS',
+                                       'startIndex': row_idx + 1, 'endIndex': row_idx + 2}}}
+    ]}).execute()
+
 def migration(svc):
     create_tab(svc)
     existing=read_tab(svc,TAB)
@@ -727,6 +746,8 @@ else:
             if cat_filter!='전체':filtered=filtered[filtered['업무구분']==cat_filter]
             if priority_filter!='전체':filtered=filtered[filtered['우선순위']==priority_filter]
             st.caption(f'🔵 현재 {len(filtered)}건 표시 중  ·  카드의 수정 메뉴에서 상태·우선순위·진행률 변경 가능')
+            if st.session_state.pop('task_deleted_notice', False):
+                st.success('완료된 업무를 삭제했습니다. Google Sheets에도 반영되었습니다.')
             if filtered.empty:
                 st.info('조건에 맞는 업무가 없습니다.')
             else:
@@ -844,6 +865,18 @@ else:
                                             st.rerun()
                                         except Exception as exc:
                                             st.error(f'저장 실패: {exc}')
+                        if is_completed:
+                            with st.expander('🗑️ 완료 업무 삭제'):
+                                st.warning('삭제하면 Google Sheets의 해당 업무 행이 영구 삭제됩니다. 복구하려면 별도 백업이 필요합니다.')
+                                confirm = st.checkbox('이 업무를 영구 삭제하는 데 동의합니다.', key='delete_confirm_' + task_id)
+                                if st.button('🗑️ 이 완료 업무 삭제', key='delete_task_' + task_id,
+                                             disabled=not confirm, type='secondary', use_container_width=True):
+                                    try:
+                                        delete_completed_record(svc, task_id)
+                                        st.session_state['task_deleted_notice'] = True
+                                        st.rerun()
+                                    except Exception as exc:
+                                        st.error(f'삭제 실패: {exc}')
         with right:
             st.markdown('''<div class="new-task-banner"><div class="new-task-kicker">✦ NEW TASK</div><div class="new-task-title">＋ 새 업무 등록</div><div class="new-task-desc">새로운 업무를 작성하고 팀원과 공유하세요.</div></div>''',unsafe_allow_html=True)
             st.info('✍️ **여기에서 새 업무를 작성합니다.** 업무명을 먼저 입력한 후 아래 **파란 등록 버튼**을 누르세요.')

@@ -17,7 +17,7 @@ st.markdown("""<style>
   position:relative!important;
 }
 [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) > [data-testid="stElementContainer"]:has([data-testid="stButton"]){
-  position:absolute!important;right:22px!important;top:16px!important;
+  position:absolute!important;right:22px!important;top:50%!important;transform:translateY(-50%)!important;
   width:auto!important;z-index:2!important;
 }
 [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) [data-testid="stButton"] button{
@@ -30,7 +30,7 @@ st.markdown("""<style>
   padding-right:112px!important;
 }
 @media(max-width:767px){
- [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) > [data-testid="stElementContainer"]:has([data-testid="stButton"]){right:16px!important;top:13px!important}
+ [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) > [data-testid="stElementContainer"]:has([data-testid="stButton"]){right:16px!important;top:50%!important;transform:translateY(-50%)!important}
  [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) .task-completed-banner{padding-right:100px!important}
 }
 

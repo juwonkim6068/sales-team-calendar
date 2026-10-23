@@ -300,6 +300,14 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
   [data-testid="stForm"] input,[data-testid="stForm"] textarea{font-size:16px!important;}
   [data-testid="stDialog"] [role="dialog"]{max-width:calc(100vw - 16px)!important;}
 }
+
+/* 완료 상태는 진행률과 별개로 진행상태=완료일 때만 강조합니다. */
+.task-completed-banner{display:flex;align-items:center;gap:10px;background:#eaf8ef;border:1px solid #a8dfb9;border-radius:10px;padding:10px 13px;margin:0 0 12px;color:#126b39}
+.task-completed-icon{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:#18864b;color:white;font-size:20px;font-weight:800;flex-shrink:0}
+.task-completed-banner strong{display:block;font-size:15px;font-weight:800}
+.task-completed-banner small{display:block;font-size:12px;color:#327c52;margin-top:2px}
+.task-completed-title-tag{display:inline-block;vertical-align:middle;background:#168449;color:#fff;border-radius:7px;padding:3px 8px;margin-left:6px;font-size:12px;font-weight:800;white-space:nowrap}
+@media(max-width:767px){.task-completed-banner{padding:9px 11px;gap:8px}.task-completed-title-tag{margin:5px 0 0 0}}
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'
@@ -724,9 +732,18 @@ else:
                     owner_text=safe(task.get('담당자')) or '담당자 미지정'
                     category_text=safe(task.get('업무구분')) or '기타'
                     company_text=safe(task.get('거래처'))
+                    is_completed = status == '완료'
                     with st.container(border=True):
+                        if is_completed:
+                            st.markdown(
+                                '<div class="task-completed-banner">'
+                                '<span class="task-completed-icon">✓</span>'
+                                '<span><strong>완료된 업무</strong><small>이 업무는 완료 처리되었습니다.</small></span>'
+                                '</div>', unsafe_allow_html=True)
                         st.markdown(
-                            f'<div class="task-card-top"><div class="task-card-title">{escape(title)}</div>'
+                            f'<div class="task-card-top"><div class="task-card-title">{escape(title)}'
+                            + (' <span class="task-completed-title-tag">✓ 완료</span>' if is_completed else '')
+                            + '</div>'
                             f'<div class="task-tags"><span style="background:{sbg};color:{sfg}">{escape(status)}</span>'
                             f'<span style="background:{pbg};color:{pfg}">{escape(priority)}</span></div></div>'
                             f'<div class="task-card-meta">'

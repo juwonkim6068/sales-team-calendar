@@ -441,6 +441,70 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 }
 [data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#e7f0ff!important}
 
+
+/* Reference-inspired sidebar refinement (sidebar only; no Python or app logic changes). */
+[data-testid="stSidebar"]{
+  background:#ffffff!important;
+  border-right:1px solid #dfe8e7!important;
+  box-shadow:4px 0 18px rgba(23,49,64,.055)!important;
+}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"]{
+  background:#ffffff!important;
+  padding:1.25rem .95rem 1.6rem!important;
+}
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3{
+  color:#193b3b!important;font-size:1.05rem!important;font-weight:800!important;
+  letter-spacing:-.04em!important;margin:.25rem 0 .45rem!important;
+}
+[data-testid="stSidebar"] hr{border-color:#e7eeed!important;margin:.85rem 0!important}
+[data-testid="stSidebar"] [role="radiogroup"]{gap:5px!important}
+[data-testid="stSidebar"] [role="radiogroup"] label{
+  display:flex!important;align-items:center!important;
+  min-height:41px!important;padding:10px 12px!important;
+  margin:0!important;border:0!important;border-radius:9px!important;
+  background:transparent!important;box-shadow:none!important;
+  transition:background-color .15s ease!important;
+}
+[data-testid="stSidebar"] [role="radiogroup"] label p{
+  color:#516779!important;font-size:12.5px!important;font-weight:600!important;
+  line-height:1.45!important;
+}
+[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#f2f7f5!important}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){
+  background:#eaf6f0!important;border:0!important;
+  box-shadow:none!important;
+}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{
+  color:#15815c!important;font-weight:800!important;
+}
+/* Remove only the radio circle; the actual radio remains interactive. */
+[data-testid="stSidebar"] [role="radiogroup"] label [data-testid="stRadioButtonIcon"],
+[data-testid="stSidebar"] [role="radiogroup"] label [data-baseweb="radio"],
+[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child:not([data-testid="stMarkdownContainer"]){display:none!important}
+[data-testid="stSidebar"] button{
+  background:#fff!important;color:#35596c!important;
+  border:1px solid #dce7e5!important;border-radius:9px!important;
+  font-size:12px!important;box-shadow:none!important;
+}
+[data-testid="stSidebar"] button:hover{
+  background:#eff8f3!important;color:#157b58!important;border-color:#b9dccc!important;
+}
+[data-testid="stSidebar"] [data-testid="stAlert"]{
+  background:#f5f8f5!important;border:1px solid #e4eee6!important;
+  border-radius:9px!important;
+}
+[data-testid="stSidebar"] [data-testid="stSelectbox"] > div > div{
+  background:#fff!important;border-color:#dce7e5!important;
+}
+[data-testid="stSidebar"] .sidebar-mini{border-color:#e7eeed!important}
+[data-testid="stSidebar"] .sidebar-mini .mini-week .on{
+  background:#219b72!important;color:#fff!important;
+}
+@media(max-width:767px){
+ [data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding:1rem .85rem!important}
+ [data-testid="stSidebar"] [role="radiogroup"] label{min-height:44px!important}
+}
+
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'

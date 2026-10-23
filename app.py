@@ -12,6 +12,27 @@ from googleapiclient.discovery import build
 
 st.set_page_config(page_title='영업팀 대시보드', page_icon='📊', layout='wide', initial_sidebar_state='expanded')
 st.markdown("""<style>
+/* 완료 배너 우측 삭제 버튼: PC/모바일 모두 배너 안에서 정렬 */
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor){
+  position:relative!important;
+}
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) > [data-testid="stElementContainer"]:has([data-testid="stButton"]){
+  position:absolute!important;right:13px!important;top:11px!important;
+  width:auto!important;z-index:2!important;
+}
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) [data-testid="stButton"] button{
+  min-height:34px!important;padding:5px 12px!important;
+  background:#fff!important;color:#b42332!important;border:1px solid #e7a7ad!important;
+  border-radius:8px!important;font-size:12px!important;font-weight:750!important;
+}
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) .task-completed-banner{
+  padding-right:112px!important;
+}
+@media(max-width:767px){
+ [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) > [data-testid="stElementContainer"]:has([data-testid="stButton"]){right:8px!important;top:8px!important}
+ [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) .task-completed-banner{padding-right:94px!important}
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
 :root{--ink:#172641;--muted:#7283a0;--line:#e3eaf3;--blue:#2169ef}
 html,body,.stApp,[class*="css"]{font-family:'Noto Sans KR',sans-serif}
@@ -432,6 +453,24 @@ def delete_completed_record(svc, record_id):
                                        'startIndex': row_idx + 1, 'endIndex': row_idx + 2}}}
     ]}).execute()
 
+@st.dialog('완료 업무 삭제 확인')
+def confirm_completed_task_delete(svc, task_id):
+    st.warning('복구할 수 없습니다. 정말 삭제하시겠습니까?')
+    yes_col, no_col = st.columns(2)
+    with yes_col:
+        if st.button('예, 삭제합니다', key='confirm_yes_' + task_id,
+                     type='primary', use_container_width=True):
+            try:
+                delete_completed_record(svc, task_id)
+                st.session_state['task_deleted_notice'] = True
+                st.rerun()
+            except Exception as exc:
+                st.error(f'삭제 실패: {exc}')
+    with no_col:
+        if st.button('아니요', key='confirm_no_' + task_id,
+                     use_container_width=True):
+            st.rerun()
+
 def migration(svc):
     create_tab(svc)
     existing=read_tab(svc,TAB)
@@ -803,11 +842,18 @@ else:
                                 '<small>오늘까지 완료해야 하는 업무입니다.</small></span></div>',
                                 unsafe_allow_html=True)
                         if is_completed:
-                            st.markdown(
-                                '<div class="task-completed-banner">'
-                                '<span class="task-completed-icon">✓</span>'
-                                '<span><strong>완료된 업무</strong><small>이 업무는 완료 처리되었습니다.</small></span>'
-                                '</div>', unsafe_allow_html=True)
+                            # 완료 배너 오른쪽에 실제 Streamlit 삭제 버튼을 배치합니다.
+                            # 삭제는 확인 대화상자에서 '예'를 누른 경우에만 실행됩니다.
+                            with st.container():
+                                st.markdown('<span class="completed-delete-anchor"></span>', unsafe_allow_html=True)
+                                st.markdown(
+                                    '<div class="task-completed-banner">'
+                                    '<span class="task-completed-icon">✓</span>'
+                                    '<span><strong>완료된 업무</strong><small>이 업무는 완료 처리되었습니다.</small></span>'
+                                    '</div>', unsafe_allow_html=True)
+                                if st.button('🗑️ 삭제', key='open_delete_' + task_id,
+                                             type='secondary'):
+                                    confirm_completed_task_delete(svc, task_id)
                         st.markdown(
                             f'<div class="task-card-top"><div class="task-card-title">{escape(title)}'
                             + (' <span class="task-completed-title-tag">✓ 완료</span>' if is_completed else '')
@@ -865,18 +911,6 @@ else:
                                             st.rerun()
                                         except Exception as exc:
                                             st.error(f'저장 실패: {exc}')
-                        if is_completed:
-                            with st.expander('🗑️ 완료 업무 삭제'):
-                                st.warning('삭제하면 Google Sheets의 해당 업무 행이 영구 삭제됩니다. 복구하려면 별도 백업이 필요합니다.')
-                                confirm = st.checkbox('이 업무를 영구 삭제하는 데 동의합니다.', key='delete_confirm_' + task_id)
-                                if st.button('🗑️ 이 완료 업무 삭제', key='delete_task_' + task_id,
-                                             disabled=not confirm, type='secondary', use_container_width=True):
-                                    try:
-                                        delete_completed_record(svc, task_id)
-                                        st.session_state['task_deleted_notice'] = True
-                                        st.rerun()
-                                    except Exception as exc:
-                                        st.error(f'삭제 실패: {exc}')
         with right:
             st.markdown('''<div class="new-task-banner"><div class="new-task-kicker">✦ NEW TASK</div><div class="new-task-title">＋ 새 업무 등록</div><div class="new-task-desc">새로운 업무를 작성하고 팀원과 공유하세요.</div></div>''',unsafe_allow_html=True)
             st.info('✍️ **여기에서 새 업무를 작성합니다.** 업무명을 먼저 입력한 후 아래 **파란 등록 버튼**을 누르세요.')

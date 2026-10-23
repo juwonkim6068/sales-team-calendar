@@ -308,6 +308,22 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .task-completed-banner small{display:block;font-size:12px;color:#327c52;margin-top:2px}
 .task-completed-title-tag{display:inline-block;vertical-align:middle;background:#168449;color:#fff;border-radius:7px;padding:3px 8px;margin-left:6px;font-size:12px;font-weight:800;white-space:nowrap}
 @media(max-width:767px){.task-completed-banner{padding:9px 11px;gap:8px}.task-completed-title-tag{margin:5px 0 0 0}}
+
+/* 업무 마감 D-day 상태: 완료 업무에는 지연 경고를 표시하지 않음 */
+.task-deadline-banner{display:flex;align-items:center;gap:10px;border-radius:10px;padding:10px 13px;margin:0 0 11px;font-weight:800}
+.task-deadline-banner strong{display:block;font-size:14px}
+.task-deadline-banner small{display:block;font-size:12px;font-weight:500;margin-top:3px}
+.task-deadline-overdue{background:#fff0f0;border:1px solid #f1aaaa;color:#b4232b}
+.task-deadline-tomorrow{background:#fff6e7;border:1px solid #f2cb81;color:#935800}
+.task-deadline-today{background:#fff6e7;border:1px solid #f2cb81;color:#935800}
+.task-dday-tag{display:inline-flex;align-items:center;border-radius:7px;padding:4px 8px;font-size:12px;font-weight:800;white-space:nowrap}
+.task-dday-normal{background:#e9f2ff;color:#2258a7}
+.task-dday-tomorrow,.task-dday-today{background:#fff0cc;color:#895500}
+.task-dday-overdue{background:#ffe2e2;color:#b4232b}
+.task-dday-completed{background:#e2f5e9;color:#168449}
+.task-dday-none{background:#eef1f5;color:#637084}
+@media(max-width:767px){.task-deadline-banner{padding:9px 10px}.task-dday-tag{white-space:normal}}
+
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'
@@ -733,7 +749,38 @@ else:
                     category_text=safe(task.get('업무구분')) or '기타'
                     company_text=safe(task.get('거래처'))
                     is_completed = status == '완료'
+                    due_date = dt(task.get('마감일'))
+                    days_left = (due_date - date.today()).days if due_date else None
+                    if days_left is None:
+                        dday_label, dday_class = '마감일 미지정', 'none'
+                    elif days_left > 0:
+                        dday_label, dday_class = f'D-{days_left}', 'tomorrow' if days_left == 1 and not is_completed else 'normal'
+                    elif days_left == 0:
+                        dday_label, dday_class = 'D-0 · 오늘 마감', 'today' if not is_completed else 'completed'
+                    else:
+                        dday_label, dday_class = f'D+{-days_left} · 마감 경과', 'overdue' if not is_completed else 'completed'
+                    if is_completed:
+                        dday_class = 'completed'
+                    dday_tag = f'<span class="task-dday-tag task-dday-{dday_class}">{escape(dday_label)}</span>'
                     with st.container(border=True):
+                        if not is_completed and days_left is not None and days_left < 0:
+                            st.markdown(
+                                f'<div class="task-deadline-banner task-deadline-overdue">'
+                                f'<span>🚨</span><span><strong>마감일 경과 · {escape(dday_label)}</strong>'
+                                '<small>마감일이 지났지만 완료되지 않은 업무입니다.</small></span></div>',
+                                unsafe_allow_html=True)
+                        elif not is_completed and days_left == 1:
+                            st.markdown(
+                                '<div class="task-deadline-banner task-deadline-tomorrow">'
+                                '<span>⏰</span><span><strong>마감 하루 전 · D-1</strong>'
+                                '<small>내일이 마감일입니다. 진행 상태를 확인하세요.</small></span></div>',
+                                unsafe_allow_html=True)
+                        elif not is_completed and days_left == 0:
+                            st.markdown(
+                                '<div class="task-deadline-banner task-deadline-today">'
+                                '<span>📅</span><span><strong>오늘 마감 · D-0</strong>'
+                                '<small>오늘까지 완료해야 하는 업무입니다.</small></span></div>',
+                                unsafe_allow_html=True)
                         if is_completed:
                             st.markdown(
                                 '<div class="task-completed-banner">'
@@ -750,6 +797,7 @@ else:
                             f'<span><b>담당자</b>{escape(owner_text)}</span>'
                             f'<span><b>업무구분</b>{escape(category_text)}</span>'
                             f'<span><b>마감일</b>{escape(due_text)}</span>'
+                            + dday_tag
                             + (f'<span><b>거래처</b>{escape(company_text)}</span>' if company_text else '')
                             + '</div>',unsafe_allow_html=True)
                         st.progress(percent/100,text=f'📊 업무 진행률  {percent}%')

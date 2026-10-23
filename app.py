@@ -222,75 +222,34 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .cal-edit-section span{color:#173d78;margin-left:8px}
 [data-testid="stDialog"]:has(.cal-detail-marker) [data-testid="stFormSubmitButton"] button{min-height:47px!important;font-weight:800!important;background:#2169ef!important;color:white!important;border-radius:9px!important}
 
-/* 모바일 전용: PC 화면 스타일과 컬럼 비율은 변경하지 않습니다. */
-@media (max-width: 700px) {
-  html, body, .stApp { max-width:100%; overflow-x:hidden!important; }
-  .block-container, [data-testid="stAppViewBlockContainer"] {
-    padding: 3.25rem .65rem 2rem!important;
-    max-width:100%!important; min-width:0!important;
-  }
-  [data-testid="stMainBlockContainer"] { min-width:0!important; }
-  h1 {font-size:1.55rem!important}
-  h2 {font-size:1.3rem!important}
-  h3 {font-size:1.1rem!important}
-  .dashboard-head {margin-bottom:10px}
-  .dashboard-head p {font-size:12px;line-height:1.6}
-  /* 작은 화면에서는 일반 Streamlit 컬럼을 한 줄씩 배치합니다. */
-  [data-testid="stHorizontalBlock"] {flex-wrap:wrap!important;gap:.6rem!important;}
-  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
-    flex:1 1 100%!important; width:100%!important; min-width:0!important;
-  }
-  /* 달력 상단만 3열+2열 툴바로 재구성: PC는 원래 6열 유지 */
-  .st-key-calendar_toolbar [data-testid="stHorizontalBlock"] {
-    display:grid!important;
-    grid-template-columns: minmax(0,48px) minmax(0,1fr) minmax(0,48px)!important;
-    gap:7px!important;align-items:center!important;
-  }
-  .st-key-calendar_toolbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
-    width:auto!important;min-width:0!important;flex:none!important;
-  }
-  .st-key-calendar_toolbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(1){grid-column:1;grid-row:1}
-  .st-key-calendar_toolbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2){grid-column:2;grid-row:1;text-align:center}
-  .st-key-calendar_toolbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(3){grid-column:3;grid-row:1}
-  .st-key-calendar_toolbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(4){grid-column:1 / 2;grid-row:2}
-  .st-key-calendar_toolbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(5){display:none!important}
-  .st-key-calendar_toolbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(6){grid-column:2 / 4;grid-row:2}
-  .st-key-calendar_toolbar h3 {margin:0!important;text-align:center;font-size:1.12rem!important;white-space:nowrap}
-  .st-key-calendar_toolbar button {min-height:39px!important;padding:.25rem .4rem!important}
-  .st-key-calendar_toolbar [data-testid="stPopover"] {width:100%}
-  /* 7일 그리드는 유지하고 일정 제목은 좁은 칸에서 말줄임 처리 */
-  .cal-shell {width:100%;max-width:100%;overflow:hidden;margin-top:10px}
-  .cal-weekdays div {padding:9px 0;font-size:11px}
-  .cal-day {min-height:77px;padding:5px 2px;overflow:hidden}
-  .cal-day .day-num {font-size:11px;margin-bottom:4px}
-  .cal-day .day-num.today {padding:2px 5px}
-  .cal-event {margin:3px 0;padding:3px 2px 3px 3px;border-radius:4px;font-size:9px;line-height:1.25}
-  .cal-event .event-title {font-size:9px;max-width:100%;overflow:hidden;text-overflow:ellipsis}
-  .cal-event .event-sub {display:none!important}
-  .cal-more {font-size:9px;margin:2px 0;white-space:nowrap;overflow:hidden}
-  .cal-legend {justify-content:flex-start;gap:7px 12px;font-size:10px}
-  .meeting-topbar {gap:9px;margin:4px 0 12px}
-  .meeting-top-title {font-size:23px;line-height:1.35}
-  .meeting-top-title small {font-size:11px;margin-top:5px}
-  .meeting-mini-stats {justify-content:flex-start;width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
-  .meeting-mini-stat {min-width:0;padding:8px;gap:5px;justify-content:space-between}
-  .meeting-mini-stat span {font-size:10px;white-space:normal}
-  .meeting-mini-stat b {font-size:13px}
-  .task-list-head,.meeting-hero {padding:11px 12px}
-  .task-card-top {align-items:flex-start}
-  .task-card-title {overflow-wrap:anywhere}
-  .task-tags {flex-wrap:wrap}
-  .task-card-meta span {max-width:100%;overflow-wrap:anywhere}
-  .new-task-banner {padding:14px!important}
-  .new-task-title {font-size:20px!important}
-  .meeting-list-title {font-size:15px}
-  .meeting-date-box strong {font-size:17px}
-  .meeting-detail-header strong {font-size:17px}
-  [data-testid="stDataFrame"] {max-width:100%;overflow-x:auto}
-  [data-testid="stDialog"] [data-testid="stDialogContent"] {padding:12px!important}
-  .cal-detail-hero {padding:13px!important}
-  .cal-detail-title {font-size:18px!important}
-  .cal-detail-content {padding:12px!important}
+/* 모바일 화면 전용 CSS — Python 위젯 구조와 PC 레이아웃은 그대로 유지 */
+@media screen and (max-width: 700px) {
+  .block-container, [data-testid="stAppViewBlockContainer"] {padding:3.6rem .65rem 2rem!important;max-width:100%!important;}
+  .dashboard-head h1 {font-size:1.55rem!important;}
+  .dashboard-head p {font-size:12px;line-height:1.55;}
+  .cal-weekdays div {font-size:10px;padding:9px 0;}
+  .cal-day {min-height:80px;padding:5px 2px;overflow:hidden;}
+  .cal-day .day-num {font-size:11px;margin-bottom:4px;}
+  .cal-event {font-size:9px;padding:3px 2px;margin:3px 0;}
+  .cal-event .event-title {font-size:9px;}
+  .cal-event .event-sub {display:none;}
+  .cal-more {font-size:9px;margin:2px 0;}
+  .cal-legend {justify-content:flex-start;gap:8px;font-size:10px;}
+  .meeting-topbar {gap:10px;}
+  .meeting-top-title {font-size:23px;}
+  .meeting-mini-stats {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;gap:7px;}
+  .meeting-mini-stat {min-width:0;padding:8px;}
+  .meeting-mini-stat span {font-size:10px;white-space:normal;}
+  .meeting-mini-stat b {font-size:13px;}
+  .task-card-title {font-size:15px!important;overflow-wrap:anywhere;}
+  .task-tags {flex-wrap:wrap;}
+  .task-card-meta span {overflow-wrap:anywhere;}
+  .new-task-banner {padding:13px!important;}
+  .new-task-title {font-size:19px!important;}
+  .meeting-list-title {font-size:15px;}
+  .cal-detail-hero {padding:13px;}
+  .cal-detail-title {font-size:18px;}
+  [data-testid="stDataFrame"] {max-width:100%;}
 }
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
@@ -570,8 +529,7 @@ else:
         st.markdown('<div class="dashboard-head"><div><h1>캘린더</h1><p>영업팀의 일정을 한눈에 확인하고 일정을 공유하세요.</p></div></div>',unsafe_allow_html=True)
         if 'month' not in st.session_state:st.session_state.month=date.today().replace(day=1)
         m=st.session_state.month
-        with st.container(key='calendar_toolbar'):
-            left,title,right,todaycol,spacer,add=st.columns([.65,2.2,.65,.85,3.2,1.4],vertical_alignment='center')
+        left,title,right,todaycol,spacer,add=st.columns([.65,2.2,.65,.85,3.2,1.4],vertical_alignment='center')
         if left.button('❮',key='month_prev',use_container_width=True):
             st.session_state.month=(pd.Timestamp(m)-pd.DateOffset(months=1)).date();st.rerun()
         title.markdown(f'### {m.year}년 {m.month}월')

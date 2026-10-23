@@ -415,6 +415,32 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
  [data-testid="stSidebar"] [role="radiogroup"] label{min-height:44px!important}
 }
 
+
+/* 2026-10-23: sidebar visual distinction + remove navigation radio circles only */
+[data-testid="stSidebar"]{
+ background:#f0f5fc!important;
+ border-right:3px solid #bfd2ee!important;
+ box-shadow:5px 0 18px rgba(29,73,135,.09)!important;
+}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"]{
+ background:transparent!important;
+}
+[data-testid="stSidebar"] [role="radiogroup"] label{
+ display:flex!important;align-items:center!important;gap:0!important;
+ padding:11px 13px!important;
+}
+/* Keep the native radio input functional but visually remove its circle. */
+[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child:not([data-testid="stMarkdownContainer"]),
+[data-testid="stSidebar"] [role="radiogroup"] label [data-testid="stRadioButtonIcon"],
+[data-testid="stSidebar"] [role="radiogroup"] label [data-baseweb="radio"]{
+ display:none!important;
+}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){
+ background:#dfeaff!important;border-color:#c6dafc!important;
+ box-shadow:inset 3px 0 0 #2169ef!important;
+}
+[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#e7f0ff!important}
+
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'

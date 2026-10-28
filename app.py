@@ -710,12 +710,29 @@ def dt(v):
     d=pd.to_datetime(v,errors='coerce')
     return d.date() if pd.notna(d) else None
 
+def task_title_parts(value):
+    title=safe(value)
+    kind='공통'
+    first=True
+    while title.startswith(('｢개인｣','｢공통｣')):
+        if first:kind='개인' if title.startswith('｢개인｣') else '공통'
+        title=title[4:].strip()
+        first=False
+    return kind,title
+
+def task_title_with_kind(value,kind):
+    _,title=task_title_parts(value)
+    return f'｢{kind}｣ {title}' if title else ''
+
 def form(svc,people,existing=None,key='new',compact=False):
     old=existing or {}
+    old_kind,old_title=task_title_parts(old.get('업무명'))
     calendar_edit=key.startswith('calendar_detail_')
     with st.form('edit_'+key):
         if calendar_edit:st.markdown('<div class="cal-edit-section">01 <span>업무 기본 정보</span></div>',unsafe_allow_html=True)
-        title=st.text_input('📝 업무명 *',value=safe(old.get('업무명')),placeholder='무슨 업무인가요? 예: HE 단가 인하 기안')
+        title=st.text_input('📝 업무명 *',value=old_title,placeholder='무슨 업무인가요? 예: HE 단가 인하 기안')
+        task_kind=st.radio('업무 범위',['개인','공통'],index=0 if old_kind=='개인' else 1,horizontal=True)
+        st.caption('업무명 앞에 ｢개인｣ 또는 ｢공통｣이 표시됩니다. 이 구분은 공개 범위나 수정 권한을 제한하지 않습니다.')
         detail=st.text_area('📋 상세 업무 내용',value=safe(old.get('상세내용')),placeholder='해야 할 일과 진행 내용을 간단히 적어주세요.',height=75)
         if calendar_edit:st.markdown('<div class="cal-edit-section">02 <span>거래처 및 담당자</span></div>',unsafe_allow_html=True)
         if compact:st.markdown('<div class="form-section-label">01 · 업무 분류 및 담당</div><div class="section-caption">거래처와 업무 담당자를 지정하세요.</div>',unsafe_allow_html=True)
@@ -726,7 +743,7 @@ def form(svc,people,existing=None,key='new',compact=False):
         else:
             company=c1.text_input('거래처',value=safe(old.get('거래처')))
         options=list(dict.fromkeys(people+([safe(old.get('담당자'))] if safe(old.get('담당자')) else [])))
-        options=['미지정']+ [p for p in options if p and p!='미지정']
+        options=['미지정','전체']+ [p for p in options if p and p not in ('미지정','전체')]
         owner=c2.selectbox('담당자',options,index=options.index(safe(old.get('담당자'))) if safe(old.get('담당자')) in options else 0)
         cat_options=list(dict.fromkeys(CATS+([safe(old.get('업무구분'))] if safe(old.get('업무구분')) else [])))
         category=c3.selectbox('업무구분',cat_options,index=cat_options.index(safe(old.get('업무구분'))) if safe(old.get('업무구분')) in cat_options else 0)
@@ -749,7 +766,8 @@ def form(svc,people,existing=None,key='new',compact=False):
         link=st.text_input('첨부파일 링크 (선택)',value=safe(old.get('첨부파일URL')),placeholder='Google Drive 파일 URL 붙여넣기')
         st.caption('입력한 업무는 Google Sheets에 저장되며 왼쪽 업무 목록에 표시됩니다.')
         if st.form_submit_button('＋ 새 업무 등록하기' if compact else 'Google Sheets에 저장',type='primary',use_container_width=(compact or calendar_edit)):
-            if not title.strip():st.error('업무명을 입력하세요.');return
+            saved_title=task_title_with_kind(title,task_kind)
+            if not saved_title:st.error('업무명을 입력하세요.');return
             if due<start:st.error('마감일은 시작일 이후여야 합니다.');return
             if tm:
                 try:datetime.strptime(tm,'%H:%M')
@@ -757,7 +775,7 @@ def form(svc,people,existing=None,key='new',compact=False):
             now=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             rec={k:safe(old.get(k)) for k in HEAD}
             rec.update({'통합ID':safe(old.get('통합ID')) or uuid.uuid4().hex,'원본시트':safe(old.get('원본시트')) or '통합업무',
-             '원본ID':safe(old.get('원본ID')) or uuid.uuid4().hex,'업무명':title.strip(),'상세내용':detail,
+             '원본ID':safe(old.get('원본ID')) or uuid.uuid4().hex,'업무명':saved_title,'상세내용':detail,
              '거래처':company,'담당자':'' if owner=='미지정' else owner,'업무구분':category,
              '시작일':start.isoformat(),'마감일':due.isoformat(),'시작시간':tm,'진행상태':('완료' if progress == 100 or status == '완료' else status),
              '우선순위':priority,'진행률':str(100 if status == '완료' else progress),'메모':memo,'첨부파일URL':link,
@@ -886,6 +904,7 @@ try:
     people=[safe(x) for x in team.get('이름',pd.Series(dtype=str)).tolist() if safe(x)]
 except Exception:people=[]
 people=list(dict.fromkeys(people+[safe(x) for x in df.get('담당자',pd.Series(dtype=str)).tolist() if safe(x)]))
+people=[p for p in people if p not in ('전체','미지정')]
 
 st.sidebar.caption('Google Sheets 연결 · 기존 원본 보존')
 st.sidebar.warning('현재는 공유 편집형입니다. 팀원별 로그인/수정 권한은 아직 적용되지 않았습니다.')
@@ -907,7 +926,7 @@ else:
     choices=['전체']+people
     if st.session_state.person_filter not in choices:st.session_state.person_filter='전체'
     person=st.sidebar.selectbox('담당자 선택',choices,key='person_filter')
-    shown=df if person=='전체' else df[df['담당자']==person]
+    shown=df if person=='전체' else df[df['담당자'].isin([person,'전체'])]
     st.sidebar.markdown(f'<div class="sidebar-mini"><h4>{date.today().year}년 {date.today().month}월</h4></div>',unsafe_allow_html=True)
     mini=calendar.Calendar(firstweekday=6).monthdayscalendar(date.today().year,date.today().month)
     mini_html='<div class="sidebar-mini" style="border:0;padding-top:0"><div class="mini-week">'+''.join(f'<span>{x}</span>' for x in '일월화수목금토')
@@ -1051,7 +1070,7 @@ else:
             if q:
                 mask=filtered[['업무명','거래처','담당자','상세내용']].fillna('').astype(str).apply(lambda col:col.str.contains(q,case=False,regex=False)).any(axis=1)
                 filtered=filtered[mask]
-            if owner_filter!='전체':filtered=filtered[filtered['담당자']==owner_filter]
+            if owner_filter!='전체':filtered=filtered[filtered['담당자'].isin([owner_filter,'전체'])]
             if cat_filter!='전체':filtered=filtered[filtered['업무구분']==cat_filter]
             if priority_filter!='전체':filtered=filtered[filtered['우선순위']==priority_filter]
             st.caption(f'🔵 현재 {len(filtered)}건 표시 중  ·  카드의 수정 메뉴에서 상태·우선순위·진행률 변경 가능')

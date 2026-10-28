@@ -116,6 +116,12 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .cal-day .day-num{font-size:13px;color:#243754;font-weight:750;margin-bottom:8px}
 .cal-day.outside .day-num{color:#a8b6cb}
 .cal-day .day-num.today{display:inline-block;background:#2169ef;color:#fff;padding:3px 8px;border-radius:20px}
+.cal-weekdays > div:first-child,.cal-day:nth-child(7n+1) .day-num{color:#dc2626}
+.cal-weekdays > div:last-child,.cal-day:nth-child(7n) .day-num{color:#2563eb}
+.cal-day.outside:nth-child(7n+1) .day-num{color:#e9a0a0}
+.cal-day.outside:nth-child(7n) .day-num{color:#9eb9ec}
+.cal-day:nth-child(7n+1) .day-num.today{background:#dc2626;color:#fff}
+.cal-day:nth-child(7n) .day-num.today{background:#2563eb;color:#fff}
 .cal-event{border-radius:7px;padding:7px 7px 6px;margin:4px 0;font-size:11px;line-height:1.45;overflow:hidden}
 .cal-event .event-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700}
 .cal-event .event-sub{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:5px;font-size:10px}
@@ -544,6 +550,11 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 }
 
 
+/* 미니 달력도 일요일(빨강), 토요일(파랑)으로 구분 */
+[data-testid="stSidebar"] .sidebar-mini .mini-week span:nth-child(7n+1){color:#dc2626}
+[data-testid="stSidebar"] .sidebar-mini .mini-week span:nth-child(7n){color:#2563eb}
+[data-testid="stSidebar"] .sidebar-mini .mini-week span.on:nth-child(7n+1){background:#dc2626!important;color:#fff!important}
+[data-testid="stSidebar"] .sidebar-mini .mini-week span.on:nth-child(7n){background:#2563eb!important;color:#fff!important}
 /* 업무 카드 정보 배지: 담당자(보라) / 업무구분(청록) 구분, 빨간색 미사용 */
 .task-card-meta span.meta-owner{background:#f1edff!important;border-color:#d9cefa!important;color:#59449a!important}
 .task-card-meta span.meta-owner b{color:inherit!important}

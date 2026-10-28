@@ -1,8 +1,11 @@
 import io
+import json
 import sys
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from googleapiclient.errors import HttpError
+from httplib2 import Response
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import shared_files as files
@@ -10,6 +13,16 @@ from streamlit.testing.v1 import AppTest
 
 
 class SharedFilesTests(unittest.TestCase):
+    def test_safe_drive_errors(self):
+        cases = [(404, 'notFound', '404'), (403, 'accessNotConfigured', 'API가 비활성화'), (403, 'storageQuotaExceeded', '저장공간 제한'), (403, 'forbidden', '접근이 거부'), (401, 'authError', '인증이 거부')]
+        for status, reason, expected in cases:
+            with self.subTest(status=status, reason=reason):
+                body = json.dumps({'error': {'message': 'DO_NOT_EXPOSE', 'errors': [{'reason': reason}]}}).encode()
+                error = HttpError(Response({'status': str(status)}), body)
+                message = files.drive_error_message(error)
+                self.assertIn(expected, message)
+                self.assertNotIn('DO_NOT_EXPOSE', message)
+
     def test_paginated_folder_listing(self):
         client = MagicMock()
         client.files.return_value.list.return_value.execute.side_effect = [

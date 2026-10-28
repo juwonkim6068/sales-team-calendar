@@ -1,14 +1,38 @@
 """Google Drive shared-file UI. Existing Sheets credentials and scopes are unchanged."""
 import io
+import json
 
 import streamlit as st
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
+from googleapiclient.errors import HttpError
 
 FOLDER = 'application/vnd.google-apps.folder'
 MAX_BYTES = 100 * 1024 * 1024
 FIELDS = 'id,name,mimeType,size,parents,driveId,capabilities(canAddChildren),webViewLink'
+
+
+def drive_error_message(exc):
+    """Explain safe status/reason codes without exposing response bodies or credentials."""
+    status = getattr(exc.resp, 'status', None)
+    try:
+        error = json.loads(exc.content).get('error', {})
+        reasons = {x.get('reason') for x in error.get('errors', [])}
+        reasons.update(x.get('reason') for x in error.get('details', []))
+    except (ValueError, TypeError, AttributeError):
+        reasons = set()
+    if reasons & {'accessNotConfigured', 'SERVICE_DISABLED'}:
+        return 'Google Drive API가 비활성화되어 있습니다. 기존 서비스 계정이 속한 Google Cloud 프로젝트에서 Google Drive API를 활성화해 주세요.'
+    if 'storageQuotaExceeded' in reasons:
+        return 'Google Drive 저장공간 제한입니다. 서비스 계정은 개인 내 드라이브에 파일을 업로드할 수 없습니다. 공유 드라이브 폴더 또는 별도의 사용자 OAuth 인증이 필요합니다.'
+    if status == 404:
+        return '저장 폴더를 찾을 수 없거나 서비스 계정에 접근 권한이 없습니다(404). 폴더 ID를 확인하고, 기존 [gcp_service_account]의 client_email 계정에 폴더 접근 권한을 부여해 주세요. 브라우저에서 내 계정으로 열리는 것과 서비스 계정 접근은 별개입니다.'
+    if status == 403:
+        return 'Google Drive 접근이 거부되었습니다(403). Drive API 활성화 여부와 서비스 계정의 공유 드라이브 멤버 권한, 조직의 외부 공유 정책을 확인해 주세요.'
+    if status == 401:
+        return 'Google Drive 인증이 거부되었습니다(401). 서비스 계정 키의 유효 여부를 확인해 주세요. 비밀키를 채팅에 보내지 마세요.'
+    return f'Google Drive 요청이 실패했습니다(HTTP {status or "알 수 없음"}). 잠시 후 다시 시도하고 계속되면 이 오류 코드를 알려주세요.'
 
 
 def drive_client(info):
@@ -132,6 +156,8 @@ def render_shared_files(credential_info):
                     try:
                         upload(client, current['id'], uploaded)
                         completed.append(uploaded.name)
+                    except HttpError as exc:
+                        st.error(f'{uploaded.name}: {drive_error_message(exc)} 재시도 전 파일 목록을 확인해 주세요.')
                     except Exception:
                         st.error(f'{uploaded.name}: 업로드하지 못했습니다. 저장 권한·용량·파일 크기를 확인하세요. 재시도 전 목록을 확인해 중복 업로드를 방지하세요.')
                 if completed:
@@ -167,6 +193,8 @@ def render_shared_files(credential_info):
                             st.session_state.pop('shared_file_download', None)
                             st.session_state['shared_file_notice'] = '파일을 이동했습니다.'
                             st.rerun()
+    except HttpError as exc:
+        st.error(drive_error_message(exc))
     except ValueError as exc:
         st.error(str(exc))
     except Exception:

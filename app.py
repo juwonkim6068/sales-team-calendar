@@ -809,9 +809,44 @@ def meeting_form(r=None):
 try:svc=api();tabs=tab_names(svc)
 except Exception as exc:st.error(f'Google Sheets 연결 실패: {exc}');st.stop()
 
+# 개인 메모장: 기존 시트는 변경하지 않고 별도 시트에 저장합니다.
+MEMO_TAB = '개인메모DB'
+MEMO_FIELDS = ['ID', '작성자', '날짜', '제목', '내용', '수정일']
+
+def memo_records():
+    if MEMO_TAB not in tab_names(svc):
+        svc.spreadsheets().batchUpdate(spreadsheetId=SID, body={'requests':[{'addSheet':{'properties':{'title':MEMO_TAB}}}]}).execute()
+    values = svc.spreadsheets().values().get(spreadsheetId=SID, range="'개인메모DB'!A:F").execute().get('values', [])
+    if not values:
+        svc.spreadsheets().values().update(spreadsheetId=SID, range="'개인메모DB'!A1:F1", valueInputOption='RAW', body={'values':[MEMO_FIELDS]}).execute()
+        return []
+    if values[0] != MEMO_FIELDS:
+        raise ValueError('개인메모DB의 열 구성이 다릅니다. 기존 데이터 보호를 위해 저장을 중단했습니다.')
+    return [dict(zip(MEMO_FIELDS, row+['']*(len(MEMO_FIELDS)-len(row)))) for row in values[1:] if row and row[0]]
+
+def memo_save(record):
+    records = memo_records()
+    values = [str(record.get(k,'')) for k in MEMO_FIELDS]
+    ids = [r['ID'] for r in records]
+    if record['ID'] in ids:
+        row = ids.index(record['ID']) + 2
+        svc.spreadsheets().values().update(spreadsheetId=SID, range=f"'개인메모DB'!A{row}:F{row}", valueInputOption='RAW', body={'values':[values]}).execute()
+    else:
+        svc.spreadsheets().values().append(spreadsheetId=SID, range="'개인메모DB'!A:F", valueInputOption='RAW', insertDataOption='INSERT_ROWS', body={'values':[values]}).execute()
+
+def memo_delete(record_id):
+    records = memo_records()
+    ids = [r['ID'] for r in records]
+    if record_id not in ids:
+        raise ValueError('삭제할 메모를 찾지 못했습니다.')
+    meta = svc.spreadsheets().get(spreadsheetId=SID, fields='sheets(properties(sheetId,title))').execute()
+    sheet_id = next(x['properties']['sheetId'] for x in meta['sheets'] if x['properties']['title']==MEMO_TAB)
+    index = ids.index(record_id) + 1  # zero-based row index; header is index 0
+    svc.spreadsheets().batchUpdate(spreadsheetId=SID,body={'requests':[{'deleteDimension':{'range':{'sheetId':sheet_id,'dimension':'ROWS','startIndex':index,'endIndex':index+1}}}]}).execute()
+
 st.sidebar.markdown('### ▥  영업팀 대시보드')
 st.sidebar.divider()
-page=st.sidebar.radio('메뉴',['🗓️ 달력','📋 업무현황','📝 회의록','🏢 거래처 특이사항','⚙️ 데이터 통합/설정'],label_visibility='collapsed')
+page=st.sidebar.radio('메뉴',['🗓️ 달력','📋 업무현황','📝 회의록','🗒️ 개인 메모장','🏢 거래처 특이사항','⚙️ 데이터 통합/설정'],label_visibility='collapsed')
 if st.sidebar.button('↻ 데이터 새로고침',use_container_width=True):st.rerun()
 if TAB not in tabs:
     st.warning('통합업무 시트가 아직 생성되지 않았습니다. 설정 메뉴에서 최초 통합을 실행하세요.')
@@ -915,7 +950,7 @@ else:
             except (ValueError,TypeError):return 0
         def cal_entries(day):
             daystr=day.isoformat()
-            d=shown[((shown['시작일']!='')&(shown['시작일']<=daystr)&(shown['마감일']>=daystr))|((shown['시작일']=='')&(shown['마감일']==daystr))]
+            d=shown[shown['마감일']==daystr]  # 달력에는 시작일과 관계없이 마감일 당일에만 표시
             return d.sort_values(['시작시간','업무명'],kind='stable')
         html=['<div class="cal-shell"><div class="cal-weekdays">']
         html += [f'<div>{d}</div>' for d in ['일','월','화','수','목','금','토']]
@@ -1116,6 +1151,55 @@ else:
                 st.success('새 업무가 등록되었습니다. 입력란을 초기화했습니다.')
             with st.container(border=True):
                 form(svc,people,key=f"task_new_panel_{st.session_state.get('task_new_form_version', 0)}",compact=True)
+
+    elif page=='🗒️ 개인 메모장':
+        st.markdown('<div class="dashboard-head"><div><h1>🗒️ 개인 메모장</h1><p>날짜별로 메모를 기록하고 다시 확인할 수 있습니다.</p></div></div>',unsafe_allow_html=True)
+        st.caption('메모는 Google Sheets의 개인메모DB에 저장됩니다. 현재 앱은 공유 편집형이므로 실제 비공개 메모장이 아니며, 다른 사용자도 작성자를 선택하면 메모를 볼 수 있습니다.')
+        try:
+            memos = memo_records()
+        except Exception as exc:
+            st.error(f'메모장 연결 오류: {exc}')
+            st.stop()
+        owner_options = list(dict.fromkeys(people + [r['작성자'] for r in memos if r['작성자']]))
+        if not owner_options:owner_options=['미지정']
+        default_owner = st.session_state.get('memo_owner','')
+        if default_owner not in owner_options:default_owner=owner_options[0]
+        owner = st.selectbox('메모 작성자',owner_options,index=owner_options.index(default_owner),key='memo_owner')
+        selected_day = st.date_input('📅 확인할 날짜',value=date.today(),key='memo_selected_day')
+        my_memos = sorted([r for r in memos if r['작성자']==owner and r['날짜']==selected_day.isoformat()],key=lambda r:r['수정일'],reverse=True)
+        st.markdown(f'#### {selected_day:%Y년 %m월 %d일} 메모 ({len(my_memos)}건)')
+        if not my_memos:st.info('선택한 날짜에 저장된 메모가 없습니다.')
+        for r in my_memos:
+            with st.container(border=True):
+                st.markdown('**'+escape(r['제목'] or '제목 없음')+'**')
+                st.text(r['내용'])
+                st.caption('마지막 수정: '+(r['수정일'] or '-'))
+                with st.expander('✏️ 수정 / 삭제',expanded=False):
+                    with st.form('memo_edit_'+r['ID']):
+                        edit_title=st.text_input('제목',value=r['제목'])
+                        edit_body=st.text_area('내용',value=r['내용'],height=140)
+                        edit_save=st.form_submit_button('💾 변경사항 저장')
+                        if edit_save:
+                            try:
+                                memo_save({**r,'제목':edit_title.strip(),'내용':edit_body,'수정일':datetime.now().isoformat(timespec='seconds')})
+                                st.rerun()
+                            except Exception as exc:st.error(f'수정 실패: {exc}')
+                    confirm=st.checkbox('삭제하면 복구할 수 없습니다. 삭제에 동의합니다.',key='memo_confirm_'+r['ID'])
+                    if st.button('🗑️ 이 메모 삭제',key='memo_delete_'+r['ID'],disabled=not confirm):
+                        try:memo_delete(r['ID']);st.rerun()
+                        except Exception as exc:st.error(f'삭제 실패: {exc}')
+        st.markdown('#### ✍️ 새 메모 작성')
+        with st.form('memo_create',clear_on_submit=True):
+            title=st.text_input('메모 제목 *',placeholder='예: 거래처 통화 내용')
+            body=st.text_area('메모 내용 *',height=180,placeholder='오늘 기록할 내용을 입력하세요.')
+            submitted=st.form_submit_button('＋ 메모 저장',type='primary',use_container_width=True)
+            if submitted:
+                if not title.strip() or not body.strip():st.warning('제목과 내용을 입력해 주세요.')
+                else:
+                    try:
+                        memo_save({'ID':str(uuid.uuid4()),'작성자':owner,'날짜':selected_day.isoformat(),'제목':title.strip(),'내용':body,'수정일':datetime.now().isoformat(timespec='seconds')})
+                        st.rerun()
+                    except Exception as exc:st.error(f'저장 실패: {exc}')
 
     elif page=='📝 회의록':
         try:meetings=meeting_data()

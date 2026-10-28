@@ -4,6 +4,8 @@ import json
 
 import streamlit as st
 from google.oauth2.service_account import Credentials
+from google.oauth2.credentials import Credentials as UserCredentials
+from google.auth.exceptions import RefreshError
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
 from googleapiclient.errors import HttpError
@@ -23,21 +25,31 @@ def drive_error_message(exc):
     except (ValueError, TypeError, AttributeError):
         reasons = set()
     if reasons & {'accessNotConfigured', 'SERVICE_DISABLED'}:
-        return 'Google Drive API가 비활성화되어 있습니다. 기존 서비스 계정이 속한 Google Cloud 프로젝트에서 Google Drive API를 활성화해 주세요.'
+        return 'Google Drive API가 비활성화되어 있습니다. Drive 인증에 사용하는 OAuth 클라이언트 또는 서비스 계정의 Google Cloud 프로젝트에서 Google Drive API를 활성화해 주세요.'
     if 'storageQuotaExceeded' in reasons:
         return 'Google Drive 저장공간 제한입니다. 서비스 계정은 개인 내 드라이브에 파일을 업로드할 수 없습니다. 공유 드라이브 폴더 또는 별도의 사용자 OAuth 인증이 필요합니다.'
     if status == 404:
-        return '저장 폴더를 찾을 수 없거나 서비스 계정에 접근 권한이 없습니다(404). 폴더 ID를 확인하고, 기존 [gcp_service_account]의 client_email 계정에 폴더 접근 권한을 부여해 주세요. 브라우저에서 내 계정으로 열리는 것과 서비스 계정 접근은 별개입니다.'
+        return '저장 폴더를 찾을 수 없거나 연결 계정에 접근 권한이 없습니다(404). 폴더 ID와 OAuth 승인에 사용한 Google 계정의 폴더 접근 권한을 확인해 주세요. 서비스 계정 방식이라면 client_email 계정의 접근 권한을 확인하세요.'
     if status == 403:
-        return 'Google Drive 접근이 거부되었습니다(403). Drive API 활성화 여부와 서비스 계정의 공유 드라이브 멤버 권한, 조직의 외부 공유 정책을 확인해 주세요.'
+        return 'Google Drive 접근이 거부되었습니다(403). Drive API 활성화 여부, 연결한 계정의 폴더 수정 권한과 조직의 공유 정책을 확인해 주세요.'
     if status == 401:
-        return 'Google Drive 인증이 거부되었습니다(401). 서비스 계정 키의 유효 여부를 확인해 주세요. 비밀키를 채팅에 보내지 마세요.'
+        return 'Google Drive 인증이 거부되었습니다(401). Drive OAuth 승인 또는 서비스 계정 키의 유효 여부를 확인해 주세요. 인증 정보는 채팅에 보내지 마세요.'
     return f'Google Drive 요청이 실패했습니다(HTTP {status or "알 수 없음"}). 잠시 후 다시 시도하고 계속되면 이 오류 코드를 알려주세요.'
 
 
-def drive_client(info):
-    credentials = Credentials.from_service_account_info(
-        info, scopes=['https://www.googleapis.com/auth/drive'])
+def drive_client(info, oauth=None):
+    if oauth is not None:
+        required = ('client_id', 'client_secret', 'refresh_token')
+        if not all(str(oauth.get(k, '')).strip() for k in required):
+            raise ValueError('Streamlit Secrets의 [drive_oauth]에 client_id, client_secret, refresh_token을 모두 설정해 주세요. 기존 Sheets 인증은 변경하지 않습니다.')
+        credentials = UserCredentials(
+            token=None, refresh_token=oauth['refresh_token'],
+            token_uri='https://oauth2.googleapis.com/token',
+            client_id=oauth['client_id'], client_secret=oauth['client_secret'],
+            scopes=['https://www.googleapis.com/auth/drive'])
+    else:
+        credentials = Credentials.from_service_account_info(
+            info, scopes=['https://www.googleapis.com/auth/drive'])
     return build('drive', 'v3', credentials=credentials, cache_discovery=False)
 
 
@@ -94,25 +106,27 @@ def render_shared_files(credential_info):
     st.title('📁 공유파일')
     st.caption('파일은 Google Drive에 저장됩니다. 폴더를 만들어 업무별로 정리하세요. 파일당 최대 100MB입니다.')
     try:
-        root_id = str(st.secrets.get('shared_drive_folder_id', '')).strip()
+        oauth = st.secrets.get('drive_oauth')
+        root_id = str(st.secrets.get('shared_drive_folder_id') or st.secrets.get('drive_folder_id', '')).strip()
     except FileNotFoundError:
-        root_id = ''
+        root_id, oauth = '', None
     if not root_id:
         st.info('Streamlit Cloud Secrets 최상위에 shared_drive_folder_id = "저장 폴더 ID"를 추가해 주세요. 기존 [gcp_service_account] 설정은 그대로 유지하세요.')
-        st.caption('Google Drive API를 활성화하고, 서비스 계정을 공유 드라이브 멤버로 추가해야 합니다. 개인 My Drive에 공유한 폴더만으로는 서비스 계정 업로드가 지원되지 않습니다.')
+        st.caption('내 드라이브는 별도의 [drive_oauth] 사용자 인증을 설정하세요. 서비스 계정만 사용하는 경우에는 공유 드라이브가 필요합니다.')
         return
     if not all(c.isalnum() or c in '_-' for c in root_id):
         st.error('shared_drive_folder_id에는 폴더 URL 대신 폴더 ID만 입력해 주세요.')
         return
     try:
-        client = drive_client(credential_info)
+        client = drive_client(credential_info, oauth=oauth)
         root = metadata(client, root_id)
         if root['mimeType'] != FOLDER:
             raise ValueError('저장 위치가 폴더가 아닙니다.')
-        if not root.get('driveId'):
-            raise ValueError('자동 업로드에는 공유 드라이브 안의 폴더가 필요합니다. 개인 My Drive 폴더는 지원하지 않습니다.')
+        if not root.get('driveId') and oauth is None:
+            raise ValueError('개인 내 드라이브에 업로드하려면 Streamlit Cloud Secrets에 [drive_oauth] 사용자 인증을 추가해 주세요. 기존 [gcp_service_account]는 그대로 유지하세요.')
         if not root.get('capabilities', {}).get('canAddChildren'):
-            raise ValueError('서비스 계정에 이 폴더의 파일 추가 권한이 없습니다.')
+            raise ValueError('연결한 Google 계정에 이 폴더의 파일 추가 권한이 없습니다.')
+        st.caption('저장 계정: Google 사용자 OAuth' if oauth is not None else '저장 계정: 서비스 계정 · 공유 드라이브')
         path = st.session_state.get('shared_file_path', [root])
         if not path or path[0]['id'] != root_id:
             path = [root]
@@ -193,6 +207,8 @@ def render_shared_files(credential_info):
                             st.session_state.pop('shared_file_download', None)
                             st.session_state['shared_file_notice'] = '파일을 이동했습니다.'
                             st.rerun()
+    except RefreshError:
+        st.error('Google Drive 사용자 인증을 갱신하지 못했습니다. OAuth 승인이 만료되거나 취소되었을 수 있습니다. 설정 안내에 따라 다시 승인하고 [drive_oauth]만 갱신해 주세요. 기존 Sheets 인증은 변경하지 마세요.')
     except HttpError as exc:
         st.error(drive_error_message(exc))
     except ValueError as exc:

@@ -13,6 +13,44 @@ from streamlit.testing.v1 import AppTest
 
 
 class SharedFilesTests(unittest.TestCase):
+    def test_oauth_client_uses_user_credentials_without_service_account(self):
+        oauth = {'client_id': 'test-client', 'client_secret': 'test-secret', 'refresh_token': 'test-refresh'}
+        with patch.object(files, 'UserCredentials') as user, patch.object(files.Credentials, 'from_service_account_info') as service, patch.object(files, 'build') as build:
+            files.drive_client(None, oauth=oauth)
+            self.assertEqual(user.call_args.kwargs['token_uri'], 'https://oauth2.googleapis.com/token')
+            self.assertEqual(user.call_args.kwargs['refresh_token'], 'test-refresh')
+            self.assertEqual(build.call_args.kwargs['credentials'], user.return_value)
+            service.assert_not_called()
+
+    def test_incomplete_oauth_never_falls_back_to_service_account(self):
+        with patch.object(files.Credentials, 'from_service_account_info') as service:
+            for oauth in ({}, {'client_id': 'test'}):
+                with self.assertRaises(ValueError):
+                    files.drive_client({}, oauth=oauth)
+            service.assert_not_called()
+
+    def test_personal_drive_with_oauth_is_supported(self):
+        root = {'id': 'personal', 'name': '내 폴더', 'mimeType': files.FOLDER, 'capabilities': {'canAddChildren': True}}
+        with patch.object(files, 'drive_client') as client, patch.object(files, 'metadata', return_value=root), patch.object(files, 'children', return_value=[]):
+            at = AppTest.from_string('from shared_files import render_shared_files\nrender_shared_files(None)')
+            at.secrets['shared_drive_folder_id'] = 'personal'
+            at.secrets['drive_oauth'] = {'client_id': 'test', 'client_secret': 'test', 'refresh_token': 'test'}
+            at.run()
+            self.assertFalse(at.exception)
+            self.assertFalse(at.error)
+            self.assertTrue(any('Google 사용자 OAuth' in c.value for c in at.caption))
+            self.assertIsNotNone(client.call_args.kwargs['oauth'])
+
+    def test_expired_oauth_is_reported_without_secret_details(self):
+        with patch.object(files, 'drive_client', side_effect=files.RefreshError('DO_NOT_EXPOSE')):
+            at = AppTest.from_string('from shared_files import render_shared_files\nrender_shared_files(None)')
+            at.secrets['shared_drive_folder_id'] = 'root'
+            at.secrets['drive_oauth'] = {'client_id': 'test'}
+            at.run()
+            self.assertFalse(at.exception)
+            self.assertIn('인증을 갱신하지 못했습니다', at.error[0].value)
+            self.assertNotIn('DO_NOT_EXPOSE', at.error[0].value)
+
     def test_safe_drive_errors(self):
         cases = [(404, 'notFound', '404'), (403, 'accessNotConfigured', 'API가 비활성화'), (403, 'storageQuotaExceeded', '저장공간 제한'), (403, 'forbidden', '접근이 거부'), (401, 'authError', '인증이 거부')]
         for status, reason, expected in cases:

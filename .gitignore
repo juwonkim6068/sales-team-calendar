@@ -1,0 +1,5 @@
+__pycache__/
+*.py[cod]
+.streamlit/secrets.toml
+drive-oauth-secrets.toml
+client_secret*.json

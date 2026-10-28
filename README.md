@@ -37,16 +37,44 @@ Streamlit `st.login()`을 사용하므로 외부 접속을 허용하려면 **반
 
 사이드바의 `📁 공유파일`에서 하위 폴더 생성·탐색, 파일 업로드·다운로드, 파일 이동을 지원합니다. 파일은 앱 서버가 아닌 Google Drive에 저장됩니다. 파일당 업로드·앱 내 다운로드 한도는 100MB이며, 더 큰 기존 파일이나 Google 문서는 `Google Drive에서 열기`를 사용합니다. 다운로드 준비 시 파일 한 개를 현재 사용자 세션 메모리에 보관합니다. 같은 이름의 파일을 올리면 덮어쓰지 않고 별도 파일을 생성합니다. 다른 하위 폴더로 이동할 때는 상위 폴더로 이동한 뒤 대상 폴더로 옮길 수 있습니다.
 
-설정은 기존 Streamlit Community Cloud의 Secrets에서 진행합니다. 기존 `[gcp_service_account]` 인증 내용과 Google Sheets 설정은 변경하지 않습니다.
+설정은 기존 Streamlit Community Cloud의 Secrets에서 진행합니다. 기존 `[gcp_service_account]` 인증 내용과 Google Sheets 설정은 변경하지 않습니다. 공유파일은 모든 앱 사용자가 연결된 한 Google 계정의 폴더를 함께 사용합니다. 현재 앱에는 사용자별 로그인/권한 제한이 없으므로 앱 접근 권한을 가진 팀원이 이 폴더의 파일을 읽고 추가·이동할 수 있습니다.
 
-1. 서비스 계정의 Google Cloud 프로젝트에서 **Google Drive API**를 활성화합니다.
-2. Google Workspace **공유 드라이브** 안에 공유파일용 폴더를 만들고, 기존 서비스 계정 이메일을 파일 추가·이동이 가능한 멤버로 추가합니다. 개인 My Drive에서 서비스 계정에 폴더를 공유하는 방식은 서비스 계정의 저장공간 제한 때문에 업로드 용도로 지원하지 않습니다. 공유 드라이브를 사용할 수 없다면 사용자 OAuth 등 별도 인증 설계가 필요합니다.
-3. Secrets의 **최상위**(어떤 `[섹션]`보다 위)에 다음 항목을 추가합니다. 폴더 URL의 `/folders/` 뒤 문자열만 넣습니다.
+### 개인 내 드라이브 연결 (Google 사용자 OAuth)
 
-```toml
-shared_drive_folder_id = "공유_드라이브_내_저장폴더_ID"
+이 방식은 서비스 계정 저장공간이 아닌, 승인한 Google 사용자의 저장공간을 사용합니다. 현재 `shared_drive_folder_id`에 설정한 내 드라이브 폴더 ID를 그대로 사용할 수 있습니다. 해당 값이 없을 때만 `drive_folder_id`를 사용합니다. 두 값이 있으면 `shared_drive_folder_id`가 우선합니다.
 
-# 기존 [gcp_service_account] 및 다른 설정은 그대로 유지
+1. Google Cloud Console에서 프로젝트를 선택하고 **Google Drive API**를 활성화합니다.
+2. **Google Auth Platform**에서 앱 이름, 지원 이메일, 대상 사용자와 데이터 액세스를 설정합니다. Drive 권한은 `https://www.googleapis.com/auth/drive`입니다. 기존 폴더의 파일 조회·다운로드·이동을 지원하기 때문에 이 권한을 요청합니다. Google 승인 자체는 Drive 전체 권한이므로 앱을 신뢰하는 관리 계정으로만 승인하세요. 앱 화면의 탐색 범위는 설정한 저장 폴더 아래로 제한됩니다.
+3. 외부 앱의 테스트 모드라면 승인할 Google 계정을 **테스트 사용자**에 추가합니다. 외부 앱이 테스트 상태이면 Drive refresh token은 일반적으로 **7일 후 만료**됩니다. 계속 운영하려면 조직 내부 앱 또는 적절한 프로덕션 게시·검증 설정을 완료하세요. Drive 권한의 Google 검증 요건은 계정·배포 범위에 따라 다릅니다. 조직 관리자가 OAuth 연결을 차단할 수도 있습니다.
+4. OAuth 클라이언트 ID를 **데스크톱 앱** 유형으로 만들고 클라이언트 JSON을 관리자 PC에 다운로드합니다. Streamlit URL을 리디렉션 URI로 설정하는 방식이 아닙니다. 승인 스크립트가 같은 PC의 브라우저와 로컬 콜백을 사용합니다.
+5. 관리자 PC에서 저장소를 내려받고 다음을 실행합니다. 클라이언트 JSON과 출력 TOML은 저장소 밖의 비공개 폴더에 저장하세요. 아래 경로는 본인 PC 경로로 바꿉니다.
+
+```bash
+python -m pip install "google-auth-oauthlib>=1.2,<2"
+python tools/setup_drive_oauth.py --client "/private/path/client_secret.json" --output "/private/path/drive-oauth-secrets.toml"
 ```
 
-Drive 기능은 기존 서비스 계정 정보를 재사용해 별도의 Drive 권한 클라이언트를 생성합니다. 기존 Sheets 클라이언트의 권한과 인증 코드는 변경하지 않습니다. 이 메뉴는 현재 앱의 공유 편집 방식과 동일하게 앱에 접속한 사용자에게 제공되며, 별도 사용자별 권한은 추가하지 않습니다. 실제 Drive 업로드·다운로드 검증은 위 설정 후 Streamlit Cloud에서 수행해야 합니다.
+Windows에서는 `python` 대신 `py`를 사용할 수 있습니다. 출력 파일 이름이 이미 존재하면 스크립트는 덮어쓰지 않습니다. 브라우저에서 **저장 폴더를 소유하거나 수정 가능한 Google 계정**으로 승인합니다. 스크립트는 토큰을 화면에 출력하지 않고 지정한 로컬 파일에 저장합니다. Windows에서는 해당 폴더의 계정 접근 권한도 제한하세요.
+
+6. 출력 TOML의 `[drive_oauth]` 섹션을 **Streamlit Cloud Secrets 맨 아래**에 추가합니다. 기존 `[gcp_service_account]` 및 다른 설정은 유지합니다. 다음은 구조 예시이며 실제 값은 승인 스크립트가 생성합니다. 비밀값을 채팅·GitHub에 올리지 마세요.
+
+```toml
+# 최상위 항목: 모든 [섹션]보다 위에 유지
+shared_drive_folder_id = "기존_내_드라이브_폴더_ID"
+
+# 기존 [gcp_service_account]와 다른 섹션은 그대로 유지
+
+# 맨 아래에 새 섹션으로 추가
+[drive_oauth]
+client_id = "승인_스크립트가_생성한_값"
+client_secret = "승인_스크립트가_생성한_값"
+refresh_token = "승인_스크립트가_생성한_값"
+```
+
+7. Secrets를 저장하고 앱을 새로고침합니다. 공유파일 메뉴에 **저장 계정: Google 사용자 OAuth**가 표시되는지 확인합니다. 작은 파일 업로드 → 실제 Drive 저장 확인 → 다운로드 → 하위 폴더 생성/이동 순으로 검증합니다. 사용자별 별도 Google 로그인은 필요하지 않습니다. 토큰은 서버에서만 사용하며 만료된 액세스 토큰은 자동 갱신됩니다. 승인을 취소하거나 refresh token이 만료되면 다시 승인한 뒤 `[drive_oauth]`만 갱신합니다. 잘못된 OAuth 설정을 서비스 계정으로 자동 대체하지 않습니다.
+
+### 조직 공유 드라이브 연결 (서비스 계정)
+
+`[drive_oauth]` 섹션이 없으면 기존 서비스 계정 정보를 재사용해 별도의 Drive 클라이언트를 만듭니다. Google Drive API를 활성화하고, 공유 드라이브 내 폴더를 생성한 뒤 기존 서비스 계정을 파일 추가·이동 가능한 멤버로 추가합니다. `shared_drive_folder_id`에는 해당 폴더 ID를 설정합니다. 개인 내 드라이브를 서비스 계정에 공유하는 것만으로는 서비스 계정의 저장공간 제한을 해결하지 못합니다.
+
+어느 방식을 선택하든 기존 Sheets 클라이언트의 권한과 인증 코드는 변경하지 않습니다. 실제 OAuth 승인과 Drive 실연동은 관리자 PC 및 Streamlit Cloud에서 수행해야 합니다.

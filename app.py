@@ -112,6 +112,11 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .cal-weekdays div{text-align:center;padding:13px 0;color:#506481;font-size:12px;font-weight:700;border-right:1px solid #e2e9f2}
 .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
 .cal-day{min-height:139px;border-right:1px solid #e2e9f2;border-bottom:1px solid #e2e9f2;padding:10px 8px;min-width:0;background:white}
+.cal-day{position:relative}
+.cal-day a.day-num{text-decoration:none!important}
+.cal-day a.day-num::after{content:'';position:absolute;inset:0;cursor:pointer}
+.cal-day:has(a.day-num:hover){background:#f0f6ff}
+.cal-day .cal-event{position:relative;z-index:1}
 .cal-day.outside{background:#fafbfd}
 .cal-day .day-num{font-size:13px;color:#243754;font-weight:750;margin-bottom:8px}
 .cal-day.outside .day-num{color:#a8b6cb}
@@ -759,6 +764,9 @@ def form(svc,people,existing=None,key='new',compact=False):
              '작성일':safe(old.get('작성일')) or now,'수정일':now})
             try:
                 save_record(svc,rec,safe(old.get('통합ID')) or None)
+                if key.startswith('calendar_date_'):
+                    st.query_params.pop('calendar_date',None)
+                    st.session_state['calendar_created_notice'] = True
                 # 신규 업무 등록 후 입력 폼의 위젯 키를 갱신해 모든 입력값을 초기화합니다.
                 # 수정 폼은 기존 동작을 그대로 유지합니다.
                 if compact and not safe(old.get('통합ID')):
@@ -918,6 +926,23 @@ else:
             st.session_state.month=(pd.Timestamp(m)+pd.DateOffset(months=1)).date();st.rerun()
         if todaycol.button('오늘',use_container_width=True):st.session_state.month=date.today().replace(day=1);st.rerun()
         with add.popover('＋ 일정 추가',use_container_width=True):form(svc,people,key='calendar_new')
+        if st.session_state.pop('calendar_created_notice',False):
+            st.success('일정이 등록되었습니다.')
+        def close_calendar_date_add():
+            st.query_params.pop('calendar_date',None)
+        @st.dialog('📅 선택한 날짜에 일정 추가', width='large', on_dismiss=close_calendar_date_add)
+        def calendar_date_add(selected_day):
+            st.caption(f'{selected_day:%Y년 %m월 %d일} · 시작일과 마감일을 변경할 수 있습니다.')
+            form(svc,people,existing={'시작일':selected_day.isoformat(),'마감일':selected_day.isoformat()},key='calendar_date_'+selected_day.isoformat())
+        selected_date=st.query_params.get('calendar_date')
+        if selected_date and not st.query_params.get('calendar_task'):
+            try:
+                selected_day=date.fromisoformat(selected_date)
+            except (ValueError,TypeError):
+                st.query_params.pop('calendar_date',None)
+                st.warning('올바르지 않은 날짜입니다. 달력에서 날짜를 다시 선택하세요.')
+            else:
+                calendar_date_add(selected_day)
         st.markdown('<style>.cal-event:is(a){display:block;text-decoration:none!important;cursor:pointer}.cal-event:is(a):hover{text-decoration:none!important;filter:brightness(.98)}</style>',unsafe_allow_html=True)
         # 기존 달력 HTML/CSS를 유지하면서 업무 카드만 클릭 가능한 링크로 연결합니다.
         @st.dialog('📋 업무 상세정보 · 수정', width='large')
@@ -971,7 +996,7 @@ else:
             for day in week:
                 outside=' outside' if day.month!=m.month else ''
                 todaycls=' today' if day==date.today() else ''
-                html.append(f'<div class="cal-day{outside}"><div class="day-num{todaycls}">{day.day}</div>')
+                html.append(f'<div class="cal-day{outside}"><a class="day-num{todaycls}" href="?calendar_date={day.isoformat()}" target="_self" aria-label="{day.isoformat()} 일정 추가" title="{day.isoformat()} 일정 추가">{day.day}</a>')
                 daily=cal_entries(day)
                 for _,r in daily.head(3).iterrows():
                     owner=safe(r.get('담당자')) or '미지정';color=owner_color(owner)

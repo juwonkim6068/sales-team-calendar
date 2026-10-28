@@ -1,4 +1,5 @@
 import calendar
+import hashlib
 import json
 import uuid
 from datetime import date, datetime
@@ -9,6 +10,43 @@ import pandas as pd
 import streamlit as st
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
+
+# 업무 카드 배지: 담당자 이름과 업무구분 값마다 고정된 색상을 부여합니다.
+# 빨간색 계열은 마감 지연/위험 표시와 혼동되지 않도록 제외합니다.
+_OWNER_PALETTE = [
+    ('#eee9ff', '#5a42a4', '#d6cafa'),  # 보라
+    ('#e5f3ff', '#185f9d', '#bdddf6'),  # 하늘
+    ('#e6f6ed', '#176e4c', '#bce7ce'),  # 초록
+    ('#fff3d9', '#946000', '#f2dfaa'),  # 노랑
+    ('#e6f6f6', '#176e77', '#bce6e8'),  # 청록
+    ('#eff0ff', '#4859a5', '#d3d9fa'),  # 남색
+]
+_CATEGORY_PALETTE = [
+    ('#e4f5f2', '#126b62', '#b9e2da'),
+    ('#eaf0ff', '#2a57a5', '#ccdafa'),
+    ('#f1edff', '#63479d', '#ddd1f8'),
+    ('#fdf3df', '#906313', '#efdfb7'),
+    ('#e9f5e6', '#477c2d', '#cce6c3'),
+]
+
+def _task_badge_colors(value, kind='owner'):
+    name = str(value or '').strip()
+    if kind == 'owner':
+        # 주요 담당자는 서로 확실히 구분되는 고정 색상
+        fixed = {'김주원': 0, '이상인': 1}
+        palette = _OWNER_PALETTE
+    else:
+        fixed = {}
+        palette = _CATEGORY_PALETTE
+    if name in fixed:
+        index = fixed[name]
+    else:
+        index = int(hashlib.sha256(name.encode('utf-8')).hexdigest()[:8], 16) % len(palette)
+    return palette[index]
+
+def _task_badge_style(value, kind='owner'):
+    bg, fg, border = _task_badge_colors(value, kind)
+    return f'background:{bg}!important;color:{fg}!important;border-color:{border}!important'
 
 st.set_page_config(page_title='영업팀 대시보드', page_icon='📊', layout='wide', initial_sidebar_state='expanded')
 st.markdown("""<style>
@@ -505,6 +543,12 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
  [data-testid="stSidebar"] [role="radiogroup"] label{min-height:44px!important}
 }
 
+
+/* 업무 카드 정보 배지: 담당자(보라) / 업무구분(청록) 구분, 빨간색 미사용 */
+.task-card-meta span.meta-owner{background:#f1edff!important;border-color:#d9cefa!important;color:#59449a!important}
+.task-card-meta span.meta-owner b{color:inherit!important}
+.task-card-meta span.meta-category{background:#e5f7f3!important;border-color:#b9e5d9!important;color:#137b69!important}
+.task-card-meta span.meta-category b{color:inherit!important}
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
 TAB='통합업무'
@@ -959,6 +1003,8 @@ else:
                     due_text=safe(task.get('마감일')) or '미지정'
                     owner_text=safe(task.get('담당자')) or '담당자 미지정'
                     category_text=safe(task.get('업무구분')) or '기타'
+                    owner_badge_style = _task_badge_style(owner_text, 'owner')
+                    category_badge_style = _task_badge_style(category_text, 'category')
                     company_text=safe(task.get('거래처'))
                     is_completed = status == '완료'
                     due_date = dt(task.get('마감일'))
@@ -1013,8 +1059,8 @@ else:
                             f'<div class="task-tags"><span style="background:{sbg};color:{sfg}">{escape(status)}</span>'
                             f'<span style="background:{pbg};color:{pfg}">{escape(priority)}</span></div></div>'
                             f'<div class="task-card-meta">'
-                            f'<span><b>담당자</b>{escape(owner_text)}</span>'
-                            f'<span><b>업무구분</b>{escape(category_text)}</span>'
+                            f'<span class="meta-owner" style="{owner_badge_style}"><b>담당자</b>{escape(owner_text)}</span>'
+                            f'<span class="meta-category" style="{category_badge_style}"><b>업무구분</b>{escape(category_text)}</span>'
                             f'<span><b>마감일</b>{escape(due_text)}</span>'
                             + dday_tag
                             + (f'<span><b>거래처</b>{escape(company_text)}</span>' if company_text else '')

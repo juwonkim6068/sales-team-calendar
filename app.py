@@ -825,9 +825,6 @@ def meeting_form(r=None):
                 try:meeting_save(record);st.success('저장되었습니다.');st.rerun()
                 except Exception as e:st.error(f'저장 실패: {e}')
 
-try:svc=api();tabs=tab_names(svc)
-except Exception as exc:st.error(f'Google Sheets 연결 실패: {exc}');st.stop()
-
 # 개인 메모장: 기존 시트는 변경하지 않고 별도 시트에 저장합니다.
 MEMO_TAB = '개인메모DB'
 MEMO_FIELDS = ['ID', '작성자', '날짜', '제목', '내용', '수정일']
@@ -865,8 +862,14 @@ def memo_delete(record_id):
 
 st.sidebar.markdown('### ▥  영업팀 대시보드')
 st.sidebar.divider()
-page=st.sidebar.radio('메뉴',['🗓️ 달력','📋 업무현황','📝 회의록','🗒️ 개인 메모장','🏢 거래처 특이사항','⚙️ 데이터 통합/설정'],label_visibility='collapsed')
+page=st.sidebar.radio('메뉴',['🗓️ 달력','📋 업무현황','📝 회의록','🗒️ 개인 메모장','📁 공유파일','🏢 거래처 특이사항','⚙️ 데이터 통합/설정'],label_visibility='collapsed')
 if st.sidebar.button('↻ 데이터 새로고침',use_container_width=True):st.rerun()
+if page=='📁 공유파일':
+    from shared_files import render_shared_files
+    render_shared_files(secrets_credential())
+    st.stop()
+try:svc=api();tabs=tab_names(svc)
+except Exception as exc:st.error(f'Google Sheets 연결 실패: {exc}');st.stop()
 if TAB not in tabs:
     st.warning('통합업무 시트가 아직 생성되지 않았습니다. 설정 메뉴에서 최초 통합을 실행하세요.')
     if page!='⚙️ 데이터 통합/설정':st.stop()

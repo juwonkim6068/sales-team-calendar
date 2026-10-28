@@ -1,0 +1,173 @@
+"""Google Drive shared-file UI. Existing Sheets credentials and scopes are unchanged."""
+import io
+
+import streamlit as st
+from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
+
+FOLDER = 'application/vnd.google-apps.folder'
+MAX_BYTES = 100 * 1024 * 1024
+FIELDS = 'id,name,mimeType,size,parents,driveId,capabilities(canAddChildren),webViewLink'
+
+
+def drive_client(info):
+    credentials = Credentials.from_service_account_info(
+        info, scopes=['https://www.googleapis.com/auth/drive'])
+    return build('drive', 'v3', credentials=credentials, cache_discovery=False)
+
+
+def metadata(client, item_id):
+    return client.files().get(fileId=item_id, fields=FIELDS, supportsAllDrives=True).execute()
+
+
+def children(client, folder_id):
+    items, token = [], None
+    while True:
+        result = client.files().list(
+            q=f"'{folder_id}' in parents and trashed = false",
+            fields=f'nextPageToken,files({FIELDS})', pageSize=100,
+            pageToken=token, orderBy='folder,name', supportsAllDrives=True,
+            includeItemsFromAllDrives=True).execute()
+        items.extend(result.get('files', []))
+        token = result.get('nextPageToken')
+        if not token:
+            return items
+
+
+def clean_name(value):
+    value = value.strip()
+    if not value or value in ('.', '..') or any(c in value for c in ('/', '\\', '\x00')):
+        raise ValueError('이름을 입력하고 / 또는 \\ 문자는 제외해 주세요.')
+    return value
+
+
+def upload(client, folder_id, uploaded):
+    if uploaded.size > MAX_BYTES:
+        raise ValueError('파일은 100MB 이하로 업로드해 주세요.')
+    uploaded.seek(0)
+    return client.files().create(
+        body={'name': clean_name(uploaded.name), 'parents': [folder_id]},
+        media_body=MediaIoBaseUpload(uploaded, mimetype=uploaded.type or 'application/octet-stream', resumable=True),
+        fields='id,name', supportsAllDrives=True).execute()
+
+
+def download(client, item):
+    if int(item.get('size', 0)) > MAX_BYTES:
+        raise ValueError('100MB 초과 파일은 Google Drive에서 다운로드해 주세요.')
+    data = io.BytesIO()
+    request = client.files().get_media(fileId=item['id'], supportsAllDrives=True)
+    reader = MediaIoBaseDownload(data, request)
+    done = False
+    while not done:
+        _, done = reader.next_chunk()
+        if data.tell() > MAX_BYTES:
+            raise ValueError('다운로드 가능한 크기(100MB)를 초과했습니다.')
+    return data.getvalue()
+
+
+def render_shared_files(credential_info):
+    st.title('📁 공유파일')
+    st.caption('파일은 Google Drive에 저장됩니다. 폴더를 만들어 업무별로 정리하세요. 파일당 최대 100MB입니다.')
+    try:
+        root_id = str(st.secrets.get('shared_drive_folder_id', '')).strip()
+    except FileNotFoundError:
+        root_id = ''
+    if not root_id:
+        st.info('Streamlit Cloud Secrets 최상위에 shared_drive_folder_id = "저장 폴더 ID"를 추가해 주세요. 기존 [gcp_service_account] 설정은 그대로 유지하세요.')
+        st.caption('Google Drive API를 활성화하고, 서비스 계정을 공유 드라이브 멤버로 추가해야 합니다. 개인 My Drive에 공유한 폴더만으로는 서비스 계정 업로드가 지원되지 않습니다.')
+        return
+    if not all(c.isalnum() or c in '_-' for c in root_id):
+        st.error('shared_drive_folder_id에는 폴더 URL 대신 폴더 ID만 입력해 주세요.')
+        return
+    try:
+        client = drive_client(credential_info)
+        root = metadata(client, root_id)
+        if root['mimeType'] != FOLDER:
+            raise ValueError('저장 위치가 폴더가 아닙니다.')
+        if not root.get('driveId'):
+            raise ValueError('자동 업로드에는 공유 드라이브 안의 폴더가 필요합니다. 개인 My Drive 폴더는 지원하지 않습니다.')
+        if not root.get('capabilities', {}).get('canAddChildren'):
+            raise ValueError('서비스 계정에 이 폴더의 파일 추가 권한이 없습니다.')
+        path = st.session_state.get('shared_file_path', [root])
+        if not path or path[0]['id'] != root_id:
+            path = [root]
+        # Revalidate the breadcrumb so operations stay inside the configured root.
+        for index in range(1, len(path)):
+            item = metadata(client, path[index]['id'])
+            if path[index - 1]['id'] not in item.get('parents', []) or item['mimeType'] != FOLDER:
+                path = [root]
+                break
+            path[index] = item
+        st.session_state['shared_file_path'] = path
+        current = path[-1]
+        st.write(' / '.join(p['name'] for p in path))
+        if len(path) > 1 and st.button('⬆️ 상위 폴더'):
+            st.session_state['shared_file_path'] = path[:-1]
+            st.rerun()
+        if st.button('↻ 파일 목록 새로고침'):
+            st.session_state.pop('shared_file_download', None)
+            st.rerun()
+        notice = st.session_state.pop('shared_file_notice', None)
+        if notice:
+            st.success(notice)
+        items = children(client, current['id'])
+        folders = [x for x in items if x['mimeType'] == FOLDER]
+        with st.expander('📂 새 폴더 만들기'):
+            with st.form('shared_folder_create', clear_on_submit=True):
+                name = st.text_input('폴더 이름')
+                if st.form_submit_button('폴더 생성'):
+                    client.files().create(body={'name': clean_name(name), 'mimeType': FOLDER, 'parents': [current['id']]}, fields='id', supportsAllDrives=True).execute()
+                    st.session_state['shared_file_notice'] = '폴더를 만들었습니다.'
+                    st.rerun()
+        with st.form('shared_upload_' + current['id'], clear_on_submit=True):
+            selected = st.file_uploader('현재 폴더에 파일 업로드', accept_multiple_files=True)
+            submitted = st.form_submit_button('Google Drive에 업로드', type='primary')
+        if submitted:
+            if not selected:
+                st.warning('업로드할 파일을 선택해 주세요.')
+            else:
+                completed = []
+                for uploaded in selected:
+                    try:
+                        upload(client, current['id'], uploaded)
+                        completed.append(uploaded.name)
+                    except Exception:
+                        st.error(f'{uploaded.name}: 업로드하지 못했습니다. 저장 권한·용량·파일 크기를 확인하세요. 재시도 전 목록을 확인해 중복 업로드를 방지하세요.')
+                if completed:
+                    st.success('업로드 완료: ' + ', '.join(completed))
+                items = children(client, current['id'])
+                folders = [x for x in items if x['mimeType'] == FOLDER]
+        if not items:
+            st.info('이 폴더에 파일이 없습니다.')
+        for item in items:
+            with st.container(border=True):
+                if item['mimeType'] == FOLDER:
+                    if st.button('📁 ' + item['name'], key='shared_open_' + item['id']):
+                        st.session_state['shared_file_path'] = path + [item]
+                        st.rerun()
+                    continue
+                st.write('📄 ' + item['name'])
+                if item.get('size'):
+                    st.caption(f"{int(item['size']) / 1024 / 1024:.2f} MB")
+                if item.get('webViewLink'):
+                    st.link_button('Google Drive에서 열기', item['webViewLink'])
+                if not item['mimeType'].startswith('application/vnd.google-apps.'):
+                    if st.button('다운로드 준비', key='shared_prepare_' + item['id']):
+                        st.session_state['shared_file_download'] = (item['id'], download(client, item))
+                    cached = st.session_state.get('shared_file_download')
+                    if cached and cached[0] == item['id']:
+                        st.download_button('⬇️ 다운로드', cached[1], file_name=item['name'], mime=item['mimeType'], key='shared_download_' + item['id'], on_click='ignore')
+                destinations = ([path[-2]] if len(path) > 1 else []) + folders
+                if destinations:
+                    with st.expander('파일을 다른 폴더로 이동'):
+                        target = st.selectbox('대상 폴더', range(len(destinations)), format_func=lambda i: destinations[i]['name'], key='shared_target_' + item['id'])
+                        if st.button('이동', key='shared_move_' + item['id']):
+                            client.files().update(fileId=item['id'], addParents=destinations[target]['id'], removeParents=current['id'], fields='id', supportsAllDrives=True).execute()
+                            st.session_state.pop('shared_file_download', None)
+                            st.session_state['shared_file_notice'] = '파일을 이동했습니다.'
+                            st.rerun()
+    except ValueError as exc:
+        st.error(str(exc))
+    except Exception:
+        st.error('Google Drive 작업을 완료하지 못했습니다. 폴더 ID, Drive API 활성화, 서비스 계정의 공유 드라이브 권한을 확인한 후 다시 시도해 주세요.')

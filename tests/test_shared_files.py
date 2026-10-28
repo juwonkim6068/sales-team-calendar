@@ -13,6 +13,44 @@ from streamlit.testing.v1 import AppTest
 
 
 class SharedFilesTests(unittest.TestCase):
+    def test_explorer_search_type_and_sort(self):
+        items = [
+            {'id':'a','name':'견적.txt','mimeType':'text/plain','size':'100','modifiedTime':'2026-10-01'},
+            {'id':'b','name':'계약.PDF','mimeType':'application/pdf','size':'200','modifiedTime':'2026-10-02'},
+            {'id':'c','name':'자료','mimeType':files.FOLDER},
+        ]
+        self.assertEqual([x['id'] for x in files.filter_items(items, order='크기순')], ['c','b','a'])
+        self.assertEqual([x['id'] for x in files.filter_items(items, category='파일', order='최신순')], ['b','a'])
+        self.assertEqual([x['id'] for x in files.filter_items(items, 'pdf')], ['b'])
+        self.assertEqual([x['id'] for x in files.filter_items(items, category='폴더')], ['c'])
+        self.assertEqual(files.filter_items(items, '없음'), [])
+        self.assertEqual(files.format_size('512'), '512 B')
+        self.assertEqual(files.format_size('2048'), '2.0 KB')
+        self.assertEqual(files.format_size(None), '—')
+
+    def test_explorer_select_download_and_breadcrumb(self):
+        root = {'id':'root','name':'자료실','mimeType':files.FOLDER,'driveId':'drive','capabilities':{'canAddChildren':True}}
+        child = {'id':'child','name':'하위폴더','mimeType':files.FOLDER,'parents':['root']}
+        document = {'id':'doc','name':'보고서.txt','mimeType':'text/plain','size':'10'}
+        with patch.object(files, 'drive_client'), patch.object(files, 'metadata', side_effect=lambda c,i:root if i=='root' else child), patch.object(files, 'children', side_effect=lambda c,i:[child,document] if i=='root' else []), patch.object(files, 'download', return_value=b'offline') as download:
+            at = AppTest.from_string('from shared_files import render_shared_files\nrender_shared_files({})')
+            at.secrets['shared_drive_folder_id']='root'
+            at.run()
+            self.assertFalse(at.exception)
+            download.assert_not_called()
+            next(b for b in at.button if b.label=='📄 보고서.txt').click().run()
+            next(b for b in at.button if b.label=='↓ 다운로드 준비').click().run()
+            self.assertFalse(at.exception)
+            download.assert_called_once()
+            self.assertEqual(at.session_state['shared_file_download'], ('doc',b'offline'))
+            next(b for b in at.button if b.label=='📁 하위폴더').click().run()
+            self.assertFalse(at.exception)
+            next(b for b in at.button if b.label=='🏠 공유파일').click().run()
+            self.assertFalse(at.exception)
+            self.assertEqual(at.session_state['shared_file_path'][-1]['id'],'root')
+            at.text_input(key='shared_file_search_root').set_value('없는 파일').run()
+            self.assertTrue(any('검색 결과가 없습니다' in x.value for x in at.info))
+
     def test_oauth_client_uses_user_credentials_without_service_account(self):
         oauth = {'client_id': 'test-client', 'client_secret': 'test-secret', 'refresh_token': 'test-refresh'}
         with patch.object(files, 'UserCredentials') as user, patch.object(files.Credentials, 'from_service_account_info') as service, patch.object(files, 'build') as build:
@@ -128,6 +166,8 @@ class SharedFilesTests(unittest.TestCase):
             next(b for b in at.button if b.label == '폴더 생성').click().run()
             self.assertFalse(at.exception)
             self.assertEqual(client.files.return_value.create.call_args.kwargs['body'], {'name': '계약', 'mimeType': files.FOLDER, 'parents': ['root']})
+            next(b for b in at.button if b.label == '📄 보고서.txt').click().run()
+            self.assertFalse(at.exception)
             next(b for b in at.button if b.label == '이동').click().run()
             self.assertFalse(at.exception)
             self.assertEqual(client.files.return_value.update.call_args.kwargs['addParents'], 'child')
@@ -135,7 +175,7 @@ class SharedFilesTests(unittest.TestCase):
             next(b for b in at.button if b.label == '📁 견적').click().run()
             self.assertFalse(at.exception)
             self.assertEqual(at.session_state['shared_file_path'][-1]['id'], 'child')
-            self.assertTrue(any(b.label == '⬆️ 상위 폴더' for b in at.button))
+            self.assertTrue(any(b.label == '↑ 상위' for b in at.button))
 
     def test_personal_drive_is_rejected(self):
         root = {'id': 'root', 'name': '개인 폴더', 'mimeType': files.FOLDER}

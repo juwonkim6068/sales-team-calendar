@@ -800,6 +800,10 @@ def form(svc,people,existing=None,key='new',compact=False):
                     view_month=calendar_view_month(st.query_params,st.session_state.get('month'))
                     st.session_state.month=view_month
                     st.query_params['calendar_month']=view_month.isoformat()
+                    st.query_params.pop('calendar_task',None)
+                    st.query_params.pop('calendar_date',None)
+                    st.session_state.pop('calendar_new_open',None)
+                    st.session_state['calendar_saved_notice']='일정이 수정되었습니다.' if safe(old.get('통합ID')) else '일정이 등록되었습니다.'
                 if key.startswith('calendar_date_'):
                     st.query_params.pop('calendar_date',None)
                     st.session_state['calendar_created_notice'] = True
@@ -808,6 +812,7 @@ def form(svc,people,existing=None,key='new',compact=False):
                 if compact and not safe(old.get('통합ID')):
                     st.session_state['task_new_form_version'] = st.session_state.get('task_new_form_version', 0) + 1
                     st.session_state['task_created_notice'] = True
+                    st.session_state['task_new_panel_closed'] = True
                 st.rerun()
             except Exception as exc:st.error(f'저장 실패: {exc}')
 
@@ -969,7 +974,20 @@ else:
         if todaycol.button('오늘',use_container_width=True):
             st.session_state.month=date.today().replace(day=1)
             st.query_params['calendar_month']=st.session_state.month.isoformat();st.rerun()
-        with add.popover('＋ 일정 추가',use_container_width=True):form(svc,people,key='calendar_new')
+        if add.button('＋ 일정 추가',use_container_width=True):
+            st.session_state['calendar_new_open']=True
+            st.query_params.pop('calendar_task',None)
+            st.query_params.pop('calendar_date',None)
+        def close_calendar_new():
+            st.session_state.pop('calendar_new_open',None)
+        @st.dialog('일정 추가',width='large',on_dismiss=close_calendar_new)
+        def calendar_new_add():
+            form(svc,people,key='calendar_new')
+        if st.session_state.get('calendar_new_open'):
+            calendar_new_add()
+        if st.session_state.get('calendar_saved_notice'):
+            st.success(st.session_state.pop('calendar_saved_notice'))
+            st.session_state.pop('calendar_created_notice',None)
         if st.session_state.pop('calendar_created_notice',False):
             st.success('일정이 등록되었습니다.')
         def close_calendar_date_add():
@@ -1181,7 +1199,9 @@ else:
                             + (f'<span><b>거래처</b>{escape(company_text)}</span>' if company_text else '')
                             + '</div>',unsafe_allow_html=True)
                         st.progress(percent/100,text=f'📊 업무 진행률  {percent}%')
-                        with st.expander('✏️ 업무 수정하기 · 클릭해서 항목 변경'):
+                        if st.button('✏️ 업무 수정하기',key='open_task_edit_'+task_id):
+                            st.session_state['task_edit_open']=task_id
+                        if st.session_state.get('task_edit_open')==task_id:
                             st.markdown("<div class='edit-intro'><strong>✏️ 업무 정보 수정</strong><span>변경 후 아래 저장 버튼을 누르세요.</span></div>",unsafe_allow_html=True)
                             with st.form('quick_edit_'+task_id):
                                 st.markdown("<div class='edit-section'>01 · 진행 현황 <small>상태 / 우선순위 / 진행률</small></div>",unsafe_allow_html=True)
@@ -1220,17 +1240,24 @@ else:
                                             '수정일':datetime.now().strftime('%Y-%m-%d %H:%M:%S')})
                                         try:
                                             save_record(svc,record,task_id)
-                                            st.success('저장했습니다.')
+                                            st.session_state.pop('task_edit_open',None)
+                                            st.session_state['task_updated_notice']=True
                                             st.rerun()
                                         except Exception as exc:
                                             st.error(f'저장 실패: {exc}')
         with right:
             st.markdown('''<div class="new-task-banner"><div class="new-task-kicker">✦ NEW TASK</div><div class="new-task-title">＋ 새 업무 등록</div><div class="new-task-desc">새로운 업무를 작성하고 팀원과 공유하세요.</div></div>''',unsafe_allow_html=True)
-            st.info('✍️ **여기에서 새 업무를 작성합니다.** 업무명을 먼저 입력한 후 아래 **파란 등록 버튼**을 누르세요.')
+            if st.session_state.pop('task_updated_notice',False):
+                st.success('업무가 수정되었습니다.')
             if st.session_state.pop('task_created_notice', False):
-                st.success('새 업무가 등록되었습니다. 입력란을 초기화했습니다.')
-            with st.container(border=True):
-                form(svc,people,key=f"task_new_panel_{st.session_state.get('task_new_form_version', 0)}",compact=True)
+                st.success('새 업무가 등록되었습니다.')
+            if st.session_state.get('task_new_panel_closed'):
+                if st.button('＋ 새 업무 작성',use_container_width=True):
+                    st.session_state.pop('task_new_panel_closed',None)
+                    st.rerun()
+            else:
+                with st.container(border=True):
+                    form(svc,people,key=f"task_new_panel_{st.session_state.get('task_new_form_version', 0)}",compact=True)
 
     elif page=='🗒️ 개인 메모장':
         st.markdown('<div class="dashboard-head"><div><h1>🗒️ 개인 메모장</h1><p>날짜별로 메모를 기록하고 다시 확인할 수 있습니다.</p></div></div>',unsafe_allow_html=True)

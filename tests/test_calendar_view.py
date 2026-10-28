@@ -36,6 +36,22 @@ class CalendarViewTests(unittest.TestCase):
         self.assertFalse(at.exception, [e.message for e in at.exception])
         return at
 
+    def redraw(self, previous, page='🗓️ 달력'):
+        # Streamlit 1.50 AppTest retains old fragment/dialog nodes after rerun.
+        # Rehydrate the persisted application state in a fresh renderer to check
+        # the resulting page rather than those stale test-runner nodes.
+        at=AppTest.from_file(str(APP))
+        at.secrets['gcp_service_account']={'offline_test':True}
+        at.query_params.update(previous.query_params)
+        for key in ('month','calendar_new_open','task_edit_open','task_new_panel_closed','task_new_form_version'):
+            if key in previous.session_state:
+                at.session_state[key]=previous.session_state[key]
+        at.run(timeout=30)
+        if page!='🗓️ 달력':
+            at.sidebar.radio[0].set_value(page).run(timeout=30)
+        self.assertFalse(at.exception)
+        return at
+
     def test_november_registration_keeps_november_after_save(self):
         at = self.app('2026-11-01', '2026-11-12')
         self.assertEqual(at.session_state['month'], date(2026,11,1))
@@ -53,6 +69,66 @@ class CalendarViewTests(unittest.TestCase):
         self.assertEqual(record['마감일'], '2026-11-12')
         self.assertEqual(record['업무명'], '｢공통｣ 11월 업무')
         self.assertTrue(any('일정이 등록되었습니다' in x.value for x in at.success))
+        self.assertFalse(any(x.label == '업무명 *' for x in self.redraw(at).text_input))
+
+    def test_add_button_dialog_closes_after_success(self):
+        at = self.app('2026-11-01')
+        next(b for b in at.button if b.label=='＋ 일정 추가').click().run(timeout=30)
+        self.assertTrue(at.session_state['calendar_new_open'])
+        next(x for x in at.text_input if x.label=='업무명 *').set_value('새 일정')
+        next(b for b in at.button if b.label=='저장').click().run(timeout=30)
+        self.assertFalse(at.exception)
+        self.assertNotIn('calendar_new_open', at.session_state)
+        self.assertFalse(any(x.label=='업무명 *' for x in self.redraw(at).text_input))
+        self.assertEqual(at.session_state['month'],date(2026,11,1))
+
+    def test_failed_save_keeps_date_dialog_and_entered_values(self):
+        at = self.app('2026-11-01','2026-11-12')
+        self.service.spreadsheets.return_value.values.return_value.append.return_value.execute.side_effect=RuntimeError('offline save failure')
+        next(x for x in at.text_input if x.label=='업무명 *').set_value('다시 저장할 일정')
+        next(b for b in at.button if b.label=='저장').click().run(timeout=30)
+        self.assertFalse(at.exception)
+        self.assertIn('calendar_date',at.query_params)
+        self.assertTrue(any('저장 실패' in x.value for x in at.error))
+        self.assertEqual(next(x for x in at.text_input if x.label=='업무명 *').value,'다시 저장할 일정')
+
+    def existing_record(self):
+        record={k:'' for k in HEAD}
+        record.update({'통합ID':'existing','업무명':'｢공통｣ 기존 업무','시작일':'2026-11-12','마감일':'2026-11-12','진행상태':'미진행','우선순위':'보통','진행률':'0','업무구분':'일반업무'})
+        self.service.spreadsheets.return_value.values.return_value.get.return_value.execute.return_value={'values':[HEAD,[record[k] for k in HEAD]]}
+
+    def test_calendar_edit_closes_after_save(self):
+        self.existing_record()
+        at=self.app('2026-11-01')
+        at.query_params['calendar_task']='existing'
+        at.run(timeout=30)
+        self.assertFalse(at.exception)
+        next(x for x in at.text_input if x.label=='업무명 *').set_value('수정 완료')
+        next(b for b in at.button if b.label=='저장').click().run(timeout=30)
+        self.assertFalse(at.exception)
+        self.assertNotIn('calendar_task',at.query_params)
+        self.assertFalse(any(x.label=='업무명 *' for x in self.redraw(at).text_input))
+        self.assertTrue(any('수정되었습니다' in x.value for x in at.success))
+
+    def test_task_list_edit_and_new_panel_close_after_save(self):
+        self.existing_record()
+        at=self.app('2026-11-01')
+        at.sidebar.radio[0].set_value('📋 업무현황').run(timeout=30)
+        at.button(key='open_task_edit_existing').click().run(timeout=30)
+        self.assertEqual(at.session_state['task_edit_open'],'existing')
+        next(b for b in at.button if b.label=='✓ 변경사항 저장하기').click().run(timeout=30)
+        self.assertFalse(at.exception)
+        self.assertNotIn('task_edit_open',at.session_state)
+        at=self.redraw(at,'📋 업무현황')
+        self.assertFalse(any(b.label=='✓ 변경사항 저장하기' for b in at.button))
+        next(x for x in at.text_input if x.label=='업무명 *').set_value('새 업무')
+        next(b for b in at.button if b.label=='저장').click().run(timeout=30)
+        self.assertFalse(at.exception)
+        self.assertTrue(at.session_state['task_new_panel_closed'])
+        at=self.redraw(at,'📋 업무현황')
+        self.assertFalse(any(x.label=='업무명 *' for x in at.text_input))
+        next(b for b in at.button if b.label=='＋ 새 업무 작성').click().run(timeout=30)
+        self.assertTrue(any(x.label=='업무명 *' for x in at.text_input))
 
     def test_adjacent_month_day_preserves_displayed_december(self):
         at = self.app('2026-12-01','2027-01-02')

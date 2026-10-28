@@ -900,14 +900,6 @@ else:
         if people:
             legend=''.join(f'<span><i style="background:{owner_color(p)}"></i>{escape(p)}</span>' for p in people)
             st.markdown(f'<div class="cal-legend">{legend}</div>',unsafe_allow_html=True)
-        st.markdown('#### 날짜별 일정 확인')
-        day_choice=st.date_input('확인할 날짜',value=date.today() if date.today().month==m.month and date.today().year==m.year else m,key='calendar_day_select')
-        daily=cal_entries(day_choice)
-        display_table(daily)
-        st.markdown('#### 이번 달 업무 목록')
-        month_start=m.isoformat();next_month=(pd.Timestamp(m)+pd.DateOffset(months=1)).date().isoformat()
-        month_df=shown[((shown['마감일']>=month_start)&(shown['시작일']<next_month))|((shown['시작일']=='')&(shown['마감일']>=month_start)&(shown['마감일']<next_month))]
-        display_table(month_df)
     elif page=='📋 업무현황':
         today=date.today().isoformat()
         done=shown['진행상태'].eq('완료')
@@ -1146,9 +1138,3 @@ else:
         st.title('거래처 특이사항')
         st.info('2차 개발에서 거래처별 특이사항 기록 기능을 추가합니다. 현재는 거래처가 입력된 업무를 조회할 수 있습니다.')
         display_table(shown[shown['거래처']!=''])
-    if page=='🗓️ 달력' and not shown.empty:
-        st.subheader('선택 업무 수정')
-        # Index is display-only; write target is always resolved by stable 통합ID.
-        ids=shown['통합ID'].tolist()
-        selected=st.selectbox('수정할 업무',ids,format_func=lambda x: (lambda r:f"{r['업무명']} · {r['담당자']} · {r['마감일']}")(shown[shown['통합ID']==x].iloc[0]))
-        with st.expander('✏️ 업무 수정'):form(svc,people,shown[shown['통합ID']==selected].iloc[0].to_dict(),key='modify_'+selected)

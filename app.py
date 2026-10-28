@@ -162,6 +162,14 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .task-card-meta{display:flex;flex-wrap:wrap;gap:6px;margin:5px 0 7px!important;line-height:1.3!important}
 .task-card-meta span{display:inline-flex;align-items:center;gap:6px;background:#f4f7fc;border:1px solid #e8edf5;padding:5px 8px;border-radius:7px;color:#334966;font-size:11px}
 .task-card-meta b{color:#7183a0;font-weight:700}
+.task-form-section{display:flex;align-items:center;gap:10px;margin:18px 0 12px;padding-bottom:9px;border-bottom:1px solid #e4eaf2;color:#263e60;font-size:14px;font-weight:750}
+.task-form-section b{display:inline-flex;align-items:center;justify-content:center;width:25px;height:25px;border-radius:7px;background:#edf3fc;color:#3067b0;font-size:11px}
+.task-form-footer{margin:12px 0 8px;font-size:12px;color:#7b889b}
+[data-testid="stForm"]:has(.task-form-marker){background:#fff!important;border:1px solid #dfe6ef!important;border-radius:14px!important;padding:22px!important;box-shadow:0 6px 24px rgba(31,55,85,.04)}
+[data-testid="stForm"]:has(.task-form-marker) [data-testid="stWidgetLabel"] p{font-size:12px!important;font-weight:650!important;color:#42536c}
+[data-testid="stForm"]:has(.task-form-marker) input,[data-testid="stForm"]:has(.task-form-marker) textarea{border-radius:8px!important;background:#f8fafc!important}
+[data-testid="stForm"]:has(.task-form-marker) [data-testid="stFormSubmitButton"] button{min-height:44px!important;border-radius:9px!important;font-size:14px!important}
+@media(max-width:767px){[data-testid="stForm"]:has(.task-form-marker){padding:14px!important}}
 [data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top){padding:12px 14px!important}
 [data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top) [data-testid="stExpander"]{margin-top:4px!important}
 [data-testid="stVerticalBlockBorderWrapper"]:has(.task-card-top) [data-testid="stProgress"]{margin-bottom:0!important}
@@ -724,35 +732,42 @@ def task_title_with_kind(value,kind):
     _,title=task_title_parts(value)
     return f'｢{kind}｣ {title}' if title else ''
 
+def calendar_view_month(params,current=None,today=None):
+    for value in (params.get('calendar_month'),current,params.get('calendar_date'),today or date.today()):
+        try:
+            parsed=value if isinstance(value,date) else date.fromisoformat(value)
+            return parsed.replace(day=1)
+        except (ValueError,TypeError):
+            continue
+
 def form(svc,people,existing=None,key='new',compact=False):
     old=existing or {}
     old_kind,old_title=task_title_parts(old.get('업무명'))
-    calendar_edit=key.startswith('calendar_detail_')
     with st.form('edit_'+key):
-        if calendar_edit:st.markdown('<div class="cal-edit-section">01 <span>업무 기본 정보</span></div>',unsafe_allow_html=True)
-        title=st.text_input('📝 업무명 *',value=old_title,placeholder='무슨 업무인가요? 예: HE 단가 인하 기안')
-        task_kind=st.radio('업무 범위',['개인','공통'],index=0 if old_kind=='개인' else 1,horizontal=True)
-        st.caption('업무명 앞에 ｢개인｣ 또는 ｢공통｣이 표시됩니다. 이 구분은 공개 범위나 수정 권한을 제한하지 않습니다.')
-        detail=st.text_area('📋 상세 업무 내용',value=safe(old.get('상세내용')),placeholder='해야 할 일과 진행 내용을 간단히 적어주세요.',height=75)
-        if calendar_edit:st.markdown('<div class="cal-edit-section">02 <span>거래처 및 담당자</span></div>',unsafe_allow_html=True)
-        if compact:st.markdown('<div class="form-section-label">01 · 업무 분류 및 담당</div><div class="section-caption">거래처와 업무 담당자를 지정하세요.</div>',unsafe_allow_html=True)
-        c1,c2,c3=st.columns(1 if compact else 3) if not compact else (None,None,None)
+        st.markdown('<div class="task-form-marker"></div>',unsafe_allow_html=True)
+        st.markdown('<div class="task-form-section"><b>01</b><span>업무 기본 정보</span></div>',unsafe_allow_html=True)
+        name_col,scope_col=st.columns([2.5,1.2])
+        title=name_col.text_input('업무명 *',value=old_title,placeholder='업무명을 입력하세요')
+        task_kind=scope_col.radio('업무 범위',['개인','공통'],index=0 if old_kind=='개인' else 1,horizontal=True)
+        st.caption('개인·공통 구분은 업무명에 표시됩니다. 열람 권한은 동일합니다.')
+        detail=st.text_area('상세 내용',value=safe(old.get('상세내용')),placeholder='업무의 목적과 진행할 내용을 입력하세요.',height=88)
+        st.markdown('<div class="task-form-section"><b>02</b><span>담당 및 분류</span></div>',unsafe_allow_html=True)
         if compact:
-            company=st.text_input('관련 거래처 (선택)',value=safe(old.get('거래처')),placeholder='예: 효성 / 해당 없으면 비워두세요')
+            company=st.text_input('관련 거래처 (선택)',value=safe(old.get('거래처')),placeholder='거래처명 입력')
             c2,c3=st.columns(2)
         else:
-            company=c1.text_input('거래처',value=safe(old.get('거래처')))
+            c1,c2,c3=st.columns(3)
+            company=c1.text_input('거래처',value=safe(old.get('거래처')),placeholder='거래처명 입력')
         options=list(dict.fromkeys(people+([safe(old.get('담당자'))] if safe(old.get('담당자')) else [])))
         options=['미지정','전체']+ [p for p in options if p and p not in ('미지정','전체')]
         owner=c2.selectbox('담당자',options,index=options.index(safe(old.get('담당자'))) if safe(old.get('담당자')) in options else 0)
         cat_options=list(dict.fromkeys(CATS+([safe(old.get('업무구분'))] if safe(old.get('업무구분')) else [])))
         category=c3.selectbox('업무구분',cat_options,index=cat_options.index(safe(old.get('업무구분'))) if safe(old.get('업무구분')) in cat_options else 0)
-        if calendar_edit:st.markdown('<div class="cal-edit-section">03 <span>일정 및 진행 현황</span></div>',unsafe_allow_html=True)
-        if compact:st.markdown('<div class="form-section-label">02 · 일정 및 진행 상태</div><div class="section-caption">업무 기간과 현재 진행 상황을 선택하세요.</div>',unsafe_allow_html=True)
-        c1,c2=st.columns(2)
+        st.markdown('<div class="task-form-section"><b>03</b><span>일정 및 진행 현황</span></div>',unsafe_allow_html=True)
+        c1,c2,c3=st.columns(3)
         start=c1.date_input('시작일',value=dt(old.get('시작일')) or date.today())
         due=c2.date_input('마감일',value=dt(old.get('마감일')) or date.today())
-        tm=st.text_input('시작시간 (선택 · HH:MM)',value=safe(old.get('시작시간')),placeholder='예: 09:00') if compact else st.text_input('시작시간 (HH:MM)',value=safe(old.get('시작시간')))
+        tm=c3.text_input('시작시간 (선택)',value=safe(old.get('시작시간')),placeholder='09:00')
         c1,c2=st.columns(2)
         state_opts=list(dict.fromkeys(STATES+([safe(old.get('진행상태'))] if safe(old.get('진행상태')) else [])))
         status=c1.selectbox('진행상태',state_opts,index=state_opts.index(safe(old.get('진행상태'))) if safe(old.get('진행상태')) in state_opts else 0)
@@ -760,12 +775,11 @@ def form(svc,people,existing=None,key='new',compact=False):
         try:p=int(float(old.get('진행률') or 0))
         except (ValueError,TypeError):p=0
         progress=st.slider('진행률 (%)',0,100,max(0,min(100,p)))
-        if calendar_edit:st.markdown('<div class="cal-edit-section">04 <span>메모 및 첨부파일</span></div>',unsafe_allow_html=True)
-        if compact:st.markdown('<div class="form-section-label">03 · 참고 정보</div><div class="section-caption">메모와 참고 파일이 있다면 추가하세요.</div>',unsafe_allow_html=True)
-        memo=st.text_area('메모 (선택)',value=safe(old.get('메모')),height=65,placeholder='참고사항, 인수인계 내용 등')
-        link=st.text_input('첨부파일 링크 (선택)',value=safe(old.get('첨부파일URL')),placeholder='Google Drive 파일 URL 붙여넣기')
-        st.caption('입력한 업무는 Google Sheets에 저장되며 왼쪽 업무 목록에 표시됩니다.')
-        if st.form_submit_button('＋ 새 업무 등록하기' if compact else 'Google Sheets에 저장',type='primary',use_container_width=(compact or calendar_edit)):
+        with st.expander('메모 및 첨부파일 · 선택 입력',expanded=bool(old.get('메모') or old.get('첨부파일URL'))):
+            memo=st.text_area('메모 (선택)',value=safe(old.get('메모')),height=80,placeholder='참고사항이나 인수인계 내용을 입력하세요.')
+            link=st.text_input('첨부파일 링크 (선택)',value=safe(old.get('첨부파일URL')),placeholder='https://…')
+        st.markdown('<div class="task-form-footer">필수 항목을 확인한 후 저장해 주세요.</div>',unsafe_allow_html=True)
+        if st.form_submit_button('저장',type='primary',use_container_width=True):
             saved_title=task_title_with_kind(title,task_kind)
             if not saved_title:st.error('업무명을 입력하세요.');return
             if due<start:st.error('마감일은 시작일 이후여야 합니다.');return
@@ -782,6 +796,10 @@ def form(svc,people,existing=None,key='new',compact=False):
              '작성일':safe(old.get('작성일')) or now,'수정일':now})
             try:
                 save_record(svc,rec,safe(old.get('통합ID')) or None)
+                if key.startswith('calendar_'):
+                    view_month=calendar_view_month(st.query_params,st.session_state.get('month'))
+                    st.session_state.month=view_month
+                    st.query_params['calendar_month']=view_month.isoformat()
                 if key.startswith('calendar_date_'):
                     st.query_params.pop('calendar_date',None)
                     st.session_state['calendar_created_notice'] = True
@@ -938,15 +956,19 @@ else:
     st.sidebar.caption('담당자 필터를 변경하면 달력과 업무 목록에 적용됩니다.')
     if page=='🗓️ 달력':
         st.markdown('<div class="dashboard-head"><div><h1>캘린더</h1><p>영업팀의 일정을 한눈에 확인하고 일정을 공유하세요.</p></div></div>',unsafe_allow_html=True)
-        if 'month' not in st.session_state:st.session_state.month=date.today().replace(day=1)
+        st.session_state.month=calendar_view_month(st.query_params,st.session_state.get('month'))
         m=st.session_state.month
         left,title,right,todaycol,spacer,add=st.columns([.65,2.2,.65,.85,3.2,1.4],vertical_alignment='center')
         if left.button('❮',key='month_prev',use_container_width=True):
-            st.session_state.month=(pd.Timestamp(m)-pd.DateOffset(months=1)).date();st.rerun()
+            st.session_state.month=(pd.Timestamp(m)-pd.DateOffset(months=1)).date()
+            st.query_params['calendar_month']=st.session_state.month.isoformat();st.rerun()
         title.markdown(f'### {m.year}년 {m.month}월')
         if right.button('❯',key='month_next',use_container_width=True):
-            st.session_state.month=(pd.Timestamp(m)+pd.DateOffset(months=1)).date();st.rerun()
-        if todaycol.button('오늘',use_container_width=True):st.session_state.month=date.today().replace(day=1);st.rerun()
+            st.session_state.month=(pd.Timestamp(m)+pd.DateOffset(months=1)).date()
+            st.query_params['calendar_month']=st.session_state.month.isoformat();st.rerun()
+        if todaycol.button('오늘',use_container_width=True):
+            st.session_state.month=date.today().replace(day=1)
+            st.query_params['calendar_month']=st.session_state.month.isoformat();st.rerun()
         with add.popover('＋ 일정 추가',use_container_width=True):form(svc,people,key='calendar_new')
         if st.session_state.pop('calendar_created_notice',False):
             st.success('일정이 등록되었습니다.')
@@ -1018,7 +1040,7 @@ else:
             for day in week:
                 outside=' outside' if day.month!=m.month else ''
                 todaycls=' today' if day==date.today() else ''
-                html.append(f'<div class="cal-day{outside}"><a class="day-num{todaycls}" href="?calendar_date={day.isoformat()}" target="_self" aria-label="{day.isoformat()} 일정 추가" title="{day.isoformat()} 일정 추가">{day.day}</a>')
+                html.append(f'<div class="cal-day{outside}"><a class="day-num{todaycls}" href="?calendar_date={day.isoformat()}&amp;calendar_month={m.isoformat()}" target="_self" aria-label="{day.isoformat()} 일정 추가" title="{day.isoformat()} 일정 추가">{day.day}</a>')
                 daily=cal_entries(day)
                 for _,r in daily.head(3).iterrows():
                     owner=safe(r.get('담당자')) or '미지정';color=owner_color(owner)
@@ -1029,7 +1051,7 @@ else:
                     fg='#15934c' if status=='완료' else '#7140db' if status=='진행중' else '#2367d6' if status=='미진행' else '#ae6b13' if status=='거의완료' else '#5e7395'
                     task=escape(safe(r.get('업무명')));owner_html=escape(owner)
                     tm=escape(safe(r.get('시작시간')))
-                    html.append(f'<a class="cal-event" href="?calendar_task={quote(safe(r.get("통합ID")),safe="")}" target="_self" title="{task} · {owner_html}" style="background:{bg};color:{fg};border-left:3px solid {color}"><div class="event-title">{tm+" " if tm else ""}{task}</div><div class="event-sub"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48%">{owner_html}</span><div class="track"><div class="fill" style="width:{progress}%;background:{fg}"></div></div><b>{progress}%</b></div></a>')
+                    html.append(f'<a class="cal-event" href="?calendar_task={quote(safe(r.get("통합ID")),safe="")}&amp;calendar_month={m.isoformat()}" target="_self" title="{task} · {owner_html}" style="background:{bg};color:{fg};border-left:3px solid {color}"><div class="event-title">{tm+" " if tm else ""}{task}</div><div class="event-sub"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48%">{owner_html}</span><div class="track"><div class="fill" style="width:{progress}%;background:{fg}"></div></div><b>{progress}%</b></div></a>')
                 if len(daily)>3:html.append(f'<div class="cal-more">+ {len(daily)-3}건 더보기</div>')
                 html.append('</div>')
         html.append('</div></div>')
@@ -1198,7 +1220,7 @@ else:
                                             '수정일':datetime.now().strftime('%Y-%m-%d %H:%M:%S')})
                                         try:
                                             save_record(svc,record,task_id)
-                                            st.success('Google Sheets에 저장했습니다.')
+                                            st.success('저장했습니다.')
                                             st.rerun()
                                         except Exception as exc:
                                             st.error(f'저장 실패: {exc}')

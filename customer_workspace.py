@@ -3,6 +3,8 @@ from datetime import date
 import hashlib
 from html import escape
 import uuid
+import re
+from urllib.parse import urlparse, parse_qs
 import pandas as pd
 import streamlit as st
 from customer_data import SCHEMAS, LABELS, REQUIRED, CHOICES, DATE_FIELDS, LONG_FIELDS, PEOPLE_FIELDS, DEFAULTS, upcoming_tanks
@@ -22,6 +24,32 @@ CSS='''<style>
 @st.cache_data(show_spinner=False)
 def template_bytes():
  return workbook_bytes()
+
+
+def drive_file_id(value):
+ value=value.strip()
+ parsed=urlparse(value)
+ if parsed.scheme:
+  if parsed.scheme!='https' or parsed.hostname not in ('drive.google.com','docs.google.com'):
+   raise ValueError('Google Drive 파일의 HTTPS 링크를 입력해 주세요.')
+  match=re.search(r'/d/([A-Za-z0-9_-]+)',parsed.path)
+  value=match.group(1) if match else parse_qs(parsed.query).get('id',[''])[0]
+ if not re.fullmatch(r'[A-Za-z0-9_-]{10,}',value):
+  raise ValueError('폴더가 아닌 엑셀 파일의 링크 또는 파일 ID를 입력해 주세요.')
+ return value
+
+
+def load_drive_workbook(value,credential_info):
+ from shared_files import drive_client, metadata, download
+ client=drive_client(credential_info,oauth=st.secrets.get('drive_oauth'))
+ item=metadata(client,drive_file_id(value))
+ if not item['name'].lower().endswith('.xlsx'):
+  raise ValueError('작성한 .xlsx 엑셀 파일을 선택해 주세요. Google 스프레드시트는 엑셀로 다운로드 후 올려 주세요.')
+ if int(item.get('size',0))>10*1024*1024:
+  raise ValueError('엑셀 파일은 10MB 이하만 불러올 수 있습니다.')
+ payload=download(client,item)
+ read_workbook(payload)
+ return item['name'],payload
 
 
 def show_table(records,sheet,person_label):
@@ -100,7 +128,7 @@ def related_tab(sheet,code,data,person_label):
    open_editor(sheet,rows[selected],code);st.rerun()
 
 
-def render_customers(store,people,person_label):
+def render_customers(store,people,person_label,credential_info=None):
  st.markdown(CSS,unsafe_allow_html=True)
  st.markdown('<div class="customer-heading"><h1>거래처 특이사항</h1><p>거래처 정보와 담당자, BULK 탱크, 후속조치를 함께 관리하세요.</p></div>',unsafe_allow_html=True)
  try:data=store.read_all()
@@ -171,10 +199,26 @@ def render_customers(store,people,person_label):
   st.markdown('#### 엑셀 양식으로 한 번에 정리')
   st.caption('거래처코드를 기준으로 연락처·탱크·특이사항을 연결합니다. 원본 양식의 탭 이름과 열 순서를 유지하세요.')
   st.download_button('엑셀 입력 양식 다운로드',template_bytes(),file_name='거래처관리_입력양식.xlsx',mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-  uploaded=st.file_uploader('작성한 엑셀 파일',type=['xlsx'],key='customer_import_file_'+str(st.session_state.get('customer_import_version',0)))
-  if uploaded:
+  source=st.radio('자료 위치',['Google Drive','내 컴퓨터'],horizontal=True,key='customer_import_source')
+  if source=='Google Drive':
+   st.caption('Drive에 올린 거래처관리 엑셀의 파일 링크를 복사해 붙여 넣으세요. 연결된 Google 계정에 파일 접근 권한이 있어야 합니다.')
+   with st.form('customer_drive_load'):
+    link=st.text_input('Google Drive 엑셀 파일 링크',placeholder='https://drive.google.com/file/d/…/view')
+    fetch=st.form_submit_button('Drive에서 불러오기')
+   if fetch:
+    st.session_state.pop('customer_drive_workbook',None)
+    try:
+     with st.spinner('엑셀 파일을 불러오고 있습니다…'):
+      st.session_state['customer_drive_workbook']=load_drive_workbook(link,credential_info)
+    except ValueError as exc:st.error(str(exc))
+    except Exception:st.error('파일을 불러오지 못했습니다. 파일 링크와 Drive 연결 계정의 접근 권한을 확인해 주세요.')
+  uploaded=st.file_uploader('작성한 엑셀 파일',type=['xlsx'],key='customer_import_file_'+str(st.session_state.get('customer_import_version',0))) if source=='내 컴퓨터' else None
+  loaded=st.session_state.get('customer_drive_workbook') if source=='Google Drive' else None
+  payload=loaded[1] if loaded else (uploaded.getvalue() if uploaded and source=='내 컴퓨터' else None)
+  if loaded:st.caption('불러온 파일: '+loaded[0])
+  if payload:
    try:
-    incoming=read_workbook(uploaded.getvalue())
+    incoming=read_workbook(payload)
     _,plan=store.plan_import(incoming)
    except ValueError as exc:st.error(str(exc))
    except Exception:st.error('양식 파일을 읽거나 검증하지 못했습니다. 파일과 시트 연결을 확인해 주세요.')
@@ -183,12 +227,13 @@ def render_customers(store,people,person_label):
     st.write(f'검증 완료 · 신규 {count}건')
     for sheet,records in plan.items():
      with st.expander(f'{LABELS[sheet]} {len(records)}건 미리보기'):show_table(records,sheet,person_label)
-    confirmed=st.checkbox('검증한 신규 자료를 추가합니다. 기존 자료는 덮어쓰지 않습니다.',key='customer_import_confirm_'+hashlib.sha256(uploaded.getvalue()).hexdigest()[:16])
+    confirmed=st.checkbox('검증한 신규 자료를 추가합니다. 기존 자료는 덮어쓰지 않습니다.',key='customer_import_confirm_'+hashlib.sha256(payload).hexdigest()[:16])
     if st.button('검증한 자료 추가',type='primary',disabled=not(confirmed and count)):
      try:added=store.import_new(incoming)
      except ValueError as exc:st.error(str(exc))
      except Exception:st.error('반영을 완료하지 못했습니다. 재시도 전에 현재 목록을 확인해 중복 여부를 점검하세요.')
      else:
+      st.session_state.pop('customer_drive_workbook',None)
       st.session_state['customer_import_version']=st.session_state.get('customer_import_version',0)+1
       st.session_state['customer_notice']=f'{added}건을 추가했습니다.'
       st.rerun()

@@ -1276,4 +1276,4 @@ else:
         from customer_data import CustomerStore
         from customer_workspace import render_customers
         st.session_state['customer_linked_tasks']=df.to_dict('records')
-        render_customers(CustomerStore(svc,SID),people,person_label)
+        render_customers(CustomerStore(svc,SID),people,person_label,secrets_credential())

@@ -1189,53 +1189,12 @@ else:
                     form(svc,people,key=f"task_new_panel_{st.session_state.get('task_new_form_version', 0)}",compact=True)
 
     elif page=='🗒️ 개인 메모장':
-        st.markdown('<div class="dashboard-head"><div><h1>🗒️ 개인 메모장</h1><p>날짜별로 메모를 기록하고 다시 확인할 수 있습니다.</p></div></div>',unsafe_allow_html=True)
-        st.caption('메모는 Google Sheets의 개인메모DB에 저장됩니다. 현재 앱은 공유 편집형이므로 실제 비공개 메모장이 아니며, 다른 사용자도 작성자를 선택하면 메모를 볼 수 있습니다.')
         try:
-            memos = memo_records()
+            memos=memo_records()
         except Exception as exc:
-            st.error(f'메모장 연결 오류: {exc}')
-            st.stop()
-        owner_options = list(dict.fromkeys(people + [r['작성자'] for r in memos if r['작성자']]))
-        if not owner_options:owner_options=['미지정']
-        default_owner = st.session_state.get('memo_owner','')
-        if default_owner not in owner_options:default_owner=owner_options[0]
-        owner = st.selectbox('메모 작성자',owner_options,index=owner_options.index(default_owner),key='memo_owner',format_func=person_label)
-        selected_day = st.date_input('📅 확인할 날짜',value=date.today(),key='memo_selected_day')
-        my_memos = sorted([r for r in memos if r['작성자']==owner and r['날짜']==selected_day.isoformat()],key=lambda r:r['수정일'],reverse=True)
-        st.markdown(f'#### {selected_day:%Y년 %m월 %d일} 메모 ({len(my_memos)}건)')
-        if not my_memos:st.info('선택한 날짜에 저장된 메모가 없습니다.')
-        for r in my_memos:
-            with st.container(border=True):
-                st.markdown('**'+escape(r['제목'] or '제목 없음')+'**')
-                st.text(r['내용'])
-                st.caption('마지막 수정: '+(r['수정일'] or '-'))
-                with st.expander('✏️ 수정 / 삭제',expanded=False):
-                    with st.form('memo_edit_'+r['ID']):
-                        edit_title=st.text_input('제목',value=r['제목'])
-                        edit_body=st.text_area('내용',value=r['내용'],height=140)
-                        edit_save=st.form_submit_button('💾 변경사항 저장')
-                        if edit_save:
-                            try:
-                                memo_save({**r,'제목':edit_title.strip(),'내용':edit_body,'수정일':datetime.now().isoformat(timespec='seconds')})
-                                st.rerun()
-                            except Exception as exc:st.error(f'수정 실패: {exc}')
-                    confirm=st.checkbox('삭제하면 복구할 수 없습니다. 삭제에 동의합니다.',key='memo_confirm_'+r['ID'])
-                    if st.button('🗑️ 이 메모 삭제',key='memo_delete_'+r['ID'],disabled=not confirm):
-                        try:memo_delete(r['ID']);st.rerun()
-                        except Exception as exc:st.error(f'삭제 실패: {exc}')
-        st.markdown('#### ✍️ 새 메모 작성')
-        with st.form('memo_create',clear_on_submit=True):
-            title=st.text_input('메모 제목 *',placeholder='예: 거래처 통화 내용')
-            body=st.text_area('메모 내용 *',height=180,placeholder='오늘 기록할 내용을 입력하세요.')
-            submitted=st.form_submit_button('＋ 메모 저장',type='primary',use_container_width=True)
-            if submitted:
-                if not title.strip() or not body.strip():st.warning('제목과 내용을 입력해 주세요.')
-                else:
-                    try:
-                        memo_save({'ID':str(uuid.uuid4()),'작성자':owner,'날짜':selected_day.isoformat(),'제목':title.strip(),'내용':body,'수정일':datetime.now().isoformat(timespec='seconds')})
-                        st.rerun()
-                    except Exception as exc:st.error(f'저장 실패: {exc}')
+            st.error(f'메모장 연결 오류: {exc}');st.stop()
+        from memo_ui import render_memos
+        render_memos(memos,people,person_label,memo_save,memo_delete)
 
     elif page=='📝 회의록':
         try:meetings=meeting_data()

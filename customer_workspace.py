@@ -1,6 +1,7 @@
 """Customer directory, BULK lease register and responsibilities UI."""
 from datetime import date
 import hashlib
+import json
 from html import escape
 import uuid
 import re
@@ -41,7 +42,17 @@ def drive_file_id(value):
 
 def load_drive_workbook(value,credential_info):
  from shared_files import drive_client, metadata, download
- client=drive_client(credential_info,oauth=st.secrets.get('drive_oauth'))
+ oauth=st.secrets.get('drive_oauth')
+ if credential_info is None and oauth is None:
+  for key in ('gcp_service_account','google_service_account','service_account'):
+   value=st.secrets.get(key)
+   if value:
+    credential_info=json.loads(value) if isinstance(value,str) else dict(value)
+    break
+  if credential_info is None:
+   value=st.secrets.get('gcp',{}).get('service_account_json')
+   if value:credential_info=json.loads(value) if isinstance(value,str) else dict(value)
+ client=drive_client(credential_info,oauth=oauth)
  item=metadata(client,drive_file_id(value))
  if not item['name'].lower().endswith('.xlsx'):
   raise ValueError('작성한 .xlsx 엑셀 파일을 선택해 주세요. Google 스프레드시트는 엑셀로 다운로드 후 올려 주세요.')

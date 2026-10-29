@@ -838,7 +838,7 @@ def memo_delete(record_id):
     svc.spreadsheets().batchUpdate(spreadsheetId=SID,body={'requests':[{'deleteDimension':{'range':{'sheetId':sheet_id,'dimension':'ROWS','startIndex':index,'endIndex':index+1}}}]}).execute()
 
 st.sidebar.markdown('### 영업팀 대시보드')
-page=st.sidebar.radio('메뉴',['🗓️ 달력','📋 업무현황','📝 회의록','🗒️ 개인 메모장','📁 공유파일','🏢 거래처 특이사항','⚙️ 데이터 통합/설정'],format_func=lambda value: {'🗓️ 달력':'달력','📋 업무현황':'업무 현황','📝 회의록':'회의록','🗒️ 개인 메모장':'개인 메모장','📁 공유파일':'공유파일','🏢 거래처 특이사항':'거래처 특이사항','⚙️ 데이터 통합/설정':'데이터 설정'}[value],label_visibility='collapsed')
+page=st.sidebar.radio('메뉴',['🗓️ 달력','📋 업무현황','📝 회의록','🗒️ 개인 메모장','📁 공유파일','🏢 거래처 특이사항','⚙️ 데이터 통합/설정'],format_func=lambda value: {'🗓️ 달력':'달력','📋 업무현황':'업무 현황','📝 회의록':'회의록','🗒️ 개인 메모장':'개인 메모장','📁 공유파일':'공유파일','🏢 거래처 특이사항':'거래처 관리','⚙️ 데이터 통합/설정':'데이터 설정'}[value],label_visibility='collapsed')
 sidebar_filter=st.sidebar.container()
 st.sidebar.divider()
 if st.sidebar.button('↻ 새로고침',use_container_width=True):st.rerun()
@@ -1276,7 +1276,7 @@ else:
         import importlib
         import customer_data
         # Streamlit can retain imported modules when app.py is redeployed.
-        customer_version='20261029-customer-2'
+        customer_version='20261029-customer-3'
         if getattr(customer_data,'SCHEMA_VERSION',None)!=customer_version:
             importlib.reload(customer_data)
         import customer_workspace

@@ -11,7 +11,7 @@ import streamlit as st
 from customer_data import SCHEMAS, LABELS, REQUIRED, CHOICES, DATE_FIELDS, LONG_FIELDS, PEOPLE_FIELDS, DEFAULTS, upcoming_tanks, owner_customer_summary
 from customer_excel import workbook_bytes, read_workbook
 
-UI_VERSION = '20261029-customer-2'
+UI_VERSION = '20261029-customer-3'
 
 CSS='''<style>
 .customer-heading h1{font-size:27px!important;letter-spacing:-.045em;margin:0!important;padding:0!important}
@@ -82,7 +82,7 @@ def editor(store,data,people,person_label):
  state=st.session_state.get('customer_editor')
  if not state:return
  sheet=state['sheet'];old=state.get('record') or {};headers=list(SCHEMAS[sheet]);key=headers[0]
- if sheet=='거래처DB' and 'FAX' in old:headers.insert(headers.index('대표전화')+1,'FAX')
+ if sheet=='거래처DB' and ('FAX' in old or 'FAX' in getattr(store,'_layouts',{}).get(sheet,[])):headers.insert(headers.index('대표전화')+1,'FAX')
  def dismiss():st.session_state.pop('customer_editor',None)
  @st.dialog(('수정 · ' if old else '등록 · ')+LABELS[sheet],width='large',on_dismiss=dismiss)
  def dialog():
@@ -94,6 +94,8 @@ def editor(store,data,people,person_label):
    fields={}
    for field in headers:
     if field=='수정일':continue
+    if field==key and sheet=='거래처DB' and not old:
+     fields[field]=initial[field];continue
     if field==key and sheet!='거래처DB':
      fields[field]=initial.get(field,'');continue
     if field=='거래처코드' and sheet!='거래처DB':
@@ -145,8 +147,8 @@ def related_tab(sheet,code,data,person_label):
 def render_customers(store,people,person_label,credential_info=None):
  st.markdown(CSS,unsafe_allow_html=True)
  if st.button('최신 시트 데이터 새로고침',key='customer_sheet_refresh'):st.rerun()
- st.caption('영업부 업무정리 DB의 거래처 시트와 직접 연결됩니다. 시트 수정 후 새로고침하면 반영됩니다.')
- st.markdown('<div class="customer-heading"><h1>거래처 특이사항</h1><p>거래처 정보와 담당자, BULK 탱크, 후속조치를 함께 관리하세요.</p></div>',unsafe_allow_html=True)
+ st.caption('입력한 내용은 기존 업무정리 DB에 저장됩니다. 시트에서 수정한 내용도 새로고침하면 확인할 수 있습니다.')
+ st.markdown('<div class="customer-heading"><h1>거래처 관리</h1><p>거래처를 등록하고 연락처·탱크·특이사항을 한곳에서 관리하세요.</p></div>',unsafe_allow_html=True)
  try:data=store.read_all()
  except ValueError as exc:st.error(str(exc));return
  except Exception:st.error('거래처 정보를 불러오지 못했습니다. Google Sheets 연결과 권한을 확인해 주세요.');return
@@ -157,7 +159,7 @@ def render_customers(store,people,person_label,credential_info=None):
    st.warning('찾지 못한 시트: '+', '.join(store.missing_sheets))
    st.write('현재 문서의 시트 이름: '+', '.join(getattr(store,'sheet_names',[])))
  if st.session_state.get('customer_notice'):st.success(st.session_state.pop('customer_notice'))
- directory,responsibilities,excel=st.tabs(['거래처 관리','직원 담당업무','엑셀 가져오기'])
+ directory,responsibilities=st.tabs(['거래처 관리','직원 담당업무'])
  with directory:
   customers=data['거래처DB']
   stats=st.columns(4)
@@ -208,7 +210,7 @@ def render_customers(store,people,person_label,credential_info=None):
       if related:st.dataframe(pd.DataFrame(related)[['업무명','담당자','마감일','진행상태']],hide_index=True,use_container_width=True)
       else:st.info('연결된 업무가 없습니다.')
    else:
-    st.info('거래처 등록 또는 엑셀 가져오기로 거래처 정보를 추가해 주세요.')
+    st.info('거래처 등록 버튼으로 정보를 입력하면 저장 후 바로 조회할 수 있습니다.')
  with responsibilities:
   st.markdown('#### 직원별 담당 거래처')
   st.caption('거래처DB의 당사담당자 열을 기준으로 자동 집계합니다.')
@@ -226,49 +228,4 @@ def render_customers(store,people,person_label,credential_info=None):
    records=data['직원담당업무DB']
    picked=st.selectbox('수정할 담당업무',range(len(records)),format_func=lambda i:person_label(records[i]['직원명'])+' · '+records[i]['담당업무'][:50])
    if st.button('담당업무 수정'):open_editor('직원담당업무DB',records[picked]);st.rerun()
- with excel:
-  st.markdown('#### 엑셀 양식으로 한 번에 정리')
-  st.caption('거래처코드를 기준으로 연락처·탱크·특이사항을 연결합니다. 원본 양식의 탭 이름과 열 순서를 유지하세요.')
-  st.download_button('엑셀 입력 양식 다운로드',template_bytes(),file_name='거래처관리_입력양식.xlsx',mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-  source=st.radio('자료 위치',['Google Drive','내 컴퓨터'],horizontal=True,key='customer_import_source')
-  if source=='Google Drive':
-   st.caption('Drive에 올린 거래처관리 엑셀의 파일 링크를 복사해 붙여 넣으세요. 연결된 Google 계정에 파일 접근 권한이 있어야 합니다.')
-   with st.form('customer_drive_load'):
-    link=st.text_input('Google Drive 엑셀 파일 링크',placeholder='https://drive.google.com/file/d/…/view')
-    fetch=st.form_submit_button('Drive에서 불러오기')
-   if fetch:
-    st.session_state.pop('customer_drive_workbook',None)
-    try:
-     with st.spinner('엑셀 파일을 불러오고 있습니다…'):
-      st.session_state['customer_drive_workbook']=load_drive_workbook(link,credential_info)
-    except ValueError as exc:st.error(str(exc))
-    except Exception:st.error('파일을 불러오지 못했습니다. 파일 링크와 Drive 연결 계정의 접근 권한을 확인해 주세요.')
-  uploaded=st.file_uploader('작성한 엑셀 파일',type=['xlsx'],key='customer_import_file_'+str(st.session_state.get('customer_import_version',0))) if source=='내 컴퓨터' else None
-  loaded=st.session_state.get('customer_drive_workbook') if source=='Google Drive' else None
-  payload=loaded[1] if loaded else (uploaded.getvalue() if uploaded and source=='내 컴퓨터' else None)
-  if loaded:st.caption('불러온 파일: '+loaded[0])
-  if payload:
-   try:
-    incoming=read_workbook(payload)
-    _,plan=store.plan_import(incoming)
-   except ValueError as exc:st.error(str(exc))
-   except Exception:st.error('양식 파일을 읽거나 검증하지 못했습니다. 파일과 시트 연결을 확인해 주세요.')
-   else:
-    count=sum(map(len,plan.values()))
-    st.write(f'검증 완료 · 신규 {count}건')
-    for sheet,records in plan.items():
-     with st.expander(f'{LABELS[sheet]} {len(records)}건 미리보기'):show_table(records,sheet,person_label)
-    confirmed=st.checkbox('검증한 신규 자료를 추가합니다. 기존 자료는 덮어쓰지 않습니다.',key='customer_import_confirm_'+hashlib.sha256(payload).hexdigest()[:16])
-    if st.button('검증한 자료 추가',type='primary',disabled=not(confirmed and count)):
-     try:added=store.import_new(incoming)
-     except ValueError as exc:st.error(str(exc))
-     except Exception:st.error('반영을 완료하지 못했습니다. 재시도 전에 현재 목록을 확인해 중복 여부를 점검하세요.')
-     else:
-      st.session_state.pop('customer_drive_workbook',None)
-      st.session_state['customer_import_version']=st.session_state.get('customer_import_version',0)+1
-      st.session_state['customer_notice']=f'{added}건을 추가했습니다.'
-      st.rerun()
-  with st.expander('작성 시 참고사항'):
-   st.write('BULK 탱크는 한 대당 한 행, 연락처는 한 사람당 한 행으로 작성합니다. 특이사항은 발생 건별로 작성하고 조치담당자·완료예정일을 함께 남기세요.')
-   st.caption('엑셀 가져오기는 신규 추가 전용입니다. 기존 자료 수정은 화면에서 진행하세요. 동시 수정은 마지막 저장이 반영될 수 있습니다.')
  editor(store,data,people,person_label)

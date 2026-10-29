@@ -3,7 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 import uuid
 
-SCHEMA_VERSION = '20261029-customer-2'
+SCHEMA_VERSION = '20261029-customer-3'
 
 SCHEMAS = {
  '거래처DB': ['거래처코드','거래처명','거래구분','거래상태','당사담당자','업종','회사소개','주요제품','취급가스','공급형태','대표전화','사업장주소','납품주소','결제조건','방문출입주의사항','수정일'],
@@ -91,15 +91,20 @@ class CustomerStore:
 
  def read_all(self):
   names={x['properties']['title'] for x in self.service.spreadsheets().get(spreadsheetId=self.sid,fields='sheets(properties(title))').execute().get('sheets',[])}
+  self._titles={}
+  for sheet in SCHEMAS:
+   matches=[name for name in names if ''.join(name.split())==sheet]
+   if len(matches)>1:raise ValueError(f'{sheet}: 같은 용도의 시트가 여러 개 있습니다. 중복 시트 이름을 확인해 주세요.')
+   if matches:self._titles[sheet]=matches[0]
   self.sheet_names=sorted(names)
-  self.missing_sheets=[s for s in SCHEMAS if s not in names]
+  self.missing_sheets=[s for s in SCHEMAS if s not in self._titles]
   result={}
   self._layouts={}
   self._last_rows={}
   for sheet,headers in SCHEMAS.items():
-   if sheet not in names:
+   if sheet not in self._titles:
     result[sheet]=[];continue
-   values=self.service.spreadsheets().values().get(spreadsheetId=self.sid,range=f"'{sheet}'!A:Z").execute().get('values',[])
+   values=self.service.spreadsheets().values().get(spreadsheetId=self.sid,range=self._range(sheet,'A:Z')).execute().get('values',[])
    if not values:
     result[sheet]=[];continue
    actual=[text_value(v) for v in values[0]]
@@ -134,10 +139,14 @@ class CustomerStore:
    result[sheet]=rows
   return result
 
+ def _range(self,sheet,cells):
+  title=getattr(self,'_titles',{}).get(sheet,sheet).replace("'","''")
+  return f"'{title}'!{cells}"
+
  def _ensure_sheets(self, requested):
   meta=self.service.spreadsheets().get(spreadsheetId=self.sid,fields='sheets(properties(title))').execute()
   names={x['properties']['title'] for x in meta.get('sheets',[])}
-  missing=[sheet for sheet in requested if sheet not in names]
+  missing=[sheet for sheet in requested if getattr(self,'_titles',{}).get(sheet,sheet) not in names]
   if missing:
    self.service.spreadsheets().batchUpdate(spreadsheetId=self.sid,body={'requests':[{'addSheet':{'properties':{'title':s}}} for s in missing]}).execute()
 
@@ -158,9 +167,9 @@ class CustomerStore:
   reference=data[sheet][ids.index(old_id)] if old_id else next(iter(data[sheet]),{})
   actual=self._layouts.get(sheet,reference.get('_headers',SCHEMAS[sheet]))
   if not data[sheet]:
-   present=self.service.spreadsheets().values().get(spreadsheetId=self.sid,range=f"'{sheet}'!A:Z").execute().get('values',[])
+   present=self.service.spreadsheets().values().get(spreadsheetId=self.sid,range=self._range(sheet,'A:Z')).execute().get('values',[])
    if present:actual=present[0]
-   else:self.service.spreadsheets().values().batchUpdate(spreadsheetId=self.sid,body={'valueInputOption':'RAW','data':[{'range':f"'{sheet}'!A1",'values':[actual]}]}).execute()
+   else:self.service.spreadsheets().values().batchUpdate(spreadsheetId=self.sid,body={'valueInputOption':'RAW','data':[{'range':self._range(sheet,'A1'),'values':[actual]}]}).execute()
   raw=dict(reference.get('_raw',{})) if old_id else {}
   slot=reference.get('_slot')
   if not old_id and '성명1' in actual:slot=1
@@ -171,7 +180,7 @@ class CustomerStore:
   if '거래처명' in actual and sheet!='거래처DB':
    raw['거래처명']=next((r['거래처명'] for r in data['거래처DB'] if r['거래처코드']==normalized['거래처코드']),raw.get('거래처명',''))
   self.service.spreadsheets().values().batchUpdate(spreadsheetId=self.sid,body={'valueInputOption':'RAW','data':[
-   {'range':f"'{sheet}'!A{rownum}",'values':[[raw.get(k,'') for k in actual]]}]}).execute()
+   {'range':self._range(sheet,f'A{rownum}'),'values':[[raw.get(k,'') for k in actual]]}]}).execute()
   return normalized
 
  def plan_import(self,incoming):
@@ -198,7 +207,7 @@ class CustomerStore:
   self._ensure_sheets(plan)
   updates=[]
   for sheet,records in plan.items():
-   updates.extend([{'range':f"'{sheet}'!A1",'values':[SCHEMAS[sheet]]},
-                   {'range':f"'{sheet}'!A{max((r['_row'] for r in existing[sheet]),default=1)+1}",'values':[[r[k] for k in SCHEMAS[sheet]] for r in records]}])
+   updates.extend([{'range':self._range(sheet,'A1'),'values':[SCHEMAS[sheet]]},
+                   {'range':self._range(sheet,"A"+str(max((r['_row'] for r in existing[sheet]),default=1)+1)),'values':[[r[k] for k in SCHEMAS[sheet]] for r in records]}])
   self.service.spreadsheets().values().batchUpdate(spreadsheetId=self.sid,body={'valueInputOption':'RAW','data':updates}).execute()
   return sum(map(len,plan.values()))

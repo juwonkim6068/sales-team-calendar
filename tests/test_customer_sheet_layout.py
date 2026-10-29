@@ -36,3 +36,13 @@ class CustomLayoutTests(unittest.TestCase):
   self.assertEqual(summary[0]['담당 거래처'],2)
   self.assertEqual(summary[0]['직거래처'],1)
   self.assertEqual(summary[0]['대리점'],1)
+
+ def test_spaced_sheet_title_is_used_for_reads_and_writes(self):
+  tables=self.tables()
+  tables['거래처 DB']=tables.pop('거래처DB')
+  store=CustomerStore(fake_service(tables),'sid')
+  row=store.read_all()['거래처DB'][0]
+  row['거래처명']='변경'
+  store.save('거래처DB',row,row['거래처코드'])
+  self.assertEqual(tables['거래처 DB'][1][1],'변경')
+  self.assertNotIn('거래처DB',tables)

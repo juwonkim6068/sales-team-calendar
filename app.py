@@ -427,6 +427,68 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 [data-testid="stSidebar"] button:hover{background:#f4f7fb!important;color:#245fc2!important;border-color:#c8d8ef!important}
 [data-testid="stSidebar"] hr{border-color:#e9edf3!important;margin:14px 0!important}
 @media(max-width:767px){[data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding:1rem .85rem!important}}
+/* Calendar page: unified typography, spacing and responsive reading */
+.cal-page-header{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:0 0 26px}
+.cal-page-header h1{font-size:28px!important;font-weight:750!important;letter-spacing:-.045em;margin:0!important;padding:0!important}
+.cal-page-header p{font-size:13px;color:#7a889c;margin:7px 0 0}
+.cal-overview{display:flex;gap:0;border:1px solid #e2e8f0;background:#fff;border-radius:12px;padding:12px 4px}
+.cal-overview>div{padding:0 24px;border-right:1px solid #edf0f5;min-width:100px}
+.cal-overview>div:last-child{border:0}
+.cal-overview span{display:block;font-size:11px;color:#7a889c;margin-bottom:5px}
+.cal-overview b{font-size:22px;font-weight:700;color:#263d5d;line-height:1}
+.cal-overview .complete b{color:#25805b}
+.cal-month-title{font-size:22px;font-weight:700;letter-spacing:-.04em;color:#243853;text-align:center;padding:4px 0;white-space:nowrap}
+.st-key-month_prev button,.st-key-month_next button,.st-key-calendar_today button{background:#fff!important;border:1px solid #dde5ef!important;color:#52677f!important;min-height:40px!important;box-shadow:none!important}
+.st-key-month_prev button:hover,.st-key-month_next button:hover,.st-key-calendar_today button:hover{background:#eff4fc!important;border-color:#bdcfea!important}
+.cal-context{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:15px 0 2px;color:#8290a3;font-size:11px}
+.cal-context strong{font-weight:600;color:#52677f}
+.cal-shell{margin-top:10px!important;border:1px solid #dfe6ef;border-radius:14px;background:#fff;box-shadow:0 5px 20px rgba(36,55,83,.035)}
+.cal-weekdays{background:#f8fafc;border-bottom:1px solid #e2e8f0}
+.cal-weekdays div{font-size:12px;padding:14px 0;letter-spacing:.03em;color:#7b889a;border-right:1px solid #edf0f5;font-weight:600}
+.cal-weekdays div:last-child{border-right:0}
+.cal-day{min-height:154px;padding:10px 9px;border-color:#edf0f5;transition:background .15s ease}
+.cal-day:nth-child(7n){border-right:0}
+.cal-day.is-today{background:#f7faff;box-shadow:inset 0 0 0 1px #cbdcfa}
+.cal-day.outside{background:#fbfcfe}
+.cal-day:has(a.day-num:hover){background:#f4f7fc}
+.cal-date-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;min-height:27px}
+.cal-day .day-num{display:inline-flex;align-items:center;justify-content:center;width:27px;height:27px;font-size:12px;font-weight:650;margin:0;padding:0!important;border-radius:8px}
+.cal-day .day-num.today{display:inline-flex;background:#2864da;color:#fff;border-radius:8px;box-shadow:0 2px 5px #2864da20}
+.cal-day.outside .day-num{color:#b4becc}
+.cal-day-count{font-size:10px;color:#9aa7b7;padding-right:2px}
+.cal-event{padding:8px 9px;margin:5px 0;border-radius:8px;font-size:12px;line-height:1.5;transition:box-shadow .15s ease,transform .15s ease;border-left-width:3px!important}
+.cal-event:hover{box-shadow:0 3px 9px #24375312;transform:translateY(-1px)}
+.cal-event:focus-visible,.cal-day a.day-num:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+.cal-event .event-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;overflow:hidden;font-size:12px;font-weight:650;line-height:1.5;overflow-wrap:anywhere}
+.cal-event .event-sub{display:flex;align-items:center;justify-content:space-between;margin-top:5px;gap:6px;font-size:10px;line-height:1.4}
+.cal-event .event-owner{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.cal-event .event-sub b{font-size:9px;opacity:.8;font-weight:600;flex-shrink:0}
+.cal-event .track{height:3px;margin-top:6px;border-radius:3px;background:#ffffff90;overflow:hidden}
+.cal-event .fill{height:100%;border-radius:3px}
+.cal-more{font-size:10px;font-weight:600;color:#70829a;margin:7px 3px}
+.cal-legend{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:8px 18px;padding:16px 2px;font-size:11px;color:#65758c}
+.cal-legend>span{display:inline-flex;align-items:center;gap:6px}
+.cal-legend i{width:7px;height:7px;border-radius:50%;margin:0}
+.cal-scroll-hint{display:none}
+@media(max-width:1050px){.cal-day{padding:8px 6px;min-height:140px}.cal-event{padding:7px 6px}.cal-overview>div{padding:0 16px;min-width:80px}}
+@media(max-width:767px){
+ .cal-page-header{align-items:flex-start;flex-direction:column;gap:16px;margin-bottom:20px}
+ .cal-page-header h1{font-size:24px!important}.cal-page-header p{font-size:12px}
+ .cal-overview{width:100%;padding:10px 0}.cal-overview>div{flex:1;padding:0 18px;min-width:0}.cal-overview b{font-size:20px}
+ .cal-month-title{font-size:19px}
+ .cal-context{align-items:flex-start;flex-direction:column;gap:5px;font-size:10px}
+ .cal-shell{overflow-x:auto!important;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;border-radius:10px}
+ .cal-weekdays,.cal-grid{min-width:735px!important;grid-template-columns:repeat(7,minmax(0,1fr))!important}
+ .cal-weekdays>div{font-size:11px!important;padding:12px 0!important}
+ .cal-day{min-height:140px!important;padding:8px 6px!important}
+ .cal-day .day-num{font-size:12px!important;margin:0!important}
+ .cal-event{font-size:11px!important;padding:7px!important;margin:5px 0!important}
+ .cal-event .event-title{font-size:11px!important}
+ .cal-event .event-sub{display:flex!important;font-size:10px!important}
+ .cal-scroll-hint{display:block;color:#94a0b1;font-size:10px;margin-top:8px}
+ .cal-legend{font-size:11px!important;gap:10px 14px!important}
+}
+
 /* 업무 카드 배지: 담당자별 지정색 / 업무구분별 지정색 */
 .task-card-meta span.meta-owner{background:#f1edff!important;border-color:#d9cefa!important;color:#59449a!important}
 .task-card-meta span.meta-owner b{color:inherit!important}
@@ -829,21 +891,23 @@ else:
     person=sidebar_filter.selectbox('담당자',choices,key='person_filter',format_func=person_label)
     shown=df if person=='전체' else df[df['담당자'].isin([person,'전체'])]
     if page=='🗓️ 달력':
-        st.markdown('<div class="dashboard-head"><div><h1>캘린더</h1><p>영업팀의 일정을 한눈에 확인하고 일정을 공유하세요.</p></div></div>',unsafe_allow_html=True)
         st.session_state.month=calendar_view_month(st.query_params,st.session_state.get('month'))
         m=st.session_state.month
+        month_tasks=shown[shown['마감일'].astype(str).str.startswith(m.strftime('%Y-%m'))]
+        month_done=int(month_tasks['진행상태'].eq('완료').sum())
+        st.markdown(f'<div class="cal-page-header"><div><h1>캘린더</h1><p>팀 일정과 업무 진행 현황을 한눈에 확인하세요.</p></div><div class="cal-overview"><div><span>이달의 업무</span><b>{len(month_tasks)}</b></div><div><span>미완료</span><b>{len(month_tasks)-month_done}</b></div><div class="complete"><span>완료</span><b>{month_done}</b></div></div></div>',unsafe_allow_html=True)
         left,title,right,todaycol,spacer,add=st.columns([.65,2.2,.65,.85,3.2,1.4],vertical_alignment='center')
         if left.button('❮',key='month_prev',use_container_width=True):
             st.session_state.month=(pd.Timestamp(m)-pd.DateOffset(months=1)).date()
             st.query_params['calendar_month']=st.session_state.month.isoformat();st.rerun()
-        title.markdown(f'### {m.year}년 {m.month}월')
+        title.markdown(f'<div class="cal-month-title">{m.year}년 {m.month}월</div>',unsafe_allow_html=True)
         if right.button('❯',key='month_next',use_container_width=True):
             st.session_state.month=(pd.Timestamp(m)+pd.DateOffset(months=1)).date()
             st.query_params['calendar_month']=st.session_state.month.isoformat();st.rerun()
-        if todaycol.button('오늘',use_container_width=True):
+        if todaycol.button('오늘',key='calendar_today',use_container_width=True):
             st.session_state.month=date.today().replace(day=1)
             st.query_params['calendar_month']=st.session_state.month.isoformat();st.rerun()
-        if add.button('＋ 일정 추가',use_container_width=True):
+        if add.button('＋ 일정 추가',key='calendar_add_button',type='primary',use_container_width=True):
             st.session_state['calendar_new_open']=True
             st.query_params.pop('calendar_task',None)
             st.query_params.pop('calendar_date',None)
@@ -917,16 +981,19 @@ else:
             daystr=day.isoformat()
             d=shown[shown['마감일']==daystr]  # 달력에는 시작일과 관계없이 마감일 당일에만 표시
             return d.sort_values(['시작시간','업무명'],kind='stable')
+        st.markdown(f'<div class="cal-context"><strong>{escape(person_label(person))} · 마감일 기준</strong><span>날짜 클릭으로 등록 · 일정 클릭으로 상세보기</span></div>',unsafe_allow_html=True)
         html=['<div class="cal-shell"><div class="cal-weekdays">']
-        html += [f'<div>{d}</div>' for d in ['일','월','화','수','목','금','토']]
+        html += [f'<div>{d}</div>' for d in ['일요일','월요일','화요일','수요일','목요일','금요일','토요일']]
         html.append('</div><div class="cal-grid">')
         weeks=calendar.Calendar(firstweekday=6).monthdatescalendar(m.year,m.month)
         for week in weeks:
             for day in week:
                 outside=' outside' if day.month!=m.month else ''
                 todaycls=' today' if day==date.today() else ''
-                html.append(f'<div class="cal-day{outside}"><a class="day-num{todaycls}" href="?calendar_date={day.isoformat()}&amp;calendar_month={m.isoformat()}" target="_self" aria-label="{day.isoformat()} 일정 추가" title="{day.isoformat()} 일정 추가">{day.day}</a>')
                 daily=cal_entries(day)
+                dayclass=' is-today' if day==date.today() else ''
+                daycount=f'<span class="cal-day-count">{len(daily)}건</span>' if len(daily) else ''
+                html.append(f'<div class="cal-day{outside}{dayclass}"><div class="cal-date-row"><a class="day-num{todaycls}" href="?calendar_date={day.isoformat()}&amp;calendar_month={m.isoformat()}" target="_self" aria-label="{day.isoformat()} 일정 추가" title="{day.isoformat()} 일정 추가">{day.day}</a>{daycount}</div>')
                 for _,r in daily.head(3).iterrows():
                     owner=safe(r.get('담당자')) or '미지정'
                     bg,fg,color=_task_badge_colors(owner,'owner')
@@ -935,11 +1002,12 @@ else:
                     status=safe(r.get('진행상태'))
                     task=escape(safe(r.get('업무명')));owner_html=escape(person_label(owner))
                     tm=escape(safe(r.get('시작시간')))
-                    html.append(f'<a class="cal-event" href="?calendar_task={quote(safe(r.get("통합ID")),safe="")}&amp;calendar_month={m.isoformat()}" target="_self" title="{task} · {owner_html} · {escape(status)} · {progress}%" style="background:{bg};color:{fg};border-left:3px solid {color}"><div class="event-title">{"✓ " if status=="완료" else ""}{tm+" " if tm else ""}{task}</div><div class="event-sub"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48%">{owner_html}</span><div class="track"><div class="fill" style="width:{progress}%;background:{fg}"></div></div><b>{progress}%</b></div></a>')
+                    html.append(f'<a class="cal-event" href="?calendar_task={quote(safe(r.get("통합ID")),safe="")}&amp;calendar_month={m.isoformat()}" target="_self" title="{task} · {owner_html} · {escape(status)} · {progress}%" style="background:{bg};color:{fg};border-left:3px solid {color}"><div class="event-title">{"✓ " if status=="완료" else ""}{tm+" " if tm else ""}{task}</div><div class="event-sub"><span class="event-owner">{owner_html}</span><b>{progress}%</b></div><div class="track"><div class="fill" style="width:{progress}%;background:{color}"></div></div></a>')
                 if len(daily)>3:html.append(f'<div class="cal-more">+ {len(daily)-3}건 더보기</div>')
                 html.append('</div>')
         html.append('</div></div>')
         st.markdown(''.join(html),unsafe_allow_html=True)
+        st.markdown('<div class="cal-scroll-hint">↔ 달력을 좌우로 밀어 나머지 날짜를 확인하세요.</div>',unsafe_allow_html=True)
         if people:
             legend=''.join(f'<span><i style="background:{owner_color(p)}"></i>{escape(person_label(p))}</span>' for p in people)
             st.markdown(f'<div class="cal-legend">{legend}</div>',unsafe_allow_html=True)

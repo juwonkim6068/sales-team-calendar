@@ -795,7 +795,11 @@ def meeting_form(r=None):
             if not title.strip():st.error('회의 제목을 입력하세요.')
             else:
                 record=dict(zip(MEETING_FIELDS,[r.get('ID') or str(uuid.uuid4()),title,kind,dept,day.isoformat(),start,end,place,attendees,author,content,decisions,actions,r.get('작성일') or datetime.now().isoformat(timespec='minutes')]))
-                try:meeting_save(record);st.success('저장되었습니다.');st.rerun()
+                try:
+                    meeting_save(record)
+                    st.session_state.pop('meeting_view_id',None)
+                    st.session_state['meeting_saved_notice']=True
+                    st.rerun()
                 except Exception as e:st.error(f'저장 실패: {e}')
 
 # 개인 메모장: 기존 시트는 변경하지 않고 별도 시트에 저장합니다.
@@ -1222,7 +1226,7 @@ else:
         filtered.sort(key=lambda r:r['날짜']+' '+r['시작'],reverse=True)
         left,right=st.columns([3.1,1.45],gap='medium')
         with left:
-            st.markdown('<div class="meeting-hero"><strong>📌 회의록 목록 · 한눈에 확인</strong><span>회의 카드를 선택하면 참석자, 회의 내용과 결정사항을 오른쪽에서 확인할 수 있습니다.</span></div>',unsafe_allow_html=True)
+            st.markdown('<div class="meeting-hero"><strong>📌 회의록 목록 · 한눈에 확인</strong><span>자세히 보기를 누르면 회의 내용과 결정사항이 상세 창에 표시됩니다.</span></div>',unsafe_allow_html=True)
             st.markdown(f'#### 등록된 회의 ({len(filtered)}건)')
             for r in filtered:
                 with st.container(border=True):
@@ -1238,27 +1242,36 @@ else:
                                '</div><div class="meeting-pills">'+tags+
                                '</div><div class="meeting-excerpt">'+summary+'</div></div>',unsafe_allow_html=True)
                     if b.button('📖 회의 내용 자세히 보기 →',key='meeting_'+r['ID'],use_container_width=True):
-                        st.session_state['meeting_id']=r['ID'];st.rerun()
+                        st.session_state['meeting_view_id']=r['ID'];st.rerun()
             if not filtered:st.info('조건에 맞는 회의록이 없습니다.')
         with right:
-            selected=st.session_state.get('meeting_id')
+            st.markdown('<div class="meeting-hero"><strong>✍️ 새 회의록 작성</strong><span>회의 정보, 안건, 결정사항과 후속조치를 작성해 저장하세요.</span></div>',unsafe_allow_html=True)
+            with st.container(border=True):meeting_form()
+        if st.session_state.pop('meeting_saved_notice',False):
+            st.success('회의록을 저장했습니다.')
+        def close_meeting_detail():
+            st.session_state.pop('meeting_view_id',None)
+        @st.dialog('회의록 상세',width='large',on_dismiss=close_meeting_detail)
+        def meeting_detail_dialog(record):
+            title=escape(record['제목'] or '제목 없음')
+            subtitle=escape(record['날짜']+' · '+record['시작']+'~'+record['종료']+' · '+record['장소'])
+            st.markdown('<div class="meeting-detail-header"><strong>'+title+'</strong><small>'+subtitle+'</small></div>',unsafe_allow_html=True)
+            st.markdown('<div class="meeting-pills"><span>'+escape(record['구분'])+'</span><span>'+escape(record['부서'])+'</span><span>작성자 · '+escape(person_label(record['작성자']) or '미입력')+'</span></div>',unsafe_allow_html=True)
+            for label,field in [('참석자','참석자'),('회의 내용','회의내용'),('주요 결정사항','결정사항'),('후속조치 / To-Do','후속조치')]:
+                st.markdown('<div class="meeting-section">'+label+'</div><div class="meeting-body">'+escape(record[field] or '아직 입력된 내용이 없습니다.')+'</div>',unsafe_allow_html=True)
+            with st.expander('이 회의록 수정하기'):
+                meeting_form(record)
+            if st.button('닫기',key='meeting_detail_close',use_container_width=True):
+                close_meeting_detail()
+                st.rerun()
+        selected=st.session_state.get('meeting_view_id')
+        if selected is not None:
             record=next((x for x in meetings if x['ID']==selected),None)
-            if selected in (None,'NEW') or (selected and record is None):
-                st.markdown('<div class="meeting-hero"><strong>✍️ 새 회의록 작성</strong><span>회의 정보, 안건, 결정사항과 후속조치를 작성해 저장하세요.</span></div>',unsafe_allow_html=True)
-                with st.container(border=True):meeting_form()
-            elif record:
-                if st.button('＋ 새 회의록 작성으로 돌아가기',key='meeting_back_to_new',use_container_width=True):
-                    st.session_state['meeting_id']='NEW';st.rerun()
-                with st.container(border=True):
-                    title=escape(record['제목'] or '제목 없음')
-                    subtitle=escape(record['날짜']+' · '+record['시작']+'~'+record['종료']+' · '+record['장소'])
-                    st.markdown('<div class="meeting-detail-header"><strong>📋 '+title+'</strong><small>📅 '+subtitle+'</small></div>',unsafe_allow_html=True)
-                    st.markdown('<div class="meeting-pills"><span>'+escape(record['구분'])+'</span><span>'+escape(record['부서'])+'</span><span>작성자 · '+escape(record['작성자'] or '미입력')+'</span></div>',unsafe_allow_html=True)
-                    for label,key in [('👥 참석자','참석자'),('📝 회의 내용','회의내용'),('✅ 주요 결정사항','결정사항'),('📌 후속조치 / To-Do','후속조치')]:
-                        st.markdown('<div class="meeting-section">'+label+'</div>',unsafe_allow_html=True)
-                        st.markdown('<div class="meeting-body">'+escape(record[key] or '아직 입력된 내용이 없습니다.')+'</div>',unsafe_allow_html=True)
-                with st.expander('✏️ 이 회의록 수정하기'):
-                    meeting_form(record)
+            if record is not None:
+                meeting_detail_dialog(record)
+            else:
+                close_meeting_detail()
+                st.warning('선택한 회의록을 찾을 수 없습니다. 목록을 새로고침해 주세요.')
     else:
         st.title('거래처 특이사항')
         st.info('2차 개발에서 거래처별 특이사항 기록 기능을 추가합니다. 현재는 거래처가 입력된 업무를 조회할 수 있습니다.')

@@ -68,7 +68,8 @@ def open_editor(sheet,record=None,code=''):
 def editor(store,data,people,person_label):
  state=st.session_state.get('customer_editor')
  if not state:return
- sheet=state['sheet'];old=state.get('record') or {};headers=SCHEMAS[sheet];key=headers[0]
+ sheet=state['sheet'];old=state.get('record') or {};headers=list(SCHEMAS[sheet]);key=headers[0]
+ if sheet=='거래처DB' and 'FAX' in old:headers.insert(headers.index('대표전화')+1,'FAX')
  def dismiss():st.session_state.pop('customer_editor',None)
  @st.dialog(('수정 · ' if old else '등록 · ')+LABELS[sheet],width='large',on_dismiss=dismiss)
  def dialog():
@@ -130,6 +131,8 @@ def related_tab(sheet,code,data,person_label):
 
 def render_customers(store,people,person_label,credential_info=None):
  st.markdown(CSS,unsafe_allow_html=True)
+ if st.button('최신 시트 데이터 새로고침',key='customer_sheet_refresh'):st.rerun()
+ st.caption('영업부 업무정리 DB의 거래처 시트와 직접 연결됩니다. 시트 수정 후 새로고침하면 반영됩니다.')
  st.markdown('<div class="customer-heading"><h1>거래처 특이사항</h1><p>거래처 정보와 담당자, BULK 탱크, 후속조치를 함께 관리하세요.</p></div>',unsafe_allow_html=True)
  try:data=store.read_all()
  except ValueError as exc:st.error(str(exc));return
@@ -172,9 +175,9 @@ def render_customers(store,people,person_label,credential_info=None):
      if st.button('거래처 정보 수정',key='customer_edit_main'):open_editor('거래처DB',chosen);st.rerun()
      info,contacts,tanks,notes,work=st.tabs(['회사 정보','연락처','BULK 탱크','특이사항','연결 업무'])
      with info:
-      for label in ['업종','회사소개','주요제품','취급가스','공급형태','대표전화','사업장주소','납품주소','결제조건','방문출입주의사항']:
+      for label in ['업종','회사소개','주요제품','취급가스','공급형태','대표전화','FAX','사업장주소','납품주소','결제조건','방문출입주의사항']:
        st.markdown(f'**{label}**')
-       st.markdown('<div class="customer-copy">'+escape(chosen[label] or '미입력')+'</div>',unsafe_allow_html=True)
+       st.markdown('<div class="customer-copy">'+escape(chosen.get(label,'') or '미입력')+'</div>',unsafe_allow_html=True)
      with contacts:related_tab('거래처연락처DB',code,data,person_label)
      with tanks:related_tab('BULK탱크DB',code,data,person_label)
      with notes:related_tab('거래처특이사항DB',code,data,person_label)

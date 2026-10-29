@@ -76,20 +76,41 @@ class CustomerStore:
  def read_all(self):
   names={x['properties']['title'] for x in self.service.spreadsheets().get(spreadsheetId=self.sid,fields='sheets(properties(title))').execute().get('sheets',[])}
   result={}
+  self._layouts={}
+  self._last_rows={}
   for sheet,headers in SCHEMAS.items():
    if sheet not in names:
     result[sheet]=[];continue
    values=self.service.spreadsheets().values().get(spreadsheetId=self.sid,range=f"'{sheet}'!A:Z").execute().get('values',[])
    if not values:
     result[sheet]=[];continue
-   if values[0]!=headers:raise ValueError(f'{sheet}의 열 구성이 양식과 다릅니다. 기존 데이터 보호를 위해 저장하지 않습니다.')
+   actual=[text_value(v) for v in values[0]]
+   self._layouts[sheet]=actual
+   self._last_rows[sheet]=max((i for i,r in enumerate(values,1) if any(text_value(v) for v in r)),default=1)
+   wide=sheet=='거래처연락처DB' and {'거래처코드','성명1','성명2','연락처1','연락처2'}.issubset(actual)
+   generated=sheet in ('BULK탱크DB','거래처특이사항DB') and headers[0] not in actual and '거래처코드' in actual
+   required=set(headers)-({headers[0]} if generated else set())
+   if not wide and not required.issubset(actual):raise ValueError(f'{sheet}의 필수 열이 없습니다. 시트 이름과 열 이름을 확인해 주세요.')
+   if len(actual)!=len(set(actual)) or any(not v for v in actual):raise ValueError(f'{sheet}에 비어 있거나 중복된 열 이름이 있습니다.')
    rows=[]
    for rownum,row in enumerate(values[1:],2):
     if not any(text_value(v) for v in row):continue
-    r=dict(zip(headers,[text_value(v) for v in row]+['']*len(headers)))
-    if not r[headers[0]]:raise ValueError(f'{sheet}에 식별코드가 없는 행이 있습니다. 먼저 코드를 입력하세요.')
-    r['_row']=rownum
-    rows.append(r)
+    raw=dict(zip(actual,[text_value(v) for v in row]+['']*len(actual)))
+    slots=(1,2) if wide else (None,)
+    for slot in slots:
+     r={k:raw.get(k,'') for k in headers}
+     if wide:
+      for field in ('성명','직급','연락처'):r[field]=raw.get(field+str(slot),'')
+      if not any(r[k] for k in ('성명','직급','연락처')):continue
+      r[headers[0]]=f'row-{rownum}-contact-{slot}'
+     if generated:
+      meaningful=[k for k in headers if k not in (headers[0],'거래처코드','수정일')]
+      if not any(r[k] for k in meaningful):continue
+      r[headers[0]]=f'row-{rownum}'
+     if not r[headers[0]]:raise ValueError(f'{sheet}에 식별코드가 없는 행이 있습니다. 먼저 코드를 입력하세요.')
+     r.update({k:v for k,v in raw.items() if k not in headers})
+     r.update({'_row':rownum,'_headers':actual,'_raw':raw,'_slot':slot,'_generated':generated})
+     rows.append(r)
    ids=[r[headers[0]] for r in rows]
    if len(ids)!=len(set(ids)):raise ValueError(f'{sheet}에 중복된 식별코드가 있습니다.')
    result[sheet]=rows
@@ -114,15 +135,32 @@ class CustomerStore:
    rownum=data[sheet][ids.index(old_id)]['_row']
   else:
    if normalized[key] in ids:raise ValueError('이미 존재하는 식별코드입니다.')
-   rownum=max((r['_row'] for r in data[sheet]),default=1)+1
+   rownum=max(max((r['_row'] for r in data[sheet]),default=1),self._last_rows.get(sheet,1))+1
   self._ensure_sheets([sheet])
+  reference=data[sheet][ids.index(old_id)] if old_id else next(iter(data[sheet]),{})
+  actual=self._layouts.get(sheet,reference.get('_headers',SCHEMAS[sheet]))
+  if not data[sheet]:
+   present=self.service.spreadsheets().values().get(spreadsheetId=self.sid,range=f"'{sheet}'!A:Z").execute().get('values',[])
+   if present:actual=present[0]
+   else:self.service.spreadsheets().values().batchUpdate(spreadsheetId=self.sid,body={'valueInputOption':'RAW','data':[{'range':f"'{sheet}'!A1",'values':[actual]}]}).execute()
+  raw=dict(reference.get('_raw',{})) if old_id else {}
+  slot=reference.get('_slot')
+  if not old_id and '성명1' in actual:slot=1
+  for field,value in normalized.items():
+   target=field+str(slot) if slot and field in ('성명','직급','연락처') else field
+   if target in actual:raw[target]=value
+  if 'FAX' in actual:raw['FAX']=text_value(record.get('FAX',raw.get('FAX','')))
+  if '거래처명' in actual and sheet!='거래처DB':
+   raw['거래처명']=next((r['거래처명'] for r in data['거래처DB'] if r['거래처코드']==normalized['거래처코드']),raw.get('거래처명',''))
   self.service.spreadsheets().values().batchUpdate(spreadsheetId=self.sid,body={'valueInputOption':'RAW','data':[
-   {'range':f"'{sheet}'!A1",'values':[SCHEMAS[sheet]]},
-   {'range':f"'{sheet}'!A{rownum}",'values':[[normalized[k] for k in SCHEMAS[sheet]]]}]}).execute()
+   {'range':f"'{sheet}'!A{rownum}",'values':[[raw.get(k,'') for k in actual]]}]}).execute()
   return normalized
 
  def plan_import(self,incoming):
   existing=self.read_all()
+  for sheet in incoming:
+   if self._layouts.get(sheet,SCHEMAS[sheet])!=SCHEMAS[sheet]:
+    raise ValueError(f'{sheet}: 사용자 지정 열이 연결되어 있습니다. 기존 시트를 보호하기 위해 엑셀 추가 대신 화면의 등록 기능을 사용해 주세요.')
   codes={r['거래처코드'] for r in existing['거래처DB']}|{text_value(r.get('거래처코드')) for r in incoming.get('거래처DB',[])}
   plan={}
   for sheet,records in incoming.items():

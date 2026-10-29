@@ -1273,7 +1273,16 @@ else:
                 close_meeting_detail()
                 st.warning('선택한 회의록을 찾을 수 없습니다. 목록을 새로고침해 주세요.')
     else:
-        from customer_data import CustomerStore
-        from customer_workspace import render_customers
+        import importlib
+        import customer_data
+        # Streamlit can retain imported modules when app.py is redeployed.
+        customer_version='20261029-customer-2'
+        if getattr(customer_data,'SCHEMA_VERSION',None)!=customer_version:
+            importlib.reload(customer_data)
+        import customer_workspace
+        if getattr(customer_workspace,'UI_VERSION',None)!=customer_version:
+            importlib.reload(customer_workspace)
+        CustomerStore=customer_data.CustomerStore
+        render_customers=customer_workspace.render_customers
         st.session_state['customer_linked_tasks']=df.to_dict('records')
         render_customers(CustomerStore(svc,SID),people,person_label)

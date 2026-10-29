@@ -3,6 +3,8 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 import uuid
 
+SCHEMA_VERSION = '20261029-customer-2'
+
 SCHEMAS = {
  '거래처DB': ['거래처코드','거래처명','거래구분','거래상태','당사담당자','업종','회사소개','주요제품','취급가스','공급형태','대표전화','사업장주소','납품주소','결제조건','방문출입주의사항','수정일'],
  '거래처연락처DB': ['연락처ID','거래처코드','부서','직급','성명','담당역할','연락처','이메일','주담당여부','비고','수정일'],
@@ -69,12 +71,28 @@ def upcoming_tanks(records, today=None):
  return alerts
 
 
+def owner_customer_summary(customers):
+ groups={}
+ for row in customers:
+  owner=row.get('당사담당자','').strip() or '미지정'
+  groups.setdefault(owner,[]).append(row)
+ return [
+  {'담당자':owner,'담당 거래처':len(rows),
+   '직거래처':sum(r.get('거래구분')=='직거래처' for r in rows),
+   '대리점':sum(r.get('거래구분')=='대리점' for r in rows),
+   '거래처 목록':' · '.join(sorted(r.get('거래처명','') for r in rows))}
+  for owner,rows in sorted(groups.items())
+ ]
+
+
 class CustomerStore:
  def __init__(self, service, spreadsheet_id):
   self.service,self.sid=service,spreadsheet_id
 
  def read_all(self):
   names={x['properties']['title'] for x in self.service.spreadsheets().get(spreadsheetId=self.sid,fields='sheets(properties(title))').execute().get('sheets',[])}
+  self.sheet_names=sorted(names)
+  self.missing_sheets=[s for s in SCHEMAS if s not in names]
   result={}
   self._layouts={}
   self._last_rows={}

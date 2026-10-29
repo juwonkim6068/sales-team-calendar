@@ -1,6 +1,6 @@
 import unittest
 from copy import deepcopy
-from customer_data import CustomerStore, SCHEMAS
+from customer_data import CustomerStore, SCHEMAS, owner_customer_summary
 from test_customer_management import fake_service
 
 class CustomLayoutTests(unittest.TestCase):
@@ -28,3 +28,11 @@ class CustomLayoutTests(unittest.TestCase):
   store.save('거래처연락처DB',{'거래처코드':'02015','성명':'신규'})
   self.assertEqual(tables['거래처연락처DB'][:3],before)
   self.assertEqual(tables['거래처연락처DB'][3][2],'신규')
+
+ def test_owner_summary_comes_from_customers_without_staff_rows(self):
+  rows=[{'거래처명':'가','당사담당자':'김주원','거래구분':'직거래처'},
+        {'거래처명':'나','당사담당자':'김주원','거래구분':'대리점'}]
+  summary=owner_customer_summary(rows)
+  self.assertEqual(summary[0]['담당 거래처'],2)
+  self.assertEqual(summary[0]['직거래처'],1)
+  self.assertEqual(summary[0]['대리점'],1)

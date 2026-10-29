@@ -8,8 +8,10 @@ import re
 from urllib.parse import urlparse, parse_qs
 import pandas as pd
 import streamlit as st
-from customer_data import SCHEMAS, LABELS, REQUIRED, CHOICES, DATE_FIELDS, LONG_FIELDS, PEOPLE_FIELDS, DEFAULTS, upcoming_tanks
+from customer_data import SCHEMAS, LABELS, REQUIRED, CHOICES, DATE_FIELDS, LONG_FIELDS, PEOPLE_FIELDS, DEFAULTS, upcoming_tanks, owner_customer_summary
 from customer_excel import workbook_bytes, read_workbook
+
+UI_VERSION = '20261029-customer-2'
 
 CSS='''<style>
 .customer-heading h1{font-size:27px!important;letter-spacing:-.045em;margin:0!important;padding:0!important}
@@ -148,6 +150,12 @@ def render_customers(store,people,person_label,credential_info=None):
  try:data=store.read_all()
  except ValueError as exc:st.error(str(exc));return
  except Exception:st.error('거래처 정보를 불러오지 못했습니다. Google Sheets 연결과 권한을 확인해 주세요.');return
+ with st.expander('시트 연결 상태 · '+str(len(data['거래처DB']))+'개 거래처'):
+  st.caption('연결 문서: '+store.sid+' · 화면 버전 '+UI_VERSION)
+  st.dataframe([{'시트':name,'상태':'시트 없음' if name in getattr(store,'missing_sheets',[]) else '연결됨','읽은 건수':len(rows)} for name,rows in data.items()],hide_index=True,use_container_width=True)
+  if getattr(store,'missing_sheets',[]):
+   st.warning('찾지 못한 시트: '+', '.join(store.missing_sheets))
+   st.write('현재 문서의 시트 이름: '+', '.join(getattr(store,'sheet_names',[])))
  if st.session_state.get('customer_notice'):st.success(st.session_state.pop('customer_notice'))
  directory,responsibilities,excel=st.tabs(['거래처 관리','직원 담당업무','엑셀 가져오기'])
  with directory:
@@ -202,9 +210,18 @@ def render_customers(store,people,person_label,credential_info=None):
    else:
     st.info('거래처 등록 또는 엑셀 가져오기로 거래처 정보를 추가해 주세요.')
  with responsibilities:
-  st.markdown('#### 직원별 업무와 대체 담당')
+  st.markdown('#### 직원별 담당 거래처')
+  st.caption('거래처DB의 당사담당자 열을 기준으로 자동 집계합니다.')
+  summary=owner_customer_summary(data['거래처DB'])
+  if summary:
+   frame=pd.DataFrame(summary)
+   frame['담당자']=frame['담당자'].map(person_label)
+   st.dataframe(frame,hide_index=True,use_container_width=True)
+  else:st.info('거래처DB에서 읽은 거래처가 없습니다. 상단의 시트 연결 상태를 확인해 주세요.')
+  st.markdown('#### 별도 담당업무와 대체 담당')
   if st.button('담당업무 추가',key='customer_add_staff'):open_editor('직원담당업무DB');st.rerun()
-  show_table(data['직원담당업무DB'],'직원담당업무DB',person_label)
+  if data['직원담당업무DB']:show_table(data['직원담당업무DB'],'직원담당업무DB',person_label)
+  else:st.caption('직원담당업무DB에 별도로 작성된 업무는 없습니다. 담당 거래처는 위 목록에서 확인할 수 있습니다.')
   if data['직원담당업무DB']:
    records=data['직원담당업무DB']
    picked=st.selectbox('수정할 담당업무',range(len(records)),format_func=lambda i:person_label(records[i]['직원명'])+' · '+records[i]['담당업무'][:50])

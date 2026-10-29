@@ -49,13 +49,16 @@ def _task_badge_colors(value, kind='owner'):
 
 def _task_badge_style(value, kind='owner'):
     bg, fg, border = _task_badge_colors(value, kind)
-    return f'background:{bg}!important;color:{fg}!important;border-color:{border}!important'
+    return f'--badge-bg:{bg};--badge-fg:{fg};--badge-border:{border}'
 
 st.set_page_config(page_title='영업팀 대시보드', page_icon='📊', layout='wide', initial_sidebar_state='expanded')
 st.markdown("""<style>
 /* Aligned, compact task actions */
-[class*="st-key-completed_row_"]{background:#f0faf4;border:1px solid #c7e7d3;border-radius:10px;padding:10px 12px;margin-bottom:12px}
-[class*="st-key-completed_row_"] [data-testid="stHorizontalBlock"]{gap:12px!important;align-items:center}
+[class*="st-key-completed_row_"]{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;gap:12px!important;background:#f0faf4;border:1px solid #c7e7d3;border-radius:10px;padding:12px 14px;margin-bottom:12px}
+[class*="st-key-completed_row_"] > [data-testid="stElementContainer"]{margin:0!important;align-self:center!important}
+[class*="st-key-completed_row_"] > [data-testid="stElementContainer"]:last-child{justify-self:end;width:auto!important}
+[class*="st-key-completed_row_"] [data-testid="stMarkdownContainer"]{margin:0!important}
+[class*="st-key-completed_row_"] [data-testid="stMarkdownContainer"] p{margin:0!important}
 [class*="st-key-completed_row_"] .task-completed-banner{background:transparent!important;border:0!important;padding:0!important;margin:0!important;gap:10px}
 [class*="st-key-open_delete_"] button{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;min-height:32px!important;padding:5px 10px!important;background:#fff7f7!important;color:#b83b45!important;border:1px solid #efc9cd!important;border-radius:7px!important;box-shadow:none!important;white-space:nowrap}
 [class*="st-key-open_delete_"] button p{font-size:12px!important;font-weight:650!important;line-height:1.2!important;white-space:nowrap}
@@ -64,7 +67,7 @@ st.markdown("""<style>
 [class*="st-key-open_task_edit_"] button p{font-size:11px!important;font-weight:600!important;line-height:1.3!important}
 [class*="st-key-open_task_edit_"] button:hover{background:#edf4ff!important;color:#245fc2!important;border-color:#b9ceec!important}
 [class*="st-key-open_delete_"] [data-testid="stIconMaterial"],[class*="st-key-open_task_edit_"] [data-testid="stIconMaterial"]{font-size:16px!important;width:16px!important;height:16px!important;line-height:1!important}
-@media(max-width:767px){[class*="st-key-completed_row_"] [data-testid="stHorizontalBlock"]{flex-direction:row!important;flex-wrap:nowrap!important}[class*="st-key-completed_row_"] [data-testid="stColumn"]:first-child{flex:1!important;min-width:0!important}[class*="st-key-completed_row_"] [data-testid="stColumn"]:last-child{flex:0 0 76px!important;min-width:76px!important}}
+@media(max-width:767px){[class*="st-key-completed_row_"]{padding:10px;gap:8px!important}}
 
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
 :root{--ink:#172641;--muted:#7283a0;--line:#e3eaf3;--blue:#2169ef}
@@ -481,9 +484,9 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 }
 
 /* 업무 카드 배지: 담당자별 지정색 / 업무구분별 지정색 */
-.task-card-meta span.meta-owner{background:#f1edff!important;border-color:#d9cefa!important;color:#59449a!important}
+.task-card-meta span.meta-owner{background:var(--badge-bg,#f1f5f9)!important;border-color:var(--badge-border,#cbd5e1)!important;color:var(--badge-fg,#526174)!important}
 .task-card-meta span.meta-owner b{color:inherit!important}
-.task-card-meta span.meta-category{background:#e5f7f3!important;border-color:#b9e5d9!important;color:#137b69!important}
+.task-card-meta span.meta-category{background:var(--badge-bg,#e5f7f3)!important;border-color:var(--badge-border,#b9e5d9)!important;color:var(--badge-fg,#137b69)!important}
 .task-card-meta span.meta-category b{color:inherit!important}
 </style>""",unsafe_allow_html=True)
 SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
@@ -1103,13 +1106,12 @@ else:
                             # 완료 배너 오른쪽에 실제 Streamlit 삭제 버튼을 배치합니다.
                             # 삭제는 확인 대화상자에서 '예'를 누른 경우에만 실행됩니다.
                             with st.container(key='completed_row_'+task_id):
-                                completed_info,completed_action=st.columns([8,1.2],vertical_alignment='center')
-                                completed_info.markdown(
+                                st.markdown(
                                     '<div class="task-completed-banner">'
                                     '<span class="task-completed-icon">✓</span>'
                                     '<span><strong>완료된 업무</strong><small>이 업무는 완료 처리되었습니다.</small></span>'
                                     '</div>', unsafe_allow_html=True)
-                                if completed_action.button('삭제',icon=':material/delete_outline:', key='open_delete_' + task_id,
+                                if st.button('삭제',icon=':material/delete_outline:', key='open_delete_' + task_id,
                                              type='secondary'):
                                     confirm_completed_task_delete(svc, task_id)
                         st.markdown(

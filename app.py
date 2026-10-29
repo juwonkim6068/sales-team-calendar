@@ -53,27 +53,18 @@ def _task_badge_style(value, kind='owner'):
 
 st.set_page_config(page_title='영업팀 대시보드', page_icon='📊', layout='wide', initial_sidebar_state='expanded')
 st.markdown("""<style>
-/* 완료 배너 삭제 버튼의 외형 및 내부 여백만 조정 (기능/배치 구조 유지) */
-[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor){
-  position:relative!important;
-}
-[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) > [data-testid="stElementContainer"]:has([data-testid="stButton"]){
-  position:absolute!important;right:22px!important;top:50%!important;transform:translateY(-50%)!important;
-  width:auto!important;z-index:2!important;
-}
-[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) [data-testid="stButton"] button{
-  min-height:30px!important;padding:4px 10px!important;
-  background:#f5fff8!important;color:#168449!important;border:1px solid #a8dfb9!important;
-  border-radius:7px!important;font-size:12px!important;font-weight:700!important;
-  box-shadow:none!important;
-}
-[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) .task-completed-banner{
-  padding-right:112px!important;
-}
-@media(max-width:767px){
- [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) > [data-testid="stElementContainer"]:has([data-testid="stButton"]){right:16px!important;top:50%!important;transform:translateY(-50%)!important}
- [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .completed-delete-anchor) .task-completed-banner{padding-right:100px!important}
-}
+/* Aligned, compact task actions */
+[class*="st-key-completed_row_"]{background:#f0faf4;border:1px solid #c7e7d3;border-radius:10px;padding:10px 12px;margin-bottom:12px}
+[class*="st-key-completed_row_"] [data-testid="stHorizontalBlock"]{gap:12px!important;align-items:center}
+[class*="st-key-completed_row_"] .task-completed-banner{background:transparent!important;border:0!important;padding:0!important;margin:0!important;gap:10px}
+[class*="st-key-open_delete_"] button{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;min-height:32px!important;padding:5px 10px!important;background:#fff7f7!important;color:#b83b45!important;border:1px solid #efc9cd!important;border-radius:7px!important;box-shadow:none!important;white-space:nowrap}
+[class*="st-key-open_delete_"] button p{font-size:12px!important;font-weight:650!important;line-height:1.2!important;white-space:nowrap}
+[class*="st-key-open_delete_"] button:hover{background:#fff0f0!important;border-color:#db9099!important}
+[class*="st-key-open_task_edit_"] button{min-height:31px!important;padding:5px 10px!important;background:#f7faff!important;color:#42648e!important;border:1px solid #d9e4f2!important;border-radius:7px!important;box-shadow:none!important;gap:5px!important}
+[class*="st-key-open_task_edit_"] button p{font-size:11px!important;font-weight:600!important;line-height:1.3!important}
+[class*="st-key-open_task_edit_"] button:hover{background:#edf4ff!important;color:#245fc2!important;border-color:#b9ceec!important}
+[class*="st-key-open_delete_"] [data-testid="stIconMaterial"],[class*="st-key-open_task_edit_"] [data-testid="stIconMaterial"]{font-size:16px!important;width:16px!important;height:16px!important;line-height:1!important}
+@media(max-width:767px){[class*="st-key-completed_row_"] [data-testid="stHorizontalBlock"]{flex-direction:row!important;flex-wrap:nowrap!important}[class*="st-key-completed_row_"] [data-testid="stColumn"]:first-child{flex:1!important;min-width:0!important}[class*="st-key-completed_row_"] [data-testid="stColumn"]:last-child{flex:0 0 76px!important;min-width:76px!important}}
 
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
 :root{--ink:#172641;--muted:#7283a0;--line:#e3eaf3;--blue:#2169ef}
@@ -385,9 +376,9 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 
 /* 완료 상태는 진행률과 별개로 진행상태=완료일 때만 강조합니다. */
 .task-completed-banner{display:flex;align-items:center;gap:10px;background:#eaf8ef;border:1px solid #a8dfb9;border-radius:10px;padding:10px 13px;margin:0 0 12px;color:#126b39}
-.task-completed-icon{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:#18864b;color:white;font-size:20px;font-weight:800;flex-shrink:0}
-.task-completed-banner strong{display:block;font-size:15px;font-weight:800}
-.task-completed-banner small{display:block;font-size:12px;color:#327c52;margin-top:2px}
+.task-completed-icon{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#18864b;color:white;font-size:17px;font-weight:800;flex-shrink:0}
+.task-completed-banner strong{display:block;font-size:13px;font-weight:750}
+.task-completed-banner small{display:block;font-size:11px;color:#327c52;margin-top:2px}
 .task-completed-title-tag{display:inline-block;vertical-align:middle;background:#168449;color:#fff;border-radius:7px;padding:3px 8px;margin-left:6px;font-size:12px;font-weight:800;white-space:nowrap}
 @media(max-width:767px){.task-completed-banner{padding:9px 11px;gap:8px}.task-completed-title-tag{margin:5px 0 0 0}}
 
@@ -1111,14 +1102,14 @@ else:
                         if is_completed:
                             # 완료 배너 오른쪽에 실제 Streamlit 삭제 버튼을 배치합니다.
                             # 삭제는 확인 대화상자에서 '예'를 누른 경우에만 실행됩니다.
-                            with st.container():
-                                st.markdown('<span class="completed-delete-anchor"></span>', unsafe_allow_html=True)
-                                st.markdown(
+                            with st.container(key='completed_row_'+task_id):
+                                completed_info,completed_action=st.columns([8,1.2],vertical_alignment='center')
+                                completed_info.markdown(
                                     '<div class="task-completed-banner">'
                                     '<span class="task-completed-icon">✓</span>'
                                     '<span><strong>완료된 업무</strong><small>이 업무는 완료 처리되었습니다.</small></span>'
                                     '</div>', unsafe_allow_html=True)
-                                if st.button('🗑️ 삭제', key='open_delete_' + task_id,
+                                if completed_action.button('삭제',icon=':material/delete_outline:', key='open_delete_' + task_id,
                                              type='secondary'):
                                     confirm_completed_task_delete(svc, task_id)
                         st.markdown(
@@ -1135,7 +1126,7 @@ else:
                             + (f'<span><b>거래처</b>{escape(company_text)}</span>' if company_text else '')
                             + '</div>',unsafe_allow_html=True)
                         st.progress(percent/100,text=f'📊 업무 진행률  {percent}%')
-                        if st.button('✏️ 업무 수정하기',key='open_task_edit_'+task_id):
+                        if st.button('업무 수정하기',icon=':material/edit:',key='open_task_edit_'+task_id):
                             st.session_state['task_edit_open']=task_id
                         if st.session_state.get('task_edit_open')==task_id:
                             st.markdown("<div class='edit-intro'><strong>✏️ 업무 정보 수정</strong><span>변경 후 아래 저장 버튼을 누르세요.</span></div>",unsafe_allow_html=True)

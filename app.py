@@ -112,9 +112,15 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .cal-day{min-height:139px;border-right:1px solid #e2e9f2;border-bottom:1px solid #e2e9f2;padding:10px 8px;min-width:0;background:white}
 .cal-day{position:relative}
 .cal-day a.day-num{text-decoration:none!important}
-.cal-day a.day-num::after{content:'';position:absolute;inset:0;cursor:pointer}
+.cal-day a.day-num::after{content:none!important;pointer-events:none!important}
 .cal-day:has(a.day-num:hover){background:#f0f6ff}
-.cal-day .cal-event{position:relative;z-index:1}
+.cal-day .cal-event,.cal-day .cal-overflow{position:relative;z-index:1}
+.cal-overflow>summary{cursor:pointer;list-style:none}
+.cal-overflow>summary::-webkit-details-marker{display:none}
+.cal-overflow>summary:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+.cal-overflow[open]>summary .cal-more-label{display:none}
+.cal-overflow>summary .cal-less-label{display:none}
+.cal-overflow[open]>summary .cal-less-label{display:inline}
 .cal-day.outside{background:#fafbfd}
 .cal-day .day-num{font-size:13px;color:#243754;font-weight:750;margin-bottom:8px}
 .cal-day.outside .day-num{color:#a8b6cb}
@@ -1000,7 +1006,9 @@ else:
                 dayclass=' is-today' if day==date.today() else ''
                 daycount=f'<span class="cal-day-count">{len(daily)}건</span>' if len(daily) else ''
                 html.append(f'<div class="cal-day{outside}{dayclass}"><div class="cal-date-row"><a class="day-num{todaycls}" href="?calendar_date={day.isoformat()}&amp;calendar_month={m.isoformat()}" target="_self" aria-label="{day.isoformat()} 일정 추가" title="{day.isoformat()} 일정 추가">{day.day}</a>{daycount}</div>')
-                for _,r in daily.head(3).iterrows():
+                for event_index,(_,r) in enumerate(daily.iterrows()):
+                    if event_index==3:
+                        html.append(f'<details class="cal-overflow"><summary class="cal-more"><span class="cal-more-label">+ {len(daily)-3}건 더보기</span><span class="cal-less-label">접기</span></summary>')
                     owner=safe(r.get('담당자')) or '미지정'
                     bg,fg,color=_task_badge_colors(owner,'owner')
                     progress=pct(r)
@@ -1009,7 +1017,7 @@ else:
                     task=escape(safe(r.get('업무명')));owner_html=escape(person_label(owner))
                     tm=escape(safe(r.get('시작시간')))
                     html.append(f'<a class="cal-event" href="?calendar_task={quote(safe(r.get("통합ID")),safe="")}&amp;calendar_month={m.isoformat()}" target="_self" title="{task} · {owner_html} · {escape(status)} · {progress}%" style="background:{bg};color:{fg};border-left:3px solid {color}"><div class="event-title">{"✓ " if status=="완료" else ""}{tm+" " if tm else ""}{task}</div><div class="event-sub"><span class="event-owner">{owner_html}</span><div class="track"><div class="fill" style="width:{progress}%;background:{color}"></div></div><b>{progress}%</b></div></a>')
-                if len(daily)>3:html.append(f'<div class="cal-more">+ {len(daily)-3}건 더보기</div>')
+                if len(daily)>3:html.append('</details>')
                 html.append('</div>')
         html.append('</div></div>')
         st.markdown(''.join(html),unsafe_allow_html=True)

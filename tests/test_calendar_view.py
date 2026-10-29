@@ -13,6 +13,43 @@ HEAD = next(ast.literal_eval(n.value) for n in ast.parse(APP.read_text()).body
 
 
 class CalendarViewTests(unittest.TestCase):
+    def test_more_expands_hidden_tasks_without_date_registration_link(self):
+        from html.parser import HTMLParser
+        records=[]
+        for index in range(5):
+            record={k:'' for k in HEAD}
+            record.update({'통합ID':f'task-{index}','업무명':f'업무 {index}',
+                           '마감일':'2026-11-12','진행상태':'미진행'})
+            records.append([record[k] for k in HEAD])
+        self.service.spreadsheets.return_value.values.return_value.get.return_value.execute.return_value={'values':[HEAD]+records}
+        at=self.app('2026-11-01')
+        html=next(x.value for x in at.markdown if '<div class="cal-shell">' in x.value)
+        class Overflow(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.inside=False
+                self.links=[]
+                self.summaries=0
+            def handle_starttag(self,tag,attrs):
+                attrs=dict(attrs)
+                if tag=='details' and attrs.get('class')=='cal-overflow':
+                    self.inside=True
+                if self.inside and tag=='summary':
+                    self.summaries+=1
+                if self.inside and tag=='a':
+                    self.links.append(attrs['href'])
+            def handle_endtag(self,tag):
+                if tag=='details':
+                    self.inside=False
+        parsed=Overflow()
+        parsed.feed(html)
+        self.assertEqual(parsed.summaries,1)
+        self.assertEqual(parsed.links,[
+            '?calendar_task=task-3&calendar_month=2026-11-01',
+            '?calendar_task=task-4&calendar_month=2026-11-01'])
+        self.assertIn('+ 2건 더보기',html)
+        self.assertFalse(any(x.label=='업무명 *' for x in at.text_input))
+
     def test_calendar_colors_identify_owners_independently_of_status(self):
         records=[]
         for name,status in [('김주원','완료'),('이상인','미진행'),('조인환','진행중')]:

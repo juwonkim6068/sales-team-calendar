@@ -6,7 +6,7 @@ from streamlit.testing.v1 import AppTest
 
 SOURCE = Path(__file__).resolve().parents[1] / 'app.py'
 TREE = ast.parse(SOURCE.read_text())
-NAMES = {'safe', 'dt', 'task_title_parts', 'task_title_with_kind', 'form'}
+NAMES = {'safe', 'dt', 'task_title_parts', 'task_title_with_kind', 'person_label', 'build_person_labels', 'form'}
 CONSTANTS = {'HEAD', 'STATES', 'CATS'}
 NODES = [n for n in TREE.body if isinstance(n, (ast.Import, ast.ImportFrom))
          or isinstance(n, ast.FunctionDef) and n.name in NAMES
@@ -16,6 +16,18 @@ FORM_SOURCE += '\ndef save_record(svc, record, old_id=None):\n st.session_state[
 
 
 class TaskScopeTests(unittest.TestCase):
+    def test_rank_is_displayed_but_original_name_is_saved(self):
+        code=FORM_SOURCE + '\nPERSON_LABELS=build_person_labels(pd.DataFrame([{"이름":"김주원","직급":"대리"}]))\nform(None,["김주원"],key="test")'
+        at=AppTest.from_string(code).run()
+        self.assertFalse(at.exception)
+        owner=next(x for x in at.selectbox if x.label=='담당자')
+        self.assertIn('김주원 대리',owner.options)
+        owner.set_value('김주원')
+        at.text_input[0].set_value('직급 표시 검증')
+        at.button[0].click().run()
+        self.assertFalse(at.exception)
+        self.assertEqual(at.session_state['saved']['담당자'],'김주원')
+
     def form(self, existing=None):
         return AppTest.from_string(FORM_SOURCE + f'\nform(None,["김주원","전체"],existing={existing!r},key="test")').run()
 

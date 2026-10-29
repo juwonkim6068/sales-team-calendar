@@ -480,6 +480,20 @@ def safe(v):
     if v is None:return ''
     return str(v).strip()
 
+def build_person_labels(team):
+    labels={}
+    for row in team.to_dict('records'):
+        name=safe(row.get('이름'))
+        value=row.get('직급')
+        rank=safe(value) if pd.notna(value) else ''
+        if name and name not in ('전체','미지정'):
+            labels[name]=f'{name} {rank}' if rank and not name.endswith(' '+rank) else name
+    return labels
+
+def person_label(name):
+    name=safe(name)
+    return globals().get('PERSON_LABELS',{}).get(name,name)
+
 def canonical_date(v):
     try:
         x=pd.to_datetime(v,errors='coerce')
@@ -616,7 +630,7 @@ def form(svc,people,existing=None,key='new',compact=False):
             company=c1.text_input('거래처',value=safe(old.get('거래처')),placeholder='거래처명 입력')
         options=list(dict.fromkeys(people+([safe(old.get('담당자'))] if safe(old.get('담당자')) else [])))
         options=['미지정','전체']+ [p for p in options if p and p not in ('미지정','전체')]
-        owner=c2.selectbox('담당자',options,index=options.index(safe(old.get('담당자'))) if safe(old.get('담당자')) in options else 0)
+        owner=c2.selectbox('담당자',options,index=options.index(safe(old.get('담당자'))) if safe(old.get('담당자')) in options else 0,format_func=person_label)
         cat_options=list(dict.fromkeys(CATS+([safe(old.get('업무구분'))] if safe(old.get('업무구분')) else [])))
         category=c3.selectbox('업무구분',cat_options,index=cat_options.index(safe(old.get('업무구분'))) if safe(old.get('업무구분')) in cat_options else 0)
         st.markdown('<div class="task-form-section"><b>03</b><span>일정 및 진행 현황</span></div>',unsafe_allow_html=True)
@@ -675,7 +689,10 @@ def form(svc,people,existing=None,key='new',compact=False):
 def display_table(data):
     cols=['업무명','담당자','업무구분','시작일','마감일','진행상태','진행률','거래처']
     if data.empty:st.info('표시할 업무가 없습니다.')
-    else:st.dataframe(data[[x for x in cols if x in data.columns]],hide_index=True,use_container_width=True)
+    else:
+        view=data[[x for x in cols if x in data.columns]].copy()
+        if '담당자' in view:view['담당자']=view['담당자'].map(person_label)
+        st.dataframe(view,hide_index=True,use_container_width=True)
 
 
 MEETING_TAB='회의록DB'
@@ -779,8 +796,10 @@ else:
         if list(df.columns)!=HEAD:raise RuntimeError('통합업무 헤더가 변경되었습니다.')
     except Exception as exc:st.error(str(exc));st.stop()
 
+PERSON_LABELS={}
 try:
-    team=read_tab(svc,'팀원정보','A:H')
+    team=read_tab(svc,'팀원정보','A:Z')
+    PERSON_LABELS=build_person_labels(team)
     people=[safe(x) for x in team.get('이름',pd.Series(dtype=str)).tolist() if safe(x)]
 except Exception:people=[]
 people=list(dict.fromkeys(people+[safe(x) for x in df.get('담당자',pd.Series(dtype=str)).tolist() if safe(x)]))
@@ -804,7 +823,7 @@ else:
     if 'person_filter' not in st.session_state:st.session_state.person_filter='전체'
     choices=['전체']+people
     if st.session_state.person_filter not in choices:st.session_state.person_filter='전체'
-    person=sidebar_filter.selectbox('담당자',choices,key='person_filter')
+    person=sidebar_filter.selectbox('담당자',choices,key='person_filter',format_func=person_label)
     shown=df if person=='전체' else df[df['담당자'].isin([person,'전체'])]
     if page=='🗓️ 달력':
         st.markdown('<div class="dashboard-head"><div><h1>캘린더</h1><p>영업팀의 일정을 한눈에 확인하고 일정을 공유하세요.</p></div></div>',unsafe_allow_html=True)
@@ -858,7 +877,7 @@ else:
         def calendar_task_detail(task_row):
             st.markdown('<div class="cal-detail-marker"></div>',unsafe_allow_html=True)
             task_title=escape(safe(task_row.get('업무명')) or '업무 상세정보')
-            owner=escape(safe(task_row.get('담당자')) or '미지정')
+            owner=escape(person_label(task_row.get('담당자')) or '미지정')
             status=escape(safe(task_row.get('진행상태')) or '미진행')
             category=escape(safe(task_row.get('업무구분')) or '미지정')
             start_day=escape(safe(task_row.get('시작일')) or '미지정')
@@ -914,7 +933,7 @@ else:
                     status=safe(r.get('진행상태'))
                     bg='#e9f9f0' if status=='완료' else '#f0ebff' if status=='진행중' else '#eaf2ff' if status=='미진행' else '#fff3e4' if status=='거의완료' else '#f4f6fa'
                     fg='#15934c' if status=='완료' else '#7140db' if status=='진행중' else '#2367d6' if status=='미진행' else '#ae6b13' if status=='거의완료' else '#5e7395'
-                    task=escape(safe(r.get('업무명')));owner_html=escape(owner)
+                    task=escape(safe(r.get('업무명')));owner_html=escape(person_label(owner))
                     tm=escape(safe(r.get('시작시간')))
                     html.append(f'<a class="cal-event" href="?calendar_task={quote(safe(r.get("통합ID")),safe="")}&amp;calendar_month={m.isoformat()}" target="_self" title="{task} · {owner_html}" style="background:{bg};color:{fg};border-left:3px solid {color}"><div class="event-title">{tm+" " if tm else ""}{task}</div><div class="event-sub"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48%">{owner_html}</span><div class="track"><div class="fill" style="width:{progress}%;background:{fg}"></div></div><b>{progress}%</b></div></a>')
                 if len(daily)>3:html.append(f'<div class="cal-more">+ {len(daily)-3}건 더보기</div>')
@@ -922,7 +941,7 @@ else:
         html.append('</div></div>')
         st.markdown(''.join(html),unsafe_allow_html=True)
         if people:
-            legend=''.join(f'<span><i style="background:{owner_color(p)}"></i>{escape(p)}</span>' for p in people)
+            legend=''.join(f'<span><i style="background:{owner_color(p)}"></i>{escape(person_label(p))}</span>' for p in people)
             st.markdown(f'<div class="cal-legend">{legend}</div>',unsafe_allow_html=True)
     elif page=='📋 업무현황':
         today=date.today().isoformat()
@@ -947,7 +966,7 @@ else:
             view=st.radio('상태별 조회',['전체','진행 중','완료','지연'],horizontal=True,label_visibility='collapsed')
             q=st.text_input('🔎 업무명, 거래처, 담당자 검색',key='task_search')
             f1,f2,f3=st.columns(3)
-            owner_filter=f1.selectbox('담당자',['전체']+people,key='task_owner')
+            owner_filter=f1.selectbox('담당자',['전체']+people,key='task_owner',format_func=person_label)
             cat_filter=f2.selectbox('업무구분',['전체']+sorted(set(shown['업무구분'].dropna())-{''}),key='task_category')
             priority_filter=f3.selectbox('우선순위',['전체','긴급','높음','보통','낮음'],key='task_priority')
             filtered=shown.copy()
@@ -955,7 +974,9 @@ else:
             elif view=='완료':filtered=filtered[done]
             elif view=='지연':filtered=filtered[late]
             if q:
-                mask=filtered[['업무명','거래처','담당자','상세내용']].fillna('').astype(str).apply(lambda col:col.str.contains(q,case=False,regex=False)).any(axis=1)
+                searchable=filtered[['업무명','거래처','담당자','상세내용']].fillna('').astype(str).copy()
+                searchable['담당자']=searchable['담당자'].map(person_label)
+                mask=searchable.apply(lambda col:col.str.contains(q,case=False,regex=False)).any(axis=1)
                 filtered=filtered[mask]
             if owner_filter!='전체':filtered=filtered[filtered['담당자'].isin([owner_filter,'전체'])]
             if cat_filter!='전체':filtered=filtered[filtered['업무구분']==cat_filter]
@@ -1039,7 +1060,7 @@ else:
                             f'<div class="task-tags"><span style="background:{sbg};color:{sfg}">{escape(status)}</span>'
                             f'<span style="background:{pbg};color:{pfg}">{escape(priority)}</span></div></div>'
                             f'<div class="task-card-meta">'
-                            f'<span class="meta-owner" style="{owner_badge_style}"><b>담당자</b>{escape(owner_text)}</span>'
+                            f'<span class="meta-owner" style="{owner_badge_style}"><b>담당자</b>{escape(person_label(owner_text))}</span>'
                             f'<span class="meta-category" style="{category_badge_style}"><b>업무구분</b>{escape(category_text)}</span>'
                             f'<span><b>마감일</b>{escape(due_text)}</span>'
                             + dday_tag
@@ -1064,7 +1085,7 @@ else:
                                 new_owner=b.selectbox('담당자',list(dict.fromkeys(
                                     ['미지정']+people+([owner_text] if owner_text!='담당자 미지정' else []))),
                                     index=(list(dict.fromkeys(['미지정']+people+([owner_text] if owner_text!='담당자 미지정' else []))).index(owner_text)
-                                           if owner_text!='담당자 미지정' else 0),key='qo_'+task_id)
+                                           if owner_text!='담당자 미지정' else 0),key='qo_'+task_id,format_func=person_label)
                                 a,b=st.columns(2)
                                 new_due=a.date_input('마감일',value=dt(task.get('마감일')) or date.today(),key='qd_'+task_id)
                                 new_cat=b.selectbox('업무구분',list(dict.fromkeys(CATS+[category_text])),
@@ -1118,7 +1139,7 @@ else:
         if not owner_options:owner_options=['미지정']
         default_owner = st.session_state.get('memo_owner','')
         if default_owner not in owner_options:default_owner=owner_options[0]
-        owner = st.selectbox('메모 작성자',owner_options,index=owner_options.index(default_owner),key='memo_owner')
+        owner = st.selectbox('메모 작성자',owner_options,index=owner_options.index(default_owner),key='memo_owner',format_func=person_label)
         selected_day = st.date_input('📅 확인할 날짜',value=date.today(),key='memo_selected_day')
         my_memos = sorted([r for r in memos if r['작성자']==owner and r['날짜']==selected_day.isoformat()],key=lambda r:r['수정일'],reverse=True)
         st.markdown(f'#### {selected_day:%Y년 %m월 %d일} 메모 ({len(my_memos)}건)')

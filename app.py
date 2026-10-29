@@ -456,21 +456,21 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .cal-day .day-num.today{display:inline-flex;background:#2864da;color:#fff;border-radius:8px;box-shadow:0 2px 5px #2864da20}
 .cal-day.outside .day-num{color:#b4becc}
 .cal-day-count{font-size:10px;color:#9aa7b7;padding-right:2px}
-.cal-event{padding:8px 9px;margin:5px 0;border-radius:8px;font-size:12px;line-height:1.5;transition:box-shadow .15s ease,transform .15s ease;border-left-width:3px!important}
+.cal-event{padding:5px 7px;margin:3px 0;border-radius:6px;font-size:11px;line-height:1.35;transition:box-shadow .15s ease,transform .15s ease;border-left-width:3px!important}
 .cal-event:hover{box-shadow:0 3px 9px #24375312;transform:translateY(-1px)}
 .cal-event:focus-visible,.cal-day a.day-num:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
-.cal-event .event-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;overflow:hidden;font-size:12px;font-weight:650;line-height:1.5;overflow-wrap:anywhere}
-.cal-event .event-sub{display:flex;align-items:center;justify-content:space-between;margin-top:5px;gap:6px;font-size:10px;line-height:1.4}
-.cal-event .event-owner{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.cal-event .event-title{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;font-weight:650;line-height:1.4}
+.cal-event .event-sub{display:flex;align-items:center;justify-content:space-between;margin-top:3px;gap:4px;font-size:10px;line-height:1.3}
+.cal-event .event-owner{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
 .cal-event .event-sub b{font-size:9px;opacity:.8;font-weight:600;flex-shrink:0}
-.cal-event .track{height:3px;margin-top:6px;border-radius:3px;background:#ffffff90;overflow:hidden}
+.cal-event .track{height:3px;flex:0 1 36px;min-width:18px;max-width:36px;margin:0;border-radius:3px;background:#ffffff90;overflow:hidden}
 .cal-event .fill{height:100%;border-radius:3px}
 .cal-more{font-size:10px;font-weight:600;color:#70829a;margin:7px 3px}
 .cal-legend{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:8px 18px;padding:16px 2px;font-size:11px;color:#65758c}
 .cal-legend>span{display:inline-flex;align-items:center;gap:6px}
 .cal-legend i{width:7px;height:7px;border-radius:50%;margin:0}
 .cal-scroll-hint{display:none}
-@media(max-width:1050px){.cal-day{padding:8px 6px;min-height:140px}.cal-event{padding:7px 6px}.cal-overview>div{padding:0 16px;min-width:80px}}
+@media(max-width:1050px){.cal-day{padding:8px 6px;min-height:140px}.cal-event{padding:5px 6px}.cal-overview>div{padding:0 16px;min-width:80px}}
 @media(max-width:767px){
  .cal-page-header{align-items:flex-start;flex-direction:column;gap:16px;margin-bottom:20px}
  .cal-page-header h1{font-size:24px!important}.cal-page-header p{font-size:12px}
@@ -482,7 +482,7 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
  .cal-weekdays>div{font-size:11px!important;padding:12px 0!important}
  .cal-day{min-height:140px!important;padding:8px 6px!important}
  .cal-day .day-num{font-size:12px!important;margin:0!important}
- .cal-event{font-size:11px!important;padding:7px!important;margin:5px 0!important}
+ .cal-event{font-size:11px!important;padding:5px 6px!important;margin:3px 0!important}
  .cal-event .event-title{font-size:11px!important}
  .cal-event .event-sub{display:flex!important;font-size:10px!important}
  .cal-scroll-hint{display:block;color:#94a0b1;font-size:10px;margin-top:8px}
@@ -1002,7 +1002,7 @@ else:
                     status=safe(r.get('진행상태'))
                     task=escape(safe(r.get('업무명')));owner_html=escape(person_label(owner))
                     tm=escape(safe(r.get('시작시간')))
-                    html.append(f'<a class="cal-event" href="?calendar_task={quote(safe(r.get("통합ID")),safe="")}&amp;calendar_month={m.isoformat()}" target="_self" title="{task} · {owner_html} · {escape(status)} · {progress}%" style="background:{bg};color:{fg};border-left:3px solid {color}"><div class="event-title">{"✓ " if status=="완료" else ""}{tm+" " if tm else ""}{task}</div><div class="event-sub"><span class="event-owner">{owner_html}</span><b>{progress}%</b></div><div class="track"><div class="fill" style="width:{progress}%;background:{color}"></div></div></a>')
+                    html.append(f'<a class="cal-event" href="?calendar_task={quote(safe(r.get("통합ID")),safe="")}&amp;calendar_month={m.isoformat()}" target="_self" title="{task} · {owner_html} · {escape(status)} · {progress}%" style="background:{bg};color:{fg};border-left:3px solid {color}"><div class="event-title">{"✓ " if status=="완료" else ""}{tm+" " if tm else ""}{task}</div><div class="event-sub"><span class="event-owner">{owner_html}</span><div class="track"><div class="fill" style="width:{progress}%;background:{color}"></div></div><b>{progress}%</b></div></a>')
                 if len(daily)>3:html.append(f'<div class="cal-more">+ {len(daily)-3}건 더보기</div>')
                 html.append('</div>')
         html.append('</div></div>')

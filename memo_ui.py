@@ -4,6 +4,9 @@ from datetime import date, datetime
 from html import escape
 
 import streamlit as st
+from memo_attachments import split_content, join_content, clipboard, save_images, show_images
+
+UI_VERSION="20261029-memo-images-1"
 
 MEMO_CSS = '''<style>
 .memo-heading{display:flex;align-items:center;justify-content:space-between;margin:0 0 22px}
@@ -27,7 +30,7 @@ def filter_memos(records, owner, selected_day, all_dates=False, query=''):
     query = query.strip().casefold()
     return sorted((r for r in records if r['작성자'] == owner
                    and (all_dates or r['날짜'] == selected_day.isoformat())
-                   and (not query or query in (r['제목'] + '\n' + r['내용']).casefold())),
+                   and (not query or query in (r['제목'] + '\n' + split_content(r['내용'])[0]).casefold())),
                   key=lambda r: (r['날짜'], r['수정일']), reverse=True)
 
 
@@ -75,7 +78,7 @@ def render_memos(records, people, person_label, save, delete):
                     st.session_state['memo_ui_selected'] = record['ID']
                     st.session_state['memo_ui_mode'] = 'read'
                     st.rerun()
-                preview = ' '.join(record['내용'].split())
+                preview = ' '.join(split_content(record['내용'])[0].split())
                 st.caption(record['날짜'] + ' · ' + preview[:65] + ('…' if len(preview) > 65 else ''))
     mode = st.session_state.get('memo_ui_mode', 'read')
     with workspace:
@@ -83,7 +86,8 @@ def render_memos(records, people, person_label, save, delete):
             with st.container(border=True):
                 st.markdown(f'<div class="memo-document-title">{escape(selected["제목"])}</div>'
                             f'<div class="memo-document-meta">{escape(person_label(selected["작성자"]))} · {escape(selected["날짜"])} · 수정 {escape(selected["수정일"] or "—")}</div>'
-                            f'<div class="memo-document">{escape(selected["내용"])}</div>', unsafe_allow_html=True)
+                            f'<div class="memo-document">{escape(split_content(selected["내용"])[0])}</div>', unsafe_allow_html=True)
+                show_images(split_content(selected["내용"])[1])
                 st.divider()
                 if st.button('수정', icon=':material/edit:', key='memo_ui_edit'):
                     st.session_state['memo_ui_mode'] = 'edit'
@@ -107,19 +111,29 @@ def render_memos(records, people, person_label, save, delete):
             with st.container(key='memo_editor_' + token):
                 st.markdown('<div class="memo-editor-header">' + ('메모 수정' if editing else '새 메모 작성') + '</div>', unsafe_allow_html=True)
                 st.caption(f'{person_label(owner)} · {record["날짜"] if editing else selected_day.isoformat()}')
+                original_body, existing_images = split_content(record['내용']) if editing else ('',[])
                 with st.form('memo_form_' + token):
                     title = st.text_input('제목', value=record['제목'] if editing else '', placeholder='메모 제목을 입력하세요')
-                    body = st.text_area('내용', value=record['내용'] if editing else '', height=340,
+                    body = st.text_area('내용', value=original_body, height=340,
                                         placeholder='통화 내용, 해야 할 일, 떠오른 생각을 자유롭게 기록하세요.')
+                    st.caption('이미지 첨부 · 아래 영역을 클릭한 뒤 Ctrl+V (Mac: ⌘V)')
+                    pasted = clipboard(key='memo_paste_'+token,default=[])
                     submitted = st.form_submit_button('저장', type='primary', use_container_width=True)
+                show_images(existing_images)
                 if submitted:
-                    if not title.strip() or not body.strip():
-                        st.warning('제목과 내용을 입력해 주세요.')
+                    if not title.strip() or not (body.strip() or pasted or existing_images):
+                        st.warning('제목과 내용 또는 첨부 이미지를 입력해 주세요.')
                     else:
                         result = {**record} if editing else {'ID': str(uuid.uuid4()), '작성자': owner, '날짜': selected_day.isoformat()}
                         result.update({'제목': title.strip(), '내용': body, '수정일': datetime.now().isoformat(timespec='seconds')})
                         try:
+                            if len(body)>48000:raise ValueError('메모 내용이 너무 깁니다. 내용을 나누어 저장해 주세요.')
+                            images=save_images(pasted or [],existing_images,token)
+                            result['내용']=join_content(body,images)
+                            if len(result['내용'])>49000:raise ValueError('메모 내용이 너무 깁니다. 내용을 나누어 저장해 주세요.')
                             save(result)
+                        except ValueError as exc:
+                            st.error(str(exc))
                         except Exception:
                             st.error('저장하지 못했습니다. 입력 내용은 유지됩니다. 연결 상태를 확인하고 다시 시도해 주세요.')
                         else:

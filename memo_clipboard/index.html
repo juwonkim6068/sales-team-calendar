@@ -1,0 +1,13 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><style>
+body{margin:0;font:14px system-ui;color:#35465c}.box{border:1px dashed #93b5ed;border-radius:10px;padding:18px;background:#f5f9ff;outline:none}.box:focus{border:2px solid #2563eb;padding:17px}.hint{font-size:12px;color:#7b8da5;margin-top:7px}.images{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.item img{width:110px;height:80px;object-fit:contain;background:white;border:1px solid #dce5ef;border-radius:6px}button{display:block;background:white;border:1px solid #dce5ef;border-radius:5px;margin:4px auto;color:#c43535;cursor:pointer}#error{color:#c43535;font-size:12px}</style>
+<div id="box" class="box" tabindex="0" role="textbox" aria-label="이미지 붙여넣기">이곳을 클릭하고 복사한 이미지를 <b>Ctrl+V</b>로 붙여넣으세요.<div class="hint">Mac: ⌘V · 최대 5장, 장당 5MB · 아래 저장 버튼을 눌러야 첨부됩니다.</div></div><div id="error"></div><div id="images" class="images"></div>
+<script>
+let images=[];let queue=Promise.resolve();
+const send=(type,extra={})=>parent.postMessage({isStreamlitMessage:true,type,...extra},'*');
+const height=()=>send('streamlit:setFrameHeight',{height:document.body.scrollHeight+8});
+function render(){const list=document.getElementById('images');list.replaceChildren();images.forEach((data,i)=>{const item=document.createElement('div');item.className='item';const img=document.createElement('img');img.src=data;img.alt='붙여넣은 이미지 '+(i+1);img.onload=height;const remove=document.createElement('button');remove.textContent='제거';remove.onclick=()=>{images.splice(i,1);update()};item.append(img,remove);list.append(item)});height()}
+function update(){send('streamlit:setComponentValue',{value:images,dataType:'json'});render()}
+document.getElementById('box').addEventListener('paste',event=>{const files=Array.from(event.clipboardData?.items||[]).filter(x=>x.kind==='file'&&x.type.startsWith('image/')).map(x=>x.getAsFile()).filter(Boolean);if(!files.length)return;event.preventDefault();for(const file of files){queue=queue.then(async()=>{if(images.length>=5||file.size>5*1024*1024){document.getElementById('error').textContent='최대 5장, 이미지당 5MB까지 첨부할 수 있습니다.';height();return}const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file)});images.push(data);update()}).catch(()=>{document.getElementById('error').textContent='이미지를 읽지 못했습니다.'})}});
+window.addEventListener('message',e=>{if(e.source!==parent||e.data?.type!=='streamlit:render')return;document.getElementById('box').style.pointerEvents=e.data.disabled?'none':'auto';height()});
+send('streamlit:componentReady',{apiVersion:1});height();
+</script></html>

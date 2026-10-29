@@ -1197,7 +1197,11 @@ else:
             memos=memo_records()
         except Exception as exc:
             st.error(f'메모장 연결 오류: {exc}');st.stop()
-        from memo_ui import render_memos
+        import importlib
+        import memo_ui
+        if getattr(memo_ui,"UI_VERSION",None)!="20261029-memo-images-1":
+            importlib.reload(memo_ui)
+        render_memos=memo_ui.render_memos
         render_memos(memos,people,person_label,memo_save,memo_delete)
 
     elif page=='📝 회의록':
@@ -1276,7 +1280,7 @@ else:
         import importlib
         import customer_data
         # Streamlit can retain imported modules when app.py is redeployed.
-        customer_version='20261029-customer-4'
+        customer_version='20261029-customer-5'
         if getattr(customer_data,'SCHEMA_VERSION',None)!=customer_version:
             importlib.reload(customer_data)
         import customer_workspace

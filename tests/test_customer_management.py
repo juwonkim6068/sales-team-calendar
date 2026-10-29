@@ -129,3 +129,21 @@ class CustomerManagementTests(unittest.TestCase):
    self.assertFalse(at.exception)
    self.assertEqual(store.read_all()['거래처DB'][0]['거래처명'],'새 거래처')
    self.assertNotIn('customer_editor',at.session_state)
+
+ def test_staff_directory_filters_by_owner_and_customer_name(self):
+  import customer_workspace
+  from unittest.mock import patch
+  a=customer('A','가 거래처');a['당사담당자']='김주원'
+  b=customer('B','나 거래처');b['당사담당자']='이상인'
+  tables={'거래처DB':[SCHEMAS['거래처DB'],[a[k] for k in SCHEMAS['거래처DB']],[b[k] for k in SCHEMAS['거래처DB']]]}
+  store=CustomerStore(fake_service(tables),'sid')
+  with patch.object(customer_workspace,'_test_store',store,create=True):
+   at=AppTest.from_string('from customer_workspace import render_customers,_test_store\nrender_customers(_test_store,["김주원","이상인"],lambda x:x)').run(timeout=30)
+   self.assertFalse(at.exception)
+   self.assertEqual(len(at.metric),0)
+   at.selectbox(key='customer_staff_owner').set_value('이상인').run()
+   self.assertTrue(any(b.key=='customer_staff_pick_B' for b in at.button))
+   self.assertFalse(any(b.key=='customer_staff_pick_A' for b in at.button))
+   at.text_input(key='customer_staff_search').set_value('없는 거래처').run()
+   self.assertFalse(any((b.key or '').startswith('customer_staff_pick_') for b in at.button))
+   self.assertFalse(at.exception)

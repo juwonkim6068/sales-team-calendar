@@ -4,7 +4,8 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py ./
 COPY shared_files.py ./
-COPY memo_ui.py ./
+COPY memo_ui.py memo_attachments.py ./
+COPY memo_clipboard ./memo_clipboard
 COPY customer_data.py customer_excel.py customer_workspace.py ./
 COPY .streamlit/config.toml ./.streamlit/config.toml
 EXPOSE 8501

@@ -3,7 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 import uuid
 
-SCHEMA_VERSION = '20261029-customer-4'
+SCHEMA_VERSION = '20261029-customer-5'
 
 SCHEMAS = {
  '거래처DB': ['거래처코드','거래처명','거래구분','거래상태','당사담당자','업종','회사소개','주요제품','취급가스','공급형태','대표전화','사업장주소','납품주소','결제조건','방문출입주의사항','수정일'],

@@ -11,7 +11,7 @@ import streamlit as st
 from customer_data import SCHEMAS, LABELS, REQUIRED, CHOICES, DATE_FIELDS, LONG_FIELDS, PEOPLE_FIELDS, DEFAULTS, upcoming_tanks, owner_customer_summary
 from customer_excel import workbook_bytes, read_workbook
 
-UI_VERSION = '20261029-customer-4'
+UI_VERSION = '20261029-customer-5'
 
 CSS='''<style>
 .customer-heading h1{font-size:27px!important;letter-spacing:-.045em;margin:0!important;padding:0!important}
@@ -19,8 +19,8 @@ CSS='''<style>
 .customer-title{font-size:23px;font-weight:750;color:#243b59;overflow-wrap:anywhere;margin:3px 0 12px}
 .customer-meta{color:#8190a4;font-size:12px;margin-bottom:20px}
 .customer-copy{font-size:13px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere;color:#425773;margin-bottom:16px}
-[class*="st-key-customer_pick_"] button{justify-content:flex-start;text-align:left;min-height:42px}
-[class*="st-key-customer_pick_"] button p{text-align:left;font-size:13px!important;overflow-wrap:anywhere}
+[class*="st-key-customer_staff_pick_"] button,[class*="st-key-customer_pick_"] button{justify-content:flex-start;text-align:left;min-height:42px}
+[class*="st-key-customer_staff_pick_"] button p,[class*="st-key-customer_pick_"] button p{text-align:left;font-size:13px!important;overflow-wrap:anywhere}
 </style>'''
 
 
@@ -129,18 +129,18 @@ def editor(store,data,people,person_label):
  dialog()
 
 
-def related_tab(sheet,code,data,person_label):
+def related_tab(sheet,code,data,person_label,prefix="directory"):
  rows=[r for r in data[sheet] if r['거래처코드']==code]
  cols=st.columns([3,1],vertical_alignment='center')
  cols[0].caption(f'{LABELS[sheet]} {len(rows)}건')
- if cols[1].button('추가',key='customer_add_'+sheet,use_container_width=True):
+ if cols[1].button('추가',key='customer_add_'+prefix+sheet,use_container_width=True):
   open_editor(sheet,code=code);st.rerun()
  show_table(rows,sheet,person_label)
  if rows:
   key=SCHEMAS[sheet][0]
   names={'거래처연락처DB':'성명','BULK탱크DB':'탱크번호','거래처특이사항DB':'내용'}
-  selected=st.selectbox('수정할 항목',range(len(rows)),format_func=lambda i:(rows[i].get(names[sheet],'') or rows[i][key])[:70]+' · '+rows[i][key][:8],key='customer_modify_pick_'+sheet)
-  if st.button('선택 항목 수정',key='customer_modify_'+sheet):
+  selected=st.selectbox('수정할 항목',range(len(rows)),format_func=lambda i:(rows[i].get(names[sheet],'') or rows[i][key])[:70]+' · '+rows[i][key][:8],key='customer_modify_pick_'+prefix+sheet)
+  if st.button('선택 항목 수정',key='customer_modify_'+prefix+sheet):
    open_editor(sheet,rows[selected],code);st.rerun()
 
 
@@ -156,7 +156,6 @@ def watch_customer_changes(store,data):
   nonlocal first
   if first:
    first=False
-   st.caption('자동 연결 중 · 시트 변경을 30초마다 확인합니다.')
    return
   if st.session_state.get('customer_editor'):
    st.caption('작성 중 · 입력을 마친 뒤 최신 시트를 반영합니다.')
@@ -166,31 +165,49 @@ def watch_customer_changes(store,data):
    st.caption('자동 갱신 대기 · 연결을 다시 확인하고 있습니다.')
    return
   if customer_snapshot(latest)!=baseline:st.rerun(scope='app')
-  st.caption('자동 연결 중 · 시트 변경을 30초마다 확인합니다.')
+  # No layout changes when the data has not changed.
  watch()
+
+
+def customer_detail(chosen,data,person_label,prefix="directory"):
+ if chosen:
+  code=chosen['거래처코드']
+  with st.container(border=True):
+   st.markdown(f'<div class="customer-title">{escape(chosen["거래처명"])}</div><div class="customer-meta">{escape(chosen["거래구분"])} · {escape(chosen["거래상태"] or "상태 미입력")} · {escape(person_label(chosen["당사담당자"]) or "담당자 미지정")} · {escape(code)}</div>',unsafe_allow_html=True)
+   if st.button('거래처 정보 수정',key='customer_edit_main_'+prefix):open_editor('거래처DB',chosen);st.rerun()
+   info,contacts,tanks,notes,work=st.tabs(['회사 정보','연락처','BULK 탱크','특이사항','연결 업무'])
+   with info:
+    for label in ['업종','회사소개','주요제품','취급가스','공급형태','대표전화','FAX','사업장주소','납품주소','결제조건','방문출입주의사항']:
+     st.markdown(f'**{label}**')
+     st.markdown('<div class="customer-copy">'+escape(chosen.get(label,'') or '미입력')+'</div>',unsafe_allow_html=True)
+   with contacts:related_tab('거래처연락처DB',code,data,person_label,prefix)
+   with tanks:related_tab('BULK탱크DB',code,data,person_label,prefix)
+   with notes:related_tab('거래처특이사항DB',code,data,person_label,prefix)
+   with work:
+    st.caption('업무현황에서 거래처명을 동일하게 입력한 업무를 연결합니다.')
+    # The application supplies existing task data separately; this tab never writes it.
+    tasks=st.session_state.get('customer_linked_tasks',[])
+    related=[r for r in tasks if r.get('거래처','').strip()==chosen['거래처명'].strip()]
+    if related:st.dataframe(pd.DataFrame(related)[['업무명','담당자','마감일','진행상태']],hide_index=True,use_container_width=True)
+    else:st.info('연결된 업무가 없습니다.')
+ else:
+  st.info('거래처 등록 버튼으로 정보를 입력하면 저장 후 바로 조회할 수 있습니다.')
 
 
 def render_customers(store,people,person_label,credential_info=None):
  st.markdown(CSS,unsafe_allow_html=True)
- if st.button('최신 시트 데이터 새로고침',key='customer_sheet_refresh'):st.rerun()
- st.caption('입력한 내용은 기존 업무정리 DB에 저장됩니다. 시트에서 수정한 내용은 30초 간격으로 자동 확인합니다.')
- st.markdown('<div class="customer-heading"><h1>거래처 관리</h1><p>거래처를 등록하고 연락처·탱크·특이사항을 한곳에서 관리하세요.</p></div>',unsafe_allow_html=True)
+ header,refresh=st.columns([5,1],vertical_alignment='center')
+ with header:
+  st.markdown('<div class="customer-heading"><h1>거래처 관리</h1><p>거래처를 등록하고 연락처·탱크·특이사항을 한곳에서 관리하세요.</p></div>',unsafe_allow_html=True)
+ if refresh.button('새로고침',key='customer_sheet_refresh',use_container_width=True):st.rerun()
  try:data=store.read_all()
  except ValueError as exc:st.error(str(exc));return
  except Exception:st.error('거래처 정보를 불러오지 못했습니다. Google Sheets 연결과 권한을 확인해 주세요.');return
  watch_customer_changes(store,data)
- with st.expander('시트 연결 상태 · '+str(len(data['거래처DB']))+'개 거래처'):
-  st.caption('연결 문서: '+store.sid+' · 화면 버전 '+UI_VERSION)
-  st.dataframe([{'시트':name,'상태':'시트 없음' if name in getattr(store,'missing_sheets',[]) else '연결됨','읽은 건수':len(rows)} for name,rows in data.items()],hide_index=True,use_container_width=True)
-  if getattr(store,'missing_sheets',[]):
-   st.warning('찾지 못한 시트: '+', '.join(store.missing_sheets))
-   st.write('현재 문서의 시트 이름: '+', '.join(getattr(store,'sheet_names',[])))
  if st.session_state.get('customer_notice'):st.success(st.session_state.pop('customer_notice'))
  directory,responsibilities=st.tabs(['거래처 관리','직원 담당업무'])
  with directory:
   customers=data['거래처DB']
-  stats=st.columns(4)
-  for col,label,count in zip(stats,['전체 거래처','직거래처','대리점','당사 임대 탱크'],[len(customers),sum(r['거래구분']=='직거래처' for r in customers),sum(r['거래구분']=='대리점' for r in customers),sum(r['소유구분']=='당사임대' and r['임대상태']!='회수완료' for r in data['BULK탱크DB'])]):col.metric(label,count)
   controls=st.columns([2.5,1,1.3,1.1],vertical_alignment='bottom')
   query=controls[0].text_input('거래처 검색',placeholder='상호·업종·제품·가스·주소 검색')
   category=controls[1].selectbox('거래구분',['전체','직거래처','대리점'])
@@ -207,7 +224,7 @@ def render_customers(store,people,person_label,credential_info=None):
     st.caption('입력된 날짜 기준입니다. 법정 검사주기나 적합 여부를 자동 판단하지 않습니다.')
   listing,detail=st.columns([1.1,2.9],gap='large')
   with listing:
-   st.markdown(f'#### 거래처 {len(visible)}')
+   st.markdown('#### 거래처 목록')
    with st.container(border=True,height=540):
     if not visible:st.caption('등록된 거래처가 없거나 검색 결과가 없습니다.')
     for r in visible:
@@ -216,37 +233,24 @@ def render_customers(store,people,person_label,credential_info=None):
      st.caption(r['거래구분']+' · '+(person_label(r['당사담당자']) or '담당자 미지정'))
   chosen=next((r for r in visible if r['거래처코드']==st.session_state.get('customer_selected')),visible[0] if visible else None)
   with detail:
-   if chosen:
-    code=chosen['거래처코드']
-    with st.container(border=True):
-     st.markdown(f'<div class="customer-title">{escape(chosen["거래처명"])}</div><div class="customer-meta">{escape(chosen["거래구분"])} · {escape(chosen["거래상태"] or "상태 미입력")} · {escape(person_label(chosen["당사담당자"]) or "담당자 미지정")} · {escape(code)}</div>',unsafe_allow_html=True)
-     if st.button('거래처 정보 수정',key='customer_edit_main'):open_editor('거래처DB',chosen);st.rerun()
-     info,contacts,tanks,notes,work=st.tabs(['회사 정보','연락처','BULK 탱크','특이사항','연결 업무'])
-     with info:
-      for label in ['업종','회사소개','주요제품','취급가스','공급형태','대표전화','FAX','사업장주소','납품주소','결제조건','방문출입주의사항']:
-       st.markdown(f'**{label}**')
-       st.markdown('<div class="customer-copy">'+escape(chosen.get(label,'') or '미입력')+'</div>',unsafe_allow_html=True)
-     with contacts:related_tab('거래처연락처DB',code,data,person_label)
-     with tanks:related_tab('BULK탱크DB',code,data,person_label)
-     with notes:related_tab('거래처특이사항DB',code,data,person_label)
-     with work:
-      st.caption('업무현황에서 거래처명을 동일하게 입력한 업무를 연결합니다.')
-      # The application supplies existing task data separately; this tab never writes it.
-      tasks=st.session_state.get('customer_linked_tasks',[])
-      related=[r for r in tasks if r.get('거래처','').strip()==chosen['거래처명'].strip()]
-      if related:st.dataframe(pd.DataFrame(related)[['업무명','담당자','마감일','진행상태']],hide_index=True,use_container_width=True)
-      else:st.info('연결된 업무가 없습니다.')
-   else:
-    st.info('거래처 등록 버튼으로 정보를 입력하면 저장 후 바로 조회할 수 있습니다.')
+   customer_detail(chosen,data,person_label)
  with responsibilities:
-  st.markdown('#### 직원별 담당 거래처')
-  st.caption('거래처DB의 당사담당자 열을 기준으로 자동 집계합니다.')
-  summary=owner_customer_summary(data['거래처DB'])
-  if summary:
-   frame=pd.DataFrame(summary)
-   frame['담당자']=frame['담당자'].map(person_label)
-   st.dataframe(frame,hide_index=True,use_container_width=True)
-  else:st.info('거래처DB에서 읽은 거래처가 없습니다. 상단의 시트 연결 상태를 확인해 주세요.')
+  st.markdown('#### 담당 거래처 조회')
+  filter_cols=st.columns([1,2])
+  owner_options=list(dict.fromkeys(people+[r['당사담당자'] for r in data['거래처DB'] if r['당사담당자']]))
+  staff_owner=filter_cols[0].selectbox('담당자',['전체']+owner_options,format_func=person_label,key='customer_staff_owner')
+  staff_search=filter_cols[1].text_input('거래처명 검색',placeholder='찾으실 거래처명을 입력하세요',key='customer_staff_search')
+  staff_rows=sorted([r for r in data['거래처DB'] if (staff_owner=='전체' or r['당사담당자']==staff_owner) and staff_search.strip().casefold() in r['거래처명'].casefold()],key=lambda r:r['거래처명'])
+  staff_list,staff_detail=st.columns([1.2,2.8],gap='large')
+  with staff_list:
+   st.markdown('##### 거래처 목록')
+   with st.container(border=True,height=480):
+    if not staff_rows:st.caption('조건에 맞는 거래처가 없습니다.')
+    for row in staff_rows:
+     if st.button(row['거래처명'],key='customer_staff_pick_'+row['거래처코드'],use_container_width=True,type='primary' if st.session_state.get('customer_staff_selected')==row['거래처코드'] else 'secondary'):
+      st.session_state['customer_staff_selected']=row['거래처코드'];st.rerun()
+  staff_chosen=next((r for r in staff_rows if r['거래처코드']==st.session_state.get('customer_staff_selected')),staff_rows[0] if staff_rows else None)
+  with staff_detail:customer_detail(staff_chosen,data,person_label,"staff")
   st.markdown('#### 별도 담당업무와 대체 담당')
   if st.button('담당업무 추가',key='customer_add_staff'):open_editor('직원담당업무DB');st.rerun()
   if data['직원담당업무DB']:show_table(data['직원담당업무DB'],'직원담당업무DB',person_label)
@@ -255,4 +259,10 @@ def render_customers(store,people,person_label,credential_info=None):
    records=data['직원담당업무DB']
    picked=st.selectbox('수정할 담당업무',range(len(records)),format_func=lambda i:person_label(records[i]['직원명'])+' · '+records[i]['담당업무'][:50])
    if st.button('담당업무 수정'):open_editor('직원담당업무DB',records[picked]);st.rerun()
+ with st.expander('연결 설정'):
+  st.caption('연결 문서: '+store.sid+' · 화면 버전 '+UI_VERSION)
+  st.dataframe([{'시트':name,'상태':'시트 없음' if name in getattr(store,'missing_sheets',[]) else '연결됨','읽은 건수':len(rows)} for name,rows in data.items()],hide_index=True,use_container_width=True)
+  if getattr(store,'missing_sheets',[]):
+   st.warning('찾지 못한 시트: '+', '.join(store.missing_sheets))
+   st.write('현재 문서의 시트 이름: '+', '.join(getattr(store,'sheet_names',[])))
  editor(store,data,people,person_label)

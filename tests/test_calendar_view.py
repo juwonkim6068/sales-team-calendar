@@ -33,7 +33,7 @@ class CalendarViewTests(unittest.TestCase):
                     self.events[attrs['title'].split(' · ')[1]]=attrs['style']
         events=Events()
         events.feed(html)
-        for name,color in [('김주원','#f59e0b'),('이상인','#22a05a'),('조인환','#3b82f6')]:
+        for name,color in [('김주원','#eab308'),('이상인','#22a05a'),('조인환','#3b82f6')]:
             self.assertIn(color,events.events[name])
         self.assertIn('✓ 김주원 업무',html)
 

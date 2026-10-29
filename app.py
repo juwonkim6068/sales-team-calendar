@@ -1273,6 +1273,7 @@ else:
                 close_meeting_detail()
                 st.warning('선택한 회의록을 찾을 수 없습니다. 목록을 새로고침해 주세요.')
     else:
-        st.title('거래처 특이사항')
-        st.info('2차 개발에서 거래처별 특이사항 기록 기능을 추가합니다. 현재는 거래처가 입력된 업무를 조회할 수 있습니다.')
-        display_table(shown[shown['거래처']!=''])
+        from customer_data import CustomerStore
+        from customer_workspace import render_customers
+        st.session_state['customer_linked_tasks']=df.to_dict('records')
+        render_customers(CustomerStore(svc,SID),people,person_label)

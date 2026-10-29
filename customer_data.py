@@ -3,7 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 import uuid
 
-SCHEMA_VERSION = '20261029-customer-3'
+SCHEMA_VERSION = '20261029-customer-4'
 
 SCHEMAS = {
  '거래처DB': ['거래처코드','거래처명','거래구분','거래상태','당사담당자','업종','회사소개','주요제품','취급가스','공급형태','대표전화','사업장주소','납품주소','결제조건','방문출입주의사항','수정일'],
@@ -99,6 +99,7 @@ class CustomerStore:
   self.sheet_names=sorted(names)
   self.missing_sheets=[s for s in SCHEMAS if s not in self._titles]
   result={}
+  self._available={}
   self._layouts={}
   self._last_rows={}
   for sheet,headers in SCHEMAS.items():
@@ -124,11 +125,15 @@ class CustomerStore:
      r={k:raw.get(k,'') for k in headers}
      if wide:
       for field in ('성명','직급','연락처'):r[field]=raw.get(field+str(slot),'')
-      if not any(r[k] for k in ('성명','직급','연락처')):continue
+      if not any(r[k] for k in ('성명','직급','연락처')):
+       self._available.setdefault(sheet,[]).append({'_row':rownum,'_raw':raw,'_slot':slot})
+       continue
       r[headers[0]]=f'row-{rownum}-contact-{slot}'
      if generated:
       meaningful=[k for k in headers if k not in (headers[0],'거래처코드','수정일')]
-      if not any(r[k] for k in meaningful):continue
+      if not any(r[k] for k in meaningful):
+       self._available.setdefault(sheet,[]).append({'_row':rownum,'_raw':raw,'_slot':None})
+       continue
       r[headers[0]]=f'row-{rownum}'
      if not r[headers[0]]:raise ValueError(f'{sheet}에 식별코드가 없는 행이 있습니다. 먼저 코드를 입력하세요.')
      r.update({k:v for k,v in raw.items() if k not in headers})
@@ -170,9 +175,13 @@ class CustomerStore:
    present=self.service.spreadsheets().values().get(spreadsheetId=self.sid,range=self._range(sheet,'A:Z')).execute().get('values',[])
    if present:actual=present[0]
    else:self.service.spreadsheets().values().batchUpdate(spreadsheetId=self.sid,body={'valueInputOption':'RAW','data':[{'range':self._range(sheet,'A1'),'values':[actual]}]}).execute()
-  raw=dict(reference.get('_raw',{})) if old_id else {}
+  reusable=next((r for r in self._available.get(sheet,[]) if r['_raw'].get('거래처코드')==normalized.get('거래처코드')),None) if not old_id else None
+  if reusable:
+   reference=reusable
+   rownum=reusable['_row']
+  raw=dict(reference.get('_raw',{})) if old_id or reusable else {}
   slot=reference.get('_slot')
-  if not old_id and '성명1' in actual:slot=1
+  if not old_id and not reusable and '성명1' in actual:slot=1
   for field,value in normalized.items():
    target=field+str(slot) if slot and field in ('성명','직급','연락처') else field
    if target in actual:raw[target]=value

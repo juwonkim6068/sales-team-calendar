@@ -23,11 +23,12 @@ class CustomLayoutTests(unittest.TestCase):
   self.assertEqual(tables['거래처연락처DB'][0],headers)
   self.assertEqual(tables['거래처연락처DB'][1][4],'010-1111')
   self.assertEqual(tables['거래처연락처DB'][1][7],'010-3333')
- def test_new_contact_does_not_overwrite_prefilled_company_rows(self):
+ def test_new_contact_reuses_matching_blank_company_row(self):
   tables=self.tables();before=deepcopy(tables['거래처연락처DB'][:3]);store=CustomerStore(fake_service(tables),'sid')
   store.save('거래처연락처DB',{'거래처코드':'02015','성명':'신규'})
-  self.assertEqual(tables['거래처연락처DB'][:3],before)
-  self.assertEqual(tables['거래처연락처DB'][3][2],'신규')
+  self.assertEqual(tables['거래처연락처DB'][:2],before[:2])
+  self.assertEqual(tables['거래처연락처DB'][2][2],'신규')
+  self.assertEqual(len(tables['거래처연락처DB']),3)
 
  def test_owner_summary_comes_from_customers_without_staff_rows(self):
   rows=[{'거래처명':'가','당사담당자':'김주원','거래구분':'직거래처'},
@@ -46,3 +47,20 @@ class CustomLayoutTests(unittest.TestCase):
   store.save('거래처DB',row,row['거래처코드'])
   self.assertEqual(tables['거래처 DB'][1][1],'변경')
   self.assertNotIn('거래처DB',tables)
+
+ def test_second_contact_fills_empty_slot_without_replacing_first(self):
+  tables=self.tables()
+  tables['거래처연락처DB'][1][5:8]=['','','']
+  store=CustomerStore(fake_service(tables),'sid')
+  store.save('거래처연락처DB',{'거래처코드':'02015','성명':'추가','연락처':'010-3333'})
+  self.assertEqual(tables['거래처연락처DB'][1][2],'첫째')
+  self.assertEqual(tables['거래처연락처DB'][1][5],'추가')
+
+ def test_note_uses_existing_customer_row(self):
+  tables=self.tables()
+  headers=['거래처코드','거래처명']+[h for h in SCHEMAS['거래처특이사항DB'] if h not in ('특이사항ID','거래처코드')]
+  tables['거래처특이사항DB']=[headers,['02015','테스트']]
+  store=CustomerStore(fake_service(tables),'sid')
+  store.save('거래처특이사항DB',{'거래처코드':'02015','내용':'후속조치 확인'})
+  self.assertEqual(len(tables['거래처특이사항DB']),2)
+  self.assertEqual(tables['거래처특이사항DB'][1][headers.index('내용')],'후속조치 확인')

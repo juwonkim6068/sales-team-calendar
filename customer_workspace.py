@@ -11,7 +11,7 @@ import streamlit as st
 from customer_data import SCHEMAS, LABELS, REQUIRED, CHOICES, DATE_FIELDS, LONG_FIELDS, PEOPLE_FIELDS, DEFAULTS, upcoming_tanks, owner_customer_summary
 from customer_excel import workbook_bytes, read_workbook
 
-UI_VERSION = '20261029-customer-3'
+UI_VERSION = '20261029-customer-4'
 
 CSS='''<style>
 .customer-heading h1{font-size:27px!important;letter-spacing:-.045em;margin:0!important;padding:0!important}
@@ -144,14 +144,41 @@ def related_tab(sheet,code,data,person_label):
    open_editor(sheet,rows[selected],code);st.rerun()
 
 
+def customer_snapshot(data):
+ return hashlib.sha256(json.dumps(data,ensure_ascii=False,sort_keys=True,default=str).encode()).hexdigest()
+
+
+def watch_customer_changes(store,data):
+ baseline=customer_snapshot(data)
+ first=True
+ @st.fragment(run_every='30s')
+ def watch():
+  nonlocal first
+  if first:
+   first=False
+   st.caption('자동 연결 중 · 시트 변경을 30초마다 확인합니다.')
+   return
+  if st.session_state.get('customer_editor'):
+   st.caption('작성 중 · 입력을 마친 뒤 최신 시트를 반영합니다.')
+   return
+  try:latest=store.read_all()
+  except Exception:
+   st.caption('자동 갱신 대기 · 연결을 다시 확인하고 있습니다.')
+   return
+  if customer_snapshot(latest)!=baseline:st.rerun(scope='app')
+  st.caption('자동 연결 중 · 시트 변경을 30초마다 확인합니다.')
+ watch()
+
+
 def render_customers(store,people,person_label,credential_info=None):
  st.markdown(CSS,unsafe_allow_html=True)
  if st.button('최신 시트 데이터 새로고침',key='customer_sheet_refresh'):st.rerun()
- st.caption('입력한 내용은 기존 업무정리 DB에 저장됩니다. 시트에서 수정한 내용도 새로고침하면 확인할 수 있습니다.')
+ st.caption('입력한 내용은 기존 업무정리 DB에 저장됩니다. 시트에서 수정한 내용은 30초 간격으로 자동 확인합니다.')
  st.markdown('<div class="customer-heading"><h1>거래처 관리</h1><p>거래처를 등록하고 연락처·탱크·특이사항을 한곳에서 관리하세요.</p></div>',unsafe_allow_html=True)
  try:data=store.read_all()
  except ValueError as exc:st.error(str(exc));return
  except Exception:st.error('거래처 정보를 불러오지 못했습니다. Google Sheets 연결과 권한을 확인해 주세요.');return
+ watch_customer_changes(store,data)
  with st.expander('시트 연결 상태 · '+str(len(data['거래처DB']))+'개 거래처'):
   st.caption('연결 문서: '+store.sid+' · 화면 버전 '+UI_VERSION)
   st.dataframe([{'시트':name,'상태':'시트 없음' if name in getattr(store,'missing_sheets',[]) else '연결됨','읽은 건수':len(rows)} for name,rows in data.items()],hide_index=True,use_container_width=True)

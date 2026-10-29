@@ -1276,7 +1276,7 @@ else:
         import importlib
         import customer_data
         # Streamlit can retain imported modules when app.py is redeployed.
-        customer_version='20261029-customer-3'
+        customer_version='20261029-customer-4'
         if getattr(customer_data,'SCHEMA_VERSION',None)!=customer_version:
             importlib.reload(customer_data)
         import customer_workspace

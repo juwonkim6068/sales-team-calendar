@@ -1,6 +1,7 @@
 """Google Drive shared-file UI. Existing Sheets credentials and scopes are unchanged."""
 import io
 import json
+from html import escape
 
 import streamlit as st
 from google.oauth2.service_account import Credentials
@@ -15,14 +16,24 @@ MAX_BYTES = 100 * 1024 * 1024
 FIELDS = 'id,name,mimeType,size,modifiedTime,parents,driveId,capabilities(canAddChildren),webViewLink'
 
 EXPLORER_CSS = """<style>
-.files-heading{margin:4px 0 24px;padding:24px 28px;background:linear-gradient(110deg,#edf4ff,#f5f9ff);border:1px solid #dbe7f7;border-radius:16px}
-.files-heading>span{font-size:10px;font-weight:800;letter-spacing:.18em;color:#547db4}
-.files-heading h2{font-size:24px!important;margin:8px 0 4px!important;padding:0!important}
-.files-heading p{font-size:13px;color:#657a95;margin:0;line-height:1.7}
-[class*="st-key-shared_open_"] button,[class*="st-key-shared_select_"] button{text-align:left;justify-content:flex-start;min-height:44px;padding:9px 12px;border-radius:8px;border-color:transparent;box-shadow:none}
+.files-heading{margin:0 0 22px}
+.files-heading h1{font-size:27px!important;letter-spacing:-.045em;margin:0!important;padding:0!important}
+.files-heading p{font-size:13px;color:#8290a3;margin:7px 0 0;line-height:1.7}
+.files-document-title{font-size:23px;font-weight:750;color:#243b59;line-height:1.5;overflow-wrap:anywhere;margin:4px 0 10px}
+.files-document-meta{font-size:11px;color:#8290a3;margin-bottom:24px;overflow-wrap:anywhere}
+.files-type-icon{display:flex;align-items:center;justify-content:center;width:58px;height:58px;background:#f0f5fc;border:1px solid #e1eaf6;border-radius:14px;font-size:28px;margin:0 0 18px}
+.files-properties{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;background:#f8fafc;border:1px solid #e6ecf4;border-radius:10px;padding:16px;margin:20px 0 24px}
+.files-properties span{display:block;font-size:11px;color:#8a97aa;margin-bottom:6px}
+.files-properties b{font-size:13px;font-weight:600;color:#405470;overflow-wrap:anywhere}
+.files-empty{min-height:260px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;color:#8090a7;padding:24px}
+.files-empty b{font-size:17px;color:#445d7a;margin:12px 0 7px}
+.files-empty p{font-size:12px;color:#8290a3;line-height:1.8}
+[class*="st-key-shared_open_"] button,[class*="st-key-shared_select_"] button{text-align:left;justify-content:flex-start;min-height:42px;padding:9px 11px;border-radius:8px;box-shadow:none}
 [class*="st-key-shared_open_"] button:hover,[class*="st-key-shared_select_"] button:hover{background:#edf4ff;border-color:#d2e3fa;color:#195bbe}
-[class*="st-key-shared_open_"] button p,[class*="st-key-shared_select_"] button p{overflow-wrap:anywhere;text-align:left}
-@media(max-width:767px){.files-heading{padding:18px}.files-heading h2{font-size:20px!important}}
+[class*="st-key-shared_open_"] button p,[class*="st-key-shared_select_"] button p{font-size:13px!important;overflow-wrap:anywhere;text-align:left;line-height:1.5}
+[class*="st-key-shared_workspace"]{min-height:540px;background:#fff}
+[class*="st-key-shared_workspace"] [data-testid="stMarkdownContainer"]{margin-bottom:0}
+@media(max-width:767px){.files-heading h1{font-size:24px!important}.files-document-title{font-size:20px}.files-properties{padding:12px;gap:8px}.files-properties b{font-size:11px}[class*="st-key-shared_workspace"]{min-height:360px}.files-empty{min-height:200px}}
 </style>"""
 
 
@@ -152,8 +163,8 @@ def download(client, item):
 
 
 def render_shared_files(credential_info):
-    st.title('📁 공유파일')
-    st.caption('파일은 Google Drive에 저장됩니다. 폴더를 만들어 업무별로 정리하세요. 파일당 최대 100MB입니다.')
+    st.markdown(EXPLORER_CSS,unsafe_allow_html=True)
+    st.markdown('<div class="files-heading"><h1>공유파일</h1><p>팀의 자료를 폴더별로 정리하고, 필요한 파일을 쉽게 찾아보세요.</p></div>',unsafe_allow_html=True)
     try:
         oauth = st.secrets.get('drive_oauth')
         root_id = str(st.secrets.get('shared_drive_folder_id') or st.secrets.get('drive_folder_id', '')).strip()
@@ -190,8 +201,6 @@ def render_shared_files(credential_info):
         items = children(client, current['id'])
         folders = [x for x in items if x['mimeType'] == FOLDER]
         files = [x for x in items if x['mimeType'] != FOLDER]
-        st.markdown(EXPLORER_CSS, unsafe_allow_html=True)
-        st.markdown('<div class="files-heading"><span>TEAM SPACE</span><h2>팀의 자료를 한곳에</h2><p>폴더를 열고 파일을 넣어 보세요. 변경사항은 Google Drive에 바로 저장됩니다.</p></div>', unsafe_allow_html=True)
         toolbar = st.columns([1.2, 1.2, 1, 2.6], vertical_alignment='center')
         with toolbar[0].popover('↑ 파일 업로드', use_container_width=True):
             st.markdown('#### 현재 폴더에 파일 추가')
@@ -231,7 +240,7 @@ def render_shared_files(credential_info):
             st.session_state.pop('shared_file_download', None)
             st.rerun()
         toolbar[3].caption(f'📂 폴더 {len(folders)}개　 ·　 📄 파일 {len(files)}개')
-        with st.container(border=True):
+        with st.container():
             navigation = st.columns([1, 6], vertical_alignment='center')
             if navigation[0].button('↑ 상위', disabled=len(path) == 1, use_container_width=True):
                 st.session_state['shared_file_path'] = path[:-1]
@@ -247,33 +256,25 @@ def render_shared_files(credential_info):
         notice = st.session_state.pop('shared_file_notice', None)
         if notice:
             st.success(notice)
-        controls = st.columns([3, 1.4, 1.4])
-        query = controls[0].text_input('현재 폴더에서 검색', placeholder='🔎 파일 또는 폴더 이름 검색', label_visibility='collapsed', key='shared_file_search_' + current['id'])
-        category = controls[1].selectbox('종류', ['전체', '폴더', '파일'], label_visibility='collapsed')
-        order = controls[2].selectbox('정렬', ['이름순', '최신순', '크기순'], label_visibility='collapsed')
+        controls = st.columns([2.8, 1.2, 1.2])
+        query = controls[0].text_input('현재 폴더에서 검색', placeholder='파일 또는 폴더 이름 검색', key='shared_file_search_' + current['id'])
+        category = controls[1].selectbox('종류', ['전체', '폴더', '파일'])
+        order = controls[2].selectbox('정렬', ['이름순', '최신순', '크기순'])
         visible = filter_items(items, query, category, order)
-        listing, detail = st.columns([3.7, 1.5], gap='large')
+        listing, detail = st.columns([1.2, 2.8], gap='large')
         with listing:
-            with st.container(border=True):
-                st.markdown('#### 파일 및 폴더')
-                st.caption('폴더 이름을 누르면 열립니다. 파일 이름을 누르면 다운로드·이동 메뉴가 표시됩니다.')
-                header = st.columns([4.5, 1.4, 1.3])
-                header[0].caption('이름')
-                header[1].caption('수정일')
-                header[2].caption('크기')
-                st.divider()
+            st.markdown(f'#### 폴더 및 파일 {len(visible)}')
+            with st.container(border=True,height=540,key='shared_list'):
                 if not visible:
                     if items:
                         st.info('검색 결과가 없습니다. 검색어나 종류를 변경해 보세요.')
                     else:
-                        st.markdown('### 📂 아직 비어 있는 폴더예요')
-                        st.caption('위의 ‘파일 업로드’로 자료를 넣거나 ‘새 폴더’로 정리를 시작하세요.')
+                        st.caption('아직 비어 있는 폴더입니다. 상단의 파일 업로드 또는 새 폴더로 시작하세요.')
                 for item in visible:
-                    row = st.columns([4.5, 1.4, 1.3], vertical_alignment='center')
                     is_folder = item['mimeType'] == FOLDER
                     chosen = st.session_state.get('shared_file_selected') == item['id']
                     label = ('📁 ' if is_folder else file_icon(item) + ' ') + item['name']
-                    if row[0].button(label, key=('shared_open_' if is_folder else 'shared_select_') + item['id'], use_container_width=True, type='primary' if chosen and not is_folder else 'secondary'):
+                    if st.button(label, key=('shared_open_' if is_folder else 'shared_select_') + item['id'], use_container_width=True, type='primary' if chosen and not is_folder else 'secondary'):
                         st.session_state.pop('shared_file_download', None)
                         if is_folder:
                             st.session_state['shared_file_path'] = path + [item]
@@ -281,20 +282,17 @@ def render_shared_files(credential_info):
                         else:
                             st.session_state['shared_file_selected'] = item['id']
                         st.rerun()
-                    row[1].caption(item.get('modifiedTime', '')[:10] or '—')
-                    row[2].caption('폴더' if is_folder else format_size(item.get('size')))
+                    st.caption(('폴더' if is_folder else format_size(item.get('size'))) + ' · ' + (item.get('modifiedTime', '')[:10] or '날짜 정보 없음'))
         chosen = next((x for x in visible if x['mimeType'] != FOLDER and x['id'] == st.session_state.get('shared_file_selected')), None)
         with detail:
-            with st.container(border=True):
+            st.markdown('#### 파일 상세')
+            with st.container(border=True,key='shared_workspace'):
                 if chosen is None:
-                    st.markdown('### 📄 파일 선택')
-                    st.write('목록에서 파일을 선택해 주세요.')
-                    st.caption('여기에서 다운로드하거나 다른 폴더로 옮길 수 있습니다.')
+                    st.markdown('<div class="files-empty"><div class="files-type-icon">📂</div><b>함께 쓰는 자료 공간</b><p>왼쪽에서 폴더를 열거나 파일을 선택하세요.<br>새 자료는 상단의 파일 업로드로 추가할 수 있습니다.</p></div>',unsafe_allow_html=True)
                 else:
-                    st.markdown('### ' + file_icon(chosen))
-                    st.write(chosen['name'])
-                    st.caption(format_size(chosen.get('size')) + ' · ' + (chosen.get('modifiedTime', '')[:10] or '수정일 정보 없음'))
-                    st.divider()
+                    st.markdown(f'<div class="files-type-icon">{file_icon(chosen)}</div><div class="files-document-title">{escape(chosen["name"])}</div><div class="files-document-meta">{escape(" / ".join(p["name"] for p in path))}</div>',unsafe_allow_html=True)
+                    kind='Google 문서' if chosen['mimeType'].startswith('application/vnd.google-apps.') else ('이미지' if chosen['mimeType'].startswith('image/') else '일반 파일')
+                    st.markdown(f'<div class="files-properties"><div><span>파일 유형</span><b>{kind}</b></div><div><span>크기</span><b>{escape(format_size(chosen.get("size")))}</b></div><div><span>수정일</span><b>{escape(chosen.get("modifiedTime", "")[:10] or "—")}</b></div></div>',unsafe_allow_html=True)
                     if not chosen['mimeType'].startswith('application/vnd.google-apps.'):
                         cached = st.session_state.get('shared_file_download')
                         if not cached or cached[0] != chosen['id']:
@@ -311,7 +309,8 @@ def render_shared_files(credential_info):
                     destinations = ([path[-2]] if len(path) > 1 else []) + folders
                     if destinations:
                         st.divider()
-                        st.markdown('**폴더로 이동**')
+                        st.markdown('**파일 정리**')
+                        st.caption('이동할 폴더를 선택한 뒤 이동 버튼을 누르세요.')
                         target = st.selectbox('대상 폴더', range(len(destinations)), format_func=lambda i: ('↑ 상위 · ' if i == 0 and len(path) > 1 else '📁 ') + destinations[i]['name'], key='shared_target_' + chosen['id'])
                         if st.button('이동', key='shared_move_' + chosen['id'], use_container_width=True):
                             client.files().update(fileId=chosen['id'], addParents=destinations[target]['id'], removeParents=current['id'], fields='id', supportsAllDrives=True).execute()
@@ -321,7 +320,8 @@ def render_shared_files(credential_info):
                             st.rerun()
                     else:
                         st.caption('새 폴더를 만들면 파일을 폴더별로 정리할 수 있습니다.')
-        with st.expander('연결 정보'):
+        with st.expander('공유파일 이용 안내'):
+            st.caption('파일당 최대 100MB · 폴더를 선택하면 해당 폴더로 이동합니다.')
             st.caption('저장 계정: Google 사용자 OAuth' if oauth is not None else '저장 계정: 서비스 계정 · 공유 드라이브')
             st.caption('파일은 현재 Google Drive 폴더에 저장됩니다. 같은 이름으로 올린 파일은 별도 파일로 보관됩니다.')
     except RefreshError:

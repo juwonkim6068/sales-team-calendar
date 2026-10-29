@@ -172,6 +172,14 @@ class SharedFilesTests(unittest.TestCase):
             self.assertFalse(at.exception)
             self.assertEqual(client.files.return_value.update.call_args.kwargs['addParents'], 'child')
             self.assertEqual(client.files.return_value.update.call_args.kwargs['removeParents'], 'root')
+            self.assertNotIn('shared_file_selected',at.session_state)
+            # AppTest 1.50 retains the removed move selectbox after st.rerun.
+            # Re-render the resulting folder in a fresh runner, then navigate.
+            current_path=at.session_state['shared_file_path']
+            at=AppTest.from_string('from shared_files import render_shared_files\nrender_shared_files({})')
+            at.secrets['shared_drive_folder_id']='root'
+            at.session_state['shared_file_path']=current_path
+            at.run()
             next(b for b in at.button if b.label == '📁 견적').click().run()
             self.assertFalse(at.exception)
             self.assertEqual(at.session_state['shared_file_path'][-1]['id'], 'child')

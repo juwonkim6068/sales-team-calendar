@@ -11,7 +11,7 @@ import streamlit as st
 from customer_data import SCHEMAS, LABELS, REQUIRED, CHOICES, DATE_FIELDS, LONG_FIELDS, PEOPLE_FIELDS, DEFAULTS, upcoming_tanks, owner_customer_summary
 from customer_excel import workbook_bytes, read_workbook
 
-UI_VERSION = '20261029-customer-6'
+UI_VERSION = '20261029-customer-7'
 
 CSS='''<style>
 .customer-heading h1{font-size:27px!important;letter-spacing:-.045em;margin:0!important;padding:0!important}
@@ -228,6 +228,7 @@ def render_customers(store,people,person_label,credential_info=None):
  try:data=store.read_all()
  except ValueError as exc:st.error(str(exc));return
  except Exception:st.error('거래처 정보를 불러오지 못했습니다. Google Sheets 연결과 권한을 확인해 주세요.');return
+ if isinstance(getattr(store.service,"read_status",None),str) and store.service.read_status:st.warning(store.service.read_status)
  watch_customer_changes(store,data)
  if st.session_state.get('customer_notice'):st.success(st.session_state.pop('customer_notice'))
  directory,responsibilities=st.tabs(['거래처 관리','직원 담당업무'])

@@ -2,7 +2,7 @@ FROM python:3.11-slim
 WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
-COPY app.py ./
+COPY app.py sheets_gateway.py ./
 COPY shared_files.py ./
 COPY memo_ui.py memo_attachments.py ./
 COPY memo_clipboard ./memo_clipboard

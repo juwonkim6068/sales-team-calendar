@@ -22,6 +22,9 @@ def fake_service(tables):
   sheet=kwargs['range'].split("'")[1]
   req=MagicMock();req.execute.return_value={'values':tables[sheet]};return req
  service.spreadsheets.return_value.values.return_value.get.side_effect=read
+ def batch_read(**kwargs):
+  req=MagicMock();req.execute.return_value={'valueRanges':[{'values':tables[r.split("'")[1]]} for r in kwargs['ranges']]};return req
+ service.spreadsheets.return_value.values.return_value.batchGet.side_effect=batch_read
  def creates(**kwargs):
   for r in kwargs['body']['requests']:tables[r['addSheet']['properties']['title']]=[]
   req=MagicMock();req.execute.return_value={};return req
@@ -147,3 +150,12 @@ class CustomerManagementTests(unittest.TestCase):
    at.text_input(key='customer_staff_search').set_value('없는 거래처').run()
    self.assertFalse(any((b.key or '').startswith('customer_staff_pick_') for b in at.button))
    self.assertFalse(at.exception)
+
+ def test_customer_tables_are_fetched_in_one_batch(self):
+  row=customer()
+  tables={sheet:[headers] for sheet,headers in SCHEMAS.items()}
+  tables['거래처DB'].append([row[k] for k in SCHEMAS['거래처DB']])
+  service=fake_service(tables)
+  self.assertEqual(len(CustomerStore(service,'sid').read_all()['거래처DB']),1)
+  service.spreadsheets.return_value.values.return_value.batchGet.assert_called_once()
+  service.spreadsheets.return_value.values.return_value.get.assert_not_called()

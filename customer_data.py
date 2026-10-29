@@ -2,8 +2,9 @@
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 import uuid
+from sheets_gateway import fresh_reads
 
-SCHEMA_VERSION = '20261029-customer-6'
+SCHEMA_VERSION = '20261029-customer-7'
 
 SCHEMAS = {
  '거래처DB': ['거래처코드','거래처명','거래구분','거래상태','당사담당자','업종','회사소개','주요제품','취급가스','공급형태','대표전화','사업장주소','납품주소','결제조건','방문출입주의사항','수정일'],
@@ -98,6 +99,9 @@ class CustomerStore:
    if matches:self._titles[sheet]=matches[0]
   self.sheet_names=sorted(names)
   self.missing_sheets=[s for s in SCHEMAS if s not in self._titles]
+  ranges=[self._range(sheet,'A:Z') for sheet in SCHEMAS if sheet in self._titles]
+  response=self.service.spreadsheets().values().batchGet(spreadsheetId=self.sid,ranges=ranges).execute() if ranges else {}
+  batches=dict(zip([sheet for sheet in SCHEMAS if sheet in self._titles],response.get('valueRanges',[])))
   result={}
   self._available={}
   self._layouts={}
@@ -105,7 +109,7 @@ class CustomerStore:
   for sheet,headers in SCHEMAS.items():
    if sheet not in self._titles:
     result[sheet]=[];continue
-   values=self.service.spreadsheets().values().get(spreadsheetId=self.sid,range=self._range(sheet,'A:Z')).execute().get('values',[])
+   values=batches.get(sheet,{}).get('values',[])
    if not values:
     result[sheet]=[];continue
    actual=[text_value(v) for v in values[0]]
@@ -156,7 +160,8 @@ class CustomerStore:
    self.service.spreadsheets().batchUpdate(spreadsheetId=self.sid,body={'requests':[{'addSheet':{'properties':{'title':s}}} for s in missing]}).execute()
 
  def save(self,sheet,record,old_id=None):
-  data=self.read_all()
+  with fresh_reads(self.service):
+   data=self.read_all()
   codes={r['거래처코드'] for r in data['거래처DB']}
   normalized=normalize_record(sheet,record,codes)
   key=SCHEMAS[sheet][0]
@@ -193,7 +198,8 @@ class CustomerStore:
   return normalized
 
  def plan_import(self,incoming):
-  existing=self.read_all()
+  with fresh_reads(self.service):
+   existing=self.read_all()
   for sheet in incoming:
    if self._layouts.get(sheet,SCHEMAS[sheet])!=SCHEMAS[sheet]:
     raise ValueError(f'{sheet}: 사용자 지정 열이 연결되어 있습니다. 기존 시트를 보호하기 위해 엑셀 추가 대신 화면의 등록 기능을 사용해 주세요.')

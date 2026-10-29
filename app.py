@@ -10,6 +10,7 @@ import pandas as pd
 import streamlit as st
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
+from sheets_gateway import SheetsGateway, fresh_reads
 
 # 업무 카드 배지: 담당자 이름과 업무구분 값마다 고정된 색상을 부여합니다.
 # 빨간색 계열은 마감 지연/위험 표시와 혼동되지 않도록 제외합니다.
@@ -507,9 +508,9 @@ def secrets_credential():
     except Exception:return None
 
 @st.cache_resource
-def api_for(key):
+def api_for(key,gateway_version="quota-v1"):
     creds=Credentials.from_service_account_info(json.loads(key),scopes=['https://www.googleapis.com/auth/spreadsheets'])
-    return build('sheets','v4',credentials=creds,cache_discovery=False)
+    return SheetsGateway(build('sheets','v4',credentials=creds,cache_discovery=False))
 
 def api():
     cred=secrets_credential()
@@ -583,7 +584,8 @@ def append_rows(svc,records):
     svc.spreadsheets().values().append(spreadsheetId=SID,range=f"'{TAB}'!A:R",valueInputOption='RAW',insertDataOption='INSERT_ROWS',body={'values':[[safe(r.get(k)) for k in HEAD] for r in records]}).execute()
 
 def save_record(svc,record,old_id=None):
-    rows=read_tab(svc,TAB)
+    with fresh_reads(svc):
+        rows=read_tab(svc,TAB)
     if old_id:
         matches=rows.index[rows['통합ID']==old_id].tolist() if not rows.empty else []
         if len(matches)!=1:raise RuntimeError('수정 대상 ID가 없거나 중복되어 저장을 중단했습니다.')
@@ -593,7 +595,8 @@ def save_record(svc,record,old_id=None):
 
 def delete_completed_record(svc, record_id):
     """Delete exactly one completed task from the integrated sheet by stable ID."""
-    rows = read_tab(svc, TAB)
+    with fresh_reads(svc):
+        rows = read_tab(svc, TAB)
     matches = rows.index[rows['통합ID'] == record_id].tolist() if not rows.empty else []
     if len(matches) != 1:
         raise RuntimeError('삭제 대상이 없거나 ID가 중복되어 삭제하지 않았습니다. 새로고침 후 확인하세요.')
@@ -766,7 +769,8 @@ def meeting_data():
     if vals[0]!=MEETING_FIELDS:raise ValueError('회의록DB 열 구성이 다릅니다. 기존 데이터를 보호하기 위해 중단합니다.')
     return [dict(zip(MEETING_FIELDS,row+['']*(len(MEETING_FIELDS)-len(row)))) for row in vals[1:] if row and row[0]]
 def meeting_save(r):
-    data=meeting_data()
+    with fresh_reads(svc):
+        data=meeting_data()
     ids=[x['ID'] for x in data]
     values=[str(r.get(k,'')) for k in MEETING_FIELDS]
     if r['ID'] in ids:
@@ -818,7 +822,8 @@ def memo_records():
     return [dict(zip(MEMO_FIELDS, row+['']*(len(MEMO_FIELDS)-len(row)))) for row in values[1:] if row and row[0]]
 
 def memo_save(record):
-    records = memo_records()
+    with fresh_reads(svc):
+        records = memo_records()
     values = [str(record.get(k,'')) for k in MEMO_FIELDS]
     ids = [r['ID'] for r in records]
     if record['ID'] in ids:
@@ -828,7 +833,8 @@ def memo_save(record):
         svc.spreadsheets().values().append(spreadsheetId=SID, range="'개인메모DB'!A:F", valueInputOption='RAW', insertDataOption='INSERT_ROWS', body={'values':[values]}).execute()
 
 def memo_delete(record_id):
-    records = memo_records()
+    with fresh_reads(svc):
+        records = memo_records()
     ids = [r['ID'] for r in records]
     if record_id not in ids:
         raise ValueError('삭제할 메모를 찾지 못했습니다.')
@@ -847,7 +853,7 @@ if page=='📁 공유파일':
     render_shared_files(secrets_credential())
     st.stop()
 try:svc=api();tabs=tab_names(svc)
-except Exception as exc:st.error(f'Google Sheets 연결 실패: {exc}');st.stop()
+except Exception:st.error('Google Sheets 연결이 일시적으로 지연되고 있습니다. 약 1분 후 다시 시도해 주세요.');st.stop()
 if TAB not in tabs:
     st.warning('통합업무 시트가 아직 생성되지 않았습니다. 설정 메뉴에서 최초 통합을 실행하세요.')
     if page!='⚙️ 데이터 통합/설정':st.stop()
@@ -858,6 +864,8 @@ else:
         if df.empty:df=pd.DataFrame(columns=HEAD)
         if list(df.columns)!=HEAD:raise RuntimeError('통합업무 헤더가 변경되었습니다.')
     except Exception as exc:st.error(str(exc));st.stop()
+
+if isinstance(svc,SheetsGateway) and svc.read_status:st.warning(svc.read_status)
 
 PERSON_LABELS={}
 try:
@@ -1280,7 +1288,7 @@ else:
         import importlib
         import customer_data
         # Streamlit can retain imported modules when app.py is redeployed.
-        customer_version='20261029-customer-6'
+        customer_version='20261029-customer-7'
         if getattr(customer_data,'SCHEMA_VERSION',None)!=customer_version:
             importlib.reload(customer_data)
         import customer_workspace

@@ -404,170 +404,26 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 @media(max-width:767px){.task-deadline-banner{padding:9px 10px}.task-dday-tag{white-space:normal}}
 
 
-/* Sidebar only: compact professional navigation, inspired by supplied reference app. */
-[data-testid="stSidebar"]{
- background:#ffffff!important;
- border-right:1px solid #e5ebf3!important;
- box-shadow:2px 0 14px rgba(27,47,79,.025)!important;
-}
-[data-testid="stSidebar"] [data-testid="stSidebarContent"]{
- padding:1.25rem .85rem 1.5rem!important;
-}
-[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:.35rem!important}
-[data-testid="stSidebar"] h1,[data-testid="stSidebar"] h2,
-[data-testid="stSidebar"] h3,[data-testid="stSidebar"] h4,
-[data-testid="stSidebar"] p,[data-testid="stSidebar"] label{color:#344054!important}
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3{
- font-size:1.02rem!important;font-weight:800!important;letter-spacing:-.035em!important;
- color:#172b49!important;margin:.15rem 0 .35rem!important;
-}
-[data-testid="stSidebar"] hr{border-color:#e9eef5!important;opacity:1!important;margin:.75rem 0!important}
-[data-testid="stSidebar"] [role="radiogroup"]{gap:3px!important}
-[data-testid="stSidebar"] [role="radiogroup"] label{
- min-height:40px!important;padding:10px 11px!important;margin:1px 0!important;
- border-radius:9px!important;border:1px solid transparent!important;
- background:transparent!important;cursor:pointer;
- transition:background .15s ease,color .15s ease!important;
-}
-[data-testid="stSidebar"] [role="radiogroup"] label p{
- color:#536477!important;font-size:12.5px!important;font-weight:600!important;
- line-height:1.45!important;margin:0!important;
-}
-[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#f2f6fc!important}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){
- background:#edf4ff!important;border-color:#dbe8ff!important;
- box-shadow:inset 3px 0 0 #2169ef!important;
-}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{
- color:#195ecb!important;font-weight:800!important;
-}
-[data-testid="stSidebar"] button{
- background:#fff!important;color:#355c92!important;
- border:1px solid #dce5f0!important;border-radius:9px!important;
- box-shadow:none!important;font-size:12px!important;
-}
-[data-testid="stSidebar"] button:hover{
- background:#f1f6ff!important;color:#1557c6!important;border-color:#bfd5f8!important;
-}
-[data-testid="stSidebar"] [data-testid="stAlert"]{
- background:#f4f7fb!important;color:#64748b!important;
- border:1px solid #e6edf5!important;border-radius:9px!important;
-}
-[data-testid="stSidebar"] [data-testid="stAlert"] p,
-[data-testid="stSidebar"] [data-testid="stAlert"] span{color:#64748b!important;font-size:11px!important}
-[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p{color:#8a98aa!important;font-size:11px!important}
-[data-testid="stSidebar"] [data-testid="stSelectbox"] > div > div{
- background:#f8fafc!important;border:1px solid #e0e7f0!important;
- border-radius:9px!important;color:#344054!important;
-}
-[data-testid="stSidebar"] .sidebar-mini{
- border-top:1px solid #e9eef5!important;color:#64748b!important;
- margin-top:12px!important;padding-top:14px!important;
-}
-[data-testid="stSidebar"] .sidebar-mini h4{color:#344054!important;font-size:12px!important}
-[data-testid="stSidebar"] .sidebar-mini .mini-week{color:#7c8b9d!important;font-size:10px!important}
-[data-testid="stSidebar"] .sidebar-mini .mini-week .on{background:#2169ef!important;color:white!important}
-@media(max-width:767px){
- [data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding:1rem .8rem!important}
- [data-testid="stSidebar"] [role="radiogroup"] label{min-height:44px!important}
-}
-
-
-/* 2026-10-23: sidebar visual distinction + remove navigation radio circles only */
-[data-testid="stSidebar"]{
- background:#f0f5fc!important;
- border-right:3px solid #bfd2ee!important;
- box-shadow:5px 0 18px rgba(29,73,135,.09)!important;
-}
-[data-testid="stSidebar"] [data-testid="stSidebarContent"]{
- background:transparent!important;
-}
-[data-testid="stSidebar"] [role="radiogroup"] label{
- display:flex!important;align-items:center!important;gap:0!important;
- padding:11px 13px!important;
-}
-/* Keep the native radio input functional but visually remove its circle. */
-[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child:not([data-testid="stMarkdownContainer"]),
+/* Compact sidebar navigation */
+[data-testid="stSidebar"]{background:#fff!important;border-right:1px solid #e4eaf2!important;box-shadow:none!important}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"]{background:#fff!important;padding:1.5rem 1rem!important}
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:.5rem!important}
+[data-testid="stSidebar"] h3{color:#213753!important;font-size:17px!important;font-weight:750!important;letter-spacing:-.04em;margin:0 0 18px!important}
+[data-testid="stSidebar"] p,[data-testid="stSidebar"] label{color:#57667a!important}
+[data-testid="stSidebar"] [role="radiogroup"]{gap:4px!important}
+[data-testid="stSidebar"] [role="radiogroup"] label{min-height:44px!important;padding:11px 14px!important;margin:0!important;border:0!important;border-radius:9px!important;background:transparent!important;box-shadow:none!important;transition:background .15s ease}
+[data-testid="stSidebar"] [role="radiogroup"] label p{font-size:13px!important;font-weight:550!important;margin:0!important;color:#57667a!important}
+[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#f4f7fb!important}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){background:#edf3ff!important;box-shadow:inset 3px 0 0 #2563eb!important}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{color:#245fc2!important;font-weight:750!important}
 [data-testid="stSidebar"] [role="radiogroup"] label [data-testid="stRadioButtonIcon"],
-[data-testid="stSidebar"] [role="radiogroup"] label [data-baseweb="radio"]{
- display:none!important;
-}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){
- background:#dfeaff!important;border-color:#c6dafc!important;
- box-shadow:inset 3px 0 0 #2169ef!important;
-}
-[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#e7f0ff!important}
-
-
-/* Reference-inspired sidebar refinement (sidebar only; no Python or app logic changes). */
-[data-testid="stSidebar"]{
-  background:#ffffff!important;
-  border-right:1px solid #dfe8e7!important;
-  box-shadow:4px 0 18px rgba(23,49,64,.055)!important;
-}
-[data-testid="stSidebar"] [data-testid="stSidebarContent"]{
-  background:#ffffff!important;
-  padding:1.25rem .95rem 1.6rem!important;
-}
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3{
-  color:#193b3b!important;font-size:1.05rem!important;font-weight:800!important;
-  letter-spacing:-.04em!important;margin:.25rem 0 .45rem!important;
-}
-[data-testid="stSidebar"] hr{border-color:#e7eeed!important;margin:.85rem 0!important}
-[data-testid="stSidebar"] [role="radiogroup"]{gap:5px!important}
-[data-testid="stSidebar"] [role="radiogroup"] label{
-  display:flex!important;align-items:center!important;
-  min-height:41px!important;padding:10px 12px!important;
-  margin:0!important;border:0!important;border-radius:9px!important;
-  background:transparent!important;box-shadow:none!important;
-  transition:background-color .15s ease!important;
-}
-[data-testid="stSidebar"] [role="radiogroup"] label p{
-  color:#516779!important;font-size:12.5px!important;font-weight:600!important;
-  line-height:1.45!important;
-}
-[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#f2f7f5!important}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){
-  background:#eaf6f0!important;border:0!important;
-  box-shadow:none!important;
-}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{
-  color:#15815c!important;font-weight:800!important;
-}
-/* Remove only the radio circle; the actual radio remains interactive. */
-[data-testid="stSidebar"] [role="radiogroup"] label [data-testid="stRadioButtonIcon"],
-[data-testid="stSidebar"] [role="radiogroup"] label [data-baseweb="radio"],
 [data-testid="stSidebar"] [role="radiogroup"] label > div:first-child:not([data-testid="stMarkdownContainer"]){display:none!important}
-[data-testid="stSidebar"] button{
-  background:#fff!important;color:#35596c!important;
-  border:1px solid #dce7e5!important;border-radius:9px!important;
-  font-size:12px!important;box-shadow:none!important;
-}
-[data-testid="stSidebar"] button:hover{
-  background:#eff8f3!important;color:#157b58!important;border-color:#b9dccc!important;
-}
-[data-testid="stSidebar"] [data-testid="stAlert"]{
-  background:#f5f8f5!important;border:1px solid #e4eee6!important;
-  border-radius:9px!important;
-}
-[data-testid="stSidebar"] [data-testid="stSelectbox"] > div > div{
-  background:#fff!important;border-color:#dce7e5!important;
-}
-[data-testid="stSidebar"] .sidebar-mini{border-color:#e7eeed!important}
-[data-testid="stSidebar"] .sidebar-mini .mini-week .on{
-  background:#219b72!important;color:#fff!important;
-}
-@media(max-width:767px){
- [data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding:1rem .85rem!important}
- [data-testid="stSidebar"] [role="radiogroup"] label{min-height:44px!important}
-}
-
-
-/* 미니 달력도 일요일(빨강), 토요일(파랑)으로 구분 */
-[data-testid="stSidebar"] .sidebar-mini .mini-week span:nth-child(7n+1){color:#dc2626}
-[data-testid="stSidebar"] .sidebar-mini .mini-week span:nth-child(7n){color:#2563eb}
-[data-testid="stSidebar"] .sidebar-mini .mini-week span.on:nth-child(7n+1){background:#dc2626!important;color:#fff!important}
-[data-testid="stSidebar"] .sidebar-mini .mini-week span.on:nth-child(7n){background:#2563eb!important;color:#fff!important}
+[data-testid="stSidebar"] [data-testid="stSelectbox"]{margin-top:12px}
+[data-testid="stSidebar"] [data-testid="stSelectbox"] > div > div{background:#f8fafc!important;border:1px solid #e3e9f1!important;border-radius:9px!important;color:#344054!important}
+[data-testid="stSidebar"] button{background:#fff!important;color:#65758b!important;border:1px solid #e3e9f1!important;border-radius:9px!important;box-shadow:none!important;min-height:38px}
+[data-testid="stSidebar"] button:hover{background:#f4f7fb!important;color:#245fc2!important;border-color:#c8d8ef!important}
+[data-testid="stSidebar"] hr{border-color:#e9edf3!important;margin:14px 0!important}
+@media(max-width:767px){[data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding:1rem .85rem!important}}
 /* 업무 카드 정보 배지: 담당자(보라) / 업무구분(청록) 구분, 빨간색 미사용 */
 .task-card-meta span.meta-owner{background:#f1edff!important;border-color:#d9cefa!important;color:#59449a!important}
 .task-card-meta span.meta-owner b{color:inherit!important}
@@ -901,10 +757,11 @@ def memo_delete(record_id):
     index = ids.index(record_id) + 1  # zero-based row index; header is index 0
     svc.spreadsheets().batchUpdate(spreadsheetId=SID,body={'requests':[{'deleteDimension':{'range':{'sheetId':sheet_id,'dimension':'ROWS','startIndex':index,'endIndex':index+1}}}]}).execute()
 
-st.sidebar.markdown('### ▥  영업팀 대시보드')
+st.sidebar.markdown('### 영업팀 대시보드')
+page=st.sidebar.radio('메뉴',['🗓️ 달력','📋 업무현황','📝 회의록','🗒️ 개인 메모장','📁 공유파일','🏢 거래처 특이사항','⚙️ 데이터 통합/설정'],format_func=lambda value: {'🗓️ 달력':'달력','📋 업무현황':'업무 현황','📝 회의록':'회의록','🗒️ 개인 메모장':'개인 메모장','📁 공유파일':'공유파일','🏢 거래처 특이사항':'거래처 특이사항','⚙️ 데이터 통합/설정':'데이터 설정'}[value],label_visibility='collapsed')
+sidebar_filter=st.sidebar.container()
 st.sidebar.divider()
-page=st.sidebar.radio('메뉴',['🗓️ 달력','📋 업무현황','📝 회의록','🗒️ 개인 메모장','📁 공유파일','🏢 거래처 특이사항','⚙️ 데이터 통합/설정'],label_visibility='collapsed')
-if st.sidebar.button('↻ 데이터 새로고침',use_container_width=True):st.rerun()
+if st.sidebar.button('↻ 새로고침',use_container_width=True):st.rerun()
 if page=='📁 공유파일':
     from shared_files import render_shared_files
     render_shared_files(secrets_credential())
@@ -929,10 +786,9 @@ except Exception:people=[]
 people=list(dict.fromkeys(people+[safe(x) for x in df.get('담당자',pd.Series(dtype=str)).tolist() if safe(x)]))
 people=[p for p in people if p not in ('전체','미지정')]
 
-st.sidebar.caption('Google Sheets 연결 · 기존 원본 보존')
-st.sidebar.warning('현재는 공유 편집형입니다. 팀원별 로그인/수정 권한은 아직 적용되지 않았습니다.')
 if page=='⚙️ 데이터 통합/설정':
     st.title('데이터 통합 및 설정')
+    st.caption('공유 편집 방식으로 운영됩니다. 사용자별 열람·수정 권한은 적용되지 않습니다.')
     st.write('원본 업무일정·일정관리 시트는 수정하지 않습니다. 통합업무 시트에만 신규 데이터를 추가합니다.')
     st.info('원본시트 + 원본ID 조합으로 가져온 이력을 식별합니다. 동일 업무처럼 보여도 ID가 다르면 자동 삭제하지 않습니다.')
     if st.button('기존 업무를 통합업무 시트로 가져오기',type='primary'):
@@ -948,17 +804,8 @@ else:
     if 'person_filter' not in st.session_state:st.session_state.person_filter='전체'
     choices=['전체']+people
     if st.session_state.person_filter not in choices:st.session_state.person_filter='전체'
-    person=st.sidebar.selectbox('담당자 선택',choices,key='person_filter')
+    person=sidebar_filter.selectbox('담당자',choices,key='person_filter')
     shown=df if person=='전체' else df[df['담당자'].isin([person,'전체'])]
-    st.sidebar.markdown(f'<div class="sidebar-mini"><h4>{date.today().year}년 {date.today().month}월</h4></div>',unsafe_allow_html=True)
-    mini=calendar.Calendar(firstweekday=6).monthdayscalendar(date.today().year,date.today().month)
-    mini_html='<div class="sidebar-mini" style="border:0;padding-top:0"><div class="mini-week">'+''.join(f'<span>{x}</span>' for x in '일월화수목금토')
-    for week in mini:
-        for d in week:mini_html+=f'<span class={"on" if d==date.today().day else ""}>{d or ""}</span>'
-    mini_html+='</div></div>'
-    st.sidebar.markdown(mini_html,unsafe_allow_html=True)
-    st.sidebar.markdown('#### 팀원 보기')
-    st.sidebar.caption('담당자 필터를 변경하면 달력과 업무 목록에 적용됩니다.')
     if page=='🗓️ 달력':
         st.markdown('<div class="dashboard-head"><div><h1>캘린더</h1><p>영업팀의 일정을 한눈에 확인하고 일정을 공유하세요.</p></div></div>',unsafe_allow_html=True)
         st.session_state.month=calendar_view_month(st.query_params,st.session_state.get('month'))

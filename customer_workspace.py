@@ -11,7 +11,7 @@ import streamlit as st
 from customer_data import SCHEMAS, LABELS, REQUIRED, CHOICES, DATE_FIELDS, LONG_FIELDS, PEOPLE_FIELDS, DEFAULTS, upcoming_tanks, owner_customer_summary
 from customer_excel import workbook_bytes, read_workbook
 
-UI_VERSION = '20261029-customer-5'
+UI_VERSION = '20261029-customer-6'
 
 CSS='''<style>
 .customer-heading h1{font-size:27px!important;letter-spacing:-.045em;margin:0!important;padding:0!important}
@@ -65,10 +65,25 @@ def load_drive_workbook(value,credential_info):
  return item['name'],payload
 
 
+def contact_phone_parts(value):
+ parts=re.split(r'\s*/\s*|[\r\n]+',str(value or '').strip(),maxsplit=1)
+ return (parts[0],parts[1] if len(parts)>1 else '')
+
+
+def contact_table_rows(records):
+ result=[]
+ for record in records:
+  first,second=contact_phone_parts(record.get('연락처',''))
+  result.append({**{field:record.get(field,'') for field in ('부서','직급','성명')},
+                 '연락처1':first,'연락처2':second,
+                 **{field:record.get(field,'') for field in ('이메일','비고')}})
+ return result
+
+
 def show_table(records,sheet,person_label):
  if not records:
   st.info('등록된 정보가 없습니다. 추가 버튼으로 입력할 수 있습니다.');return
- frame=pd.DataFrame(records)[SCHEMAS[sheet]].copy()
+ frame=pd.DataFrame(contact_table_rows(records)) if sheet=='거래처연락처DB' else pd.DataFrame(records)[SCHEMAS[sheet]].copy()
  for col in PEOPLE_FIELDS:
   if col in frame:frame[col]=frame[col].map(person_label)
  st.dataframe(frame,hide_index=True,use_container_width=True)
@@ -82,11 +97,15 @@ def editor(store,data,people,person_label):
  state=st.session_state.get('customer_editor')
  if not state:return
  sheet=state['sheet'];old=state.get('record') or {};headers=list(SCHEMAS[sheet]);key=headers[0]
+ if sheet=='거래처연락처DB':
+  headers=[h for h in headers if h not in ('담당역할','주담당여부')]
+  i=headers.index('연락처');headers[i:i+1]=['연락처1','연락처2']
  if sheet=='거래처DB' and ('FAX' in old or 'FAX' in getattr(store,'_layouts',{}).get(sheet,[])):headers.insert(headers.index('대표전화')+1,'FAX')
  def dismiss():st.session_state.pop('customer_editor',None)
  @st.dialog(('수정 · ' if old else '등록 · ')+LABELS[sheet],width='large',on_dismiss=dismiss)
  def dialog():
   initial={**old}
+  if sheet=='거래처연락처DB':initial['연락처1'],initial['연락처2']=contact_phone_parts(old.get('연락처',''))
   if not old:
    initial[key]=('C-'+uuid.uuid4().hex[:8].upper()) if sheet=='거래처DB' else ''
    initial['거래처코드']=state['code'] or initial.get('거래처코드','')
@@ -99,7 +118,9 @@ def editor(store,data,people,person_label):
     if field==key and sheet!='거래처DB':
      fields[field]=initial.get(field,'');continue
     if field=='거래처코드' and sheet!='거래처DB':
-     fields[field]=state['code'] or initial.get(field,'');st.caption('거래처코드: '+fields[field]);continue
+     fields[field]=state['code'] or initial.get(field,'')
+     if sheet!='거래처연락처DB':st.caption('거래처코드: '+fields[field])
+     continue
     value=initial.get(field,DEFAULTS.get(field,'')) or ''
     label=field+(' *' if field in REQUIRED[sheet] else '')
     if field in DATE_FIELDS:
@@ -121,6 +142,10 @@ def editor(store,data,people,person_label):
    if sheet=='BULK탱크DB':st.caption('금액·용량은 숫자로 입력하세요. 검사일은 안전관리자가 확인한 날짜를 입력하며 법정주기를 자동 산정하지 않습니다.')
    submitted=st.form_submit_button('저장',type='primary',use_container_width=True)
   if submitted:
+   if sheet=='거래처연락처DB':
+    fields['연락처']=' / '.join(fields[field].strip() for field in ('연락처1','연락처2') if fields[field].strip())
+    fields['담당역할']=old.get('담당역할','')
+    fields['주담당여부']=old.get('주담당여부','')
    try:store.save(sheet,fields,old.get(key))
    except ValueError as exc:st.error(str(exc))
    except Exception:st.error('저장하지 못했습니다. 연결·권한을 확인한 후 다시 시도하세요. 입력 내용은 유지됩니다.')
@@ -139,7 +164,7 @@ def related_tab(sheet,code,data,person_label,prefix="directory"):
  if rows:
   key=SCHEMAS[sheet][0]
   names={'거래처연락처DB':'성명','BULK탱크DB':'탱크번호','거래처특이사항DB':'내용'}
-  selected=st.selectbox('수정할 항목',range(len(rows)),format_func=lambda i:(rows[i].get(names[sheet],'') or rows[i][key])[:70]+' · '+rows[i][key][:8],key='customer_modify_pick_'+prefix+sheet)
+  selected=st.selectbox('수정할 항목',range(len(rows)),format_func=lambda i:((rows[i].get('성명') or '이름 미입력')+' · '+(rows[i].get('직급') or rows[i].get('부서') or '연락처')) if sheet=='거래처연락처DB' else (rows[i].get(names[sheet],'') or rows[i][key])[:70]+' · '+rows[i][key][:8],key='customer_modify_pick_'+prefix+sheet)
   if st.button('선택 항목 수정',key='customer_modify_'+prefix+sheet):
    open_editor(sheet,rows[selected],code);st.rerun()
 

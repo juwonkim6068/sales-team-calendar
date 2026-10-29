@@ -11,7 +11,7 @@ import streamlit as st
 from customer_data import SCHEMAS, LABELS, REQUIRED, CHOICES, DATE_FIELDS, LONG_FIELDS, PEOPLE_FIELDS, DEFAULTS, upcoming_tanks, owner_customer_summary
 from customer_excel import workbook_bytes, read_workbook
 
-UI_VERSION = '20261029-customer-7'
+UI_VERSION = '20261029-customer-8'
 
 CSS='''<style>
 .customer-heading h1{font-size:27px!important;letter-spacing:-.045em;margin:0!important;padding:0!important}
@@ -19,6 +19,14 @@ CSS='''<style>
 .customer-title{font-size:23px;font-weight:750;color:#243b59;overflow-wrap:anywhere;margin:3px 0 12px}
 .customer-meta{color:#8190a4;font-size:12px;margin-bottom:20px}
 .customer-copy{font-size:13px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere;color:#425773;margin-bottom:16px}
+.customer-info-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0 22px}
+.customer-info-item{padding:14px 16px;border:1px solid #e5eaf2;border-radius:10px;background:#fff;min-width:0}
+.customer-info-label{font-size:12px;color:#64748b;margin-bottom:6px}
+.customer-info-value{font-size:14px;line-height:1.65;color:#1e293b;white-space:pre-wrap;overflow-wrap:anywhere}
+.customer-info-value.empty{color:#94a3b8}
+.customer-info-item.wide{grid-column:1/-1}
+.customer-section{font-size:14px;font-weight:700;color:#243b59;margin-top:18px}
+@media(max-width:640px){.customer-info-grid{grid-template-columns:1fr;gap:8px}.customer-info-item{padding:12px}.customer-title{font-size:20px}}
 [class*="st-key-customer_staff_pick_"] button,[class*="st-key-customer_pick_"] button{justify-content:flex-start;text-align:left;min-height:42px}
 [class*="st-key-customer_staff_pick_"] button p,[class*="st-key-customer_pick_"] button p{text-align:left;font-size:13px!important;overflow-wrap:anywhere}
 </style>'''
@@ -198,13 +206,18 @@ def customer_detail(chosen,data,person_label,prefix="directory"):
  if chosen:
   code=chosen['거래처코드']
   with st.container(border=True):
-   st.markdown(f'<div class="customer-title">{escape(chosen["거래처명"])}</div><div class="customer-meta">{escape(chosen["거래구분"])} · {escape(chosen["거래상태"] or "상태 미입력")} · {escape(person_label(chosen["당사담당자"]) or "담당자 미지정")} · {escape(code)}</div>',unsafe_allow_html=True)
-   if st.button('거래처 정보 수정',key='customer_edit_main_'+prefix):open_editor('거래처DB',chosen);st.rerun()
+   heading,action=st.columns([3,1],vertical_alignment='center')
+   heading.markdown(f'<div class="customer-title">{escape(chosen["거래처명"])}</div><div class="customer-meta">{escape(chosen["거래구분"])} · {escape(chosen["거래상태"] or "상태 미입력")} · 담당 {escape(person_label(chosen["당사담당자"]) or "미지정")} · {escape(code)}</div>',unsafe_allow_html=True)
+   if action.button('거래처 정보 수정',key='customer_edit_main_'+prefix,use_container_width=True):open_editor('거래처DB',chosen);st.rerun()
    info,contacts,tanks,notes,work=st.tabs(['회사 정보','연락처','BULK 탱크','특이사항','연결 업무'])
    with info:
-    for label in ['업종','회사소개','주요제품','취급가스','공급형태','대표전화','FAX','사업장주소','납품주소','결제조건','방문출입주의사항']:
-     st.markdown(f'**{label}**')
-     st.markdown('<div class="customer-copy">'+escape(chosen.get(label,'') or '미입력')+'</div>',unsafe_allow_html=True)
+    for title,fields in [('기본 정보',['업종','대표전화','FAX','공급형태','주요제품','취급가스']),('주소 · 거래 안내',['사업장주소','납품주소','결제조건','방문출입주의사항']),('회사 소개',['회사소개'])]:
+     items=[]
+     for label in fields:
+      value=str(chosen.get(label,'') or '').strip()
+      wide=' wide' if label in ('사업장주소','납품주소','방문출입주의사항','회사소개') else ''
+      items.append(f'<div class="customer-info-item{wide}"><div class="customer-info-label">{label}</div><div class="customer-info-value{"" if value else " empty"}">{escape(value) if value else "등록된 정보가 없습니다"}</div></div>')
+     st.markdown(f'<div class="customer-section">{title}</div><div class="customer-info-grid">'+''.join(items)+'</div>',unsafe_allow_html=True)
    with contacts:related_tab('거래처연락처DB',code,data,person_label,prefix)
    with tanks:related_tab('BULK탱크DB',code,data,person_label,prefix)
    with notes:related_tab('거래처특이사항DB',code,data,person_label,prefix)
@@ -242,6 +255,8 @@ def render_customers(store,people,person_label,credential_info=None):
   if controls[3].button('거래처 등록',type='primary',use_container_width=True):open_editor('거래처DB');st.rerun()
   visible=[r for r in customers if (category=='전체' or r['거래구분']==category) and (owner=='전체' or r['당사담당자']==owner) and (not query.strip() or query.strip().casefold() in ' '.join(r.get(k,'') for k in SCHEMAS['거래처DB']).casefold())]
   visible.sort(key=lambda r:r['거래처명'])
+  chosen=next((r for r in visible if r['거래처코드']==st.session_state.get('customer_selected')),visible[0] if visible else None)
+  if chosen:st.session_state['customer_selected']=chosen['거래처코드']
   alerts=upcoming_tanks(data['BULK탱크DB'])
   if alerts:
    with st.expander(f'확인 필요 · 계약종료/검사일 30일 이내 또는 경과 {len(alerts)}건'):
@@ -250,7 +265,7 @@ def render_customers(store,people,person_label,credential_info=None):
     st.caption('입력된 날짜 기준입니다. 법정 검사주기나 적합 여부를 자동 판단하지 않습니다.')
   listing,detail=st.columns([1.1,2.9],gap='large')
   with listing:
-   st.markdown('#### 거래처 목록')
+   st.markdown(f'#### 거래처 목록 · {len(visible)}곳')
    with st.container(border=True,height=540):
     if not visible:st.caption('등록된 거래처가 없거나 검색 결과가 없습니다.')
     for r in visible:
@@ -262,21 +277,26 @@ def render_customers(store,people,person_label,credential_info=None):
    customer_detail(chosen,data,person_label)
  with responsibilities:
   st.markdown('#### 담당 거래처 조회')
+  st.caption('담당자와 거래처명으로 찾은 뒤, 왼쪽 목록에서 거래처를 선택하세요.')
   filter_cols=st.columns([1,2])
   owner_options=list(dict.fromkeys(people+[r['당사담당자'] for r in data['거래처DB'] if r['당사담당자']]))
   staff_owner=filter_cols[0].selectbox('담당자',['전체']+owner_options,format_func=person_label,key='customer_staff_owner')
   staff_search=filter_cols[1].text_input('거래처명 검색',placeholder='찾으실 거래처명을 입력하세요',key='customer_staff_search')
   staff_rows=sorted([r for r in data['거래처DB'] if (staff_owner=='전체' or r['당사담당자']==staff_owner) and staff_search.strip().casefold() in r['거래처명'].casefold()],key=lambda r:r['거래처명'])
-  staff_list,staff_detail=st.columns([1.2,2.8],gap='large')
+  staff_chosen=next((r for r in staff_rows if r['거래처코드']==st.session_state.get('customer_staff_selected')),staff_rows[0] if staff_rows else None)
+  if staff_chosen:st.session_state['customer_staff_selected']=staff_chosen['거래처코드']
+  staff_list,staff_detail=st.columns([1,3],gap='medium')
   with staff_list:
-   st.markdown('##### 거래처 목록')
-   with st.container(border=True,height=480):
+   st.markdown(f'##### 거래처 목록 · {len(staff_rows)}곳')
+   with st.container(border=True,height=540):
     if not staff_rows:st.caption('조건에 맞는 거래처가 없습니다.')
     for row in staff_rows:
      if st.button(row['거래처명'],key='customer_staff_pick_'+row['거래처코드'],use_container_width=True,type='primary' if st.session_state.get('customer_staff_selected')==row['거래처코드'] else 'secondary'):
       st.session_state['customer_staff_selected']=row['거래처코드'];st.rerun()
+     st.caption((row['거래구분'] or '구분 미입력')+' · '+(person_label(row['당사담당자']) or '담당자 미지정'))
   staff_chosen=next((r for r in staff_rows if r['거래처코드']==st.session_state.get('customer_staff_selected')),staff_rows[0] if staff_rows else None)
   with staff_detail:customer_detail(staff_chosen,data,person_label,"staff")
+  st.divider()
   st.markdown('#### 별도 담당업무와 대체 담당')
   if st.button('담당업무 추가',key='customer_add_staff'):open_editor('직원담당업무DB');st.rerun()
   if data['직원담당업무DB']:show_table(data['직원담당업무DB'],'직원담당업무DB',person_label)

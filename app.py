@@ -14,10 +14,10 @@ from googleapiclient.discovery import build
 # 업무 카드 배지: 담당자 이름과 업무구분 값마다 고정된 색상을 부여합니다.
 # 빨간색 계열은 마감 지연/위험 표시와 혼동되지 않도록 제외합니다.
 _OWNER_PALETTE = [
+    ('#fff3e8', '#b45309', '#f59e0b'),  # 김주원: 주황
+    ('#eaf8ef', '#16703d', '#22a05a'),  # 이상인: 초록
+    ('#edf4ff', '#1d55b3', '#3b82f6'),  # 조인환: 파랑
     ('#eee9ff', '#5a42a4', '#d6cafa'),  # 보라
-    ('#e5f3ff', '#185f9d', '#bdddf6'),  # 하늘
-    ('#e6f6ed', '#176e4c', '#bce7ce'),  # 초록
-    ('#fff3d9', '#946000', '#f2dfaa'),  # 노랑
     ('#e6f6f6', '#176e77', '#bce6e8'),  # 청록
     ('#eff0ff', '#4859a5', '#d3d9fa'),  # 남색
 ]
@@ -33,7 +33,10 @@ def _task_badge_colors(value, kind='owner'):
     name = str(value or '').strip()
     if kind == 'owner':
         # 주요 담당자는 서로 확실히 구분되는 고정 색상
-        fixed = {'김주원': 0, '이상인': 1}
+        fixed = {'김주원': 0, '이상인': 1, '조인환': 2}
+        if name.split(' ')[0] in fixed:name=name.split(' ')[0]
+        if name in ('','미지정','담당자 미지정','전체'):
+            return ('#f1f5f9','#526174','#94a3b8')
         palette = _OWNER_PALETTE
     else:
         fixed = {}
@@ -424,7 +427,7 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 [data-testid="stSidebar"] button:hover{background:#f4f7fb!important;color:#245fc2!important;border-color:#c8d8ef!important}
 [data-testid="stSidebar"] hr{border-color:#e9edf3!important;margin:14px 0!important}
 @media(max-width:767px){[data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding:1rem .85rem!important}}
-/* 업무 카드 정보 배지: 담당자(보라) / 업무구분(청록) 구분, 빨간색 미사용 */
+/* 업무 카드 배지: 담당자별 지정색 / 업무구분별 지정색 */
 .task-card-meta span.meta-owner{background:#f1edff!important;border-color:#d9cefa!important;color:#59449a!important}
 .task-card-meta span.meta-owner b{color:inherit!important}
 .task-card-meta span.meta-category{background:#e5f7f3!important;border-color:#b9e5d9!important;color:#137b69!important}
@@ -905,10 +908,8 @@ else:
                 calendar_task_detail(matches.iloc[0].to_dict())
             else:
                 st.query_params.pop('calendar_task',None)
-        palette=['#377af4','#7b45f4','#f59d26','#27bd6a','#ed6978','#23a8bb','#9861db','#dc8a41']
         def owner_color(owner):
-            if not owner:return '#6c87b4'
-            return palette[sum(ord(ch) for ch in owner)%len(palette)]
+            return _task_badge_colors(owner,'owner')[2]
         def pct(row):
             try:return max(0,min(100,int(float(row.get('진행률') or 0))))
             except (ValueError,TypeError):return 0
@@ -927,15 +928,14 @@ else:
                 html.append(f'<div class="cal-day{outside}"><a class="day-num{todaycls}" href="?calendar_date={day.isoformat()}&amp;calendar_month={m.isoformat()}" target="_self" aria-label="{day.isoformat()} 일정 추가" title="{day.isoformat()} 일정 추가">{day.day}</a>')
                 daily=cal_entries(day)
                 for _,r in daily.head(3).iterrows():
-                    owner=safe(r.get('담당자')) or '미지정';color=owner_color(owner)
+                    owner=safe(r.get('담당자')) or '미지정'
+                    bg,fg,color=_task_badge_colors(owner,'owner')
                     progress=pct(r)
-                    # 상태별 강조색, 담당자별 식별 색상은 상단 왼쪽 선에 사용
+                    # 담당자별 색상을 상태와 무관하게 유지합니다.
                     status=safe(r.get('진행상태'))
-                    bg='#e9f9f0' if status=='완료' else '#f0ebff' if status=='진행중' else '#eaf2ff' if status=='미진행' else '#fff3e4' if status=='거의완료' else '#f4f6fa'
-                    fg='#15934c' if status=='완료' else '#7140db' if status=='진행중' else '#2367d6' if status=='미진행' else '#ae6b13' if status=='거의완료' else '#5e7395'
                     task=escape(safe(r.get('업무명')));owner_html=escape(person_label(owner))
                     tm=escape(safe(r.get('시작시간')))
-                    html.append(f'<a class="cal-event" href="?calendar_task={quote(safe(r.get("통합ID")),safe="")}&amp;calendar_month={m.isoformat()}" target="_self" title="{task} · {owner_html}" style="background:{bg};color:{fg};border-left:3px solid {color}"><div class="event-title">{tm+" " if tm else ""}{task}</div><div class="event-sub"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48%">{owner_html}</span><div class="track"><div class="fill" style="width:{progress}%;background:{fg}"></div></div><b>{progress}%</b></div></a>')
+                    html.append(f'<a class="cal-event" href="?calendar_task={quote(safe(r.get("통합ID")),safe="")}&amp;calendar_month={m.isoformat()}" target="_self" title="{task} · {owner_html} · {escape(status)} · {progress}%" style="background:{bg};color:{fg};border-left:3px solid {color}"><div class="event-title">{"✓ " if status=="완료" else ""}{tm+" " if tm else ""}{task}</div><div class="event-sub"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48%">{owner_html}</span><div class="track"><div class="fill" style="width:{progress}%;background:{fg}"></div></div><b>{progress}%</b></div></a>')
                 if len(daily)>3:html.append(f'<div class="cal-more">+ {len(daily)-3}건 더보기</div>')
                 html.append('</div>')
         html.append('</div></div>')

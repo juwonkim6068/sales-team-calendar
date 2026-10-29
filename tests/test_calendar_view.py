@@ -13,6 +13,30 @@ HEAD = next(ast.literal_eval(n.value) for n in ast.parse(APP.read_text()).body
 
 
 class CalendarViewTests(unittest.TestCase):
+    def test_calendar_colors_identify_owners_independently_of_status(self):
+        records=[]
+        for name,status in [('김주원','완료'),('이상인','미진행'),('조인환','진행중')]:
+            record={k:'' for k in HEAD}
+            record.update({'통합ID':name,'업무명':name+' 업무','담당자':name,'마감일':'2026-11-12','진행상태':status,'진행률':'100' if status=='완료' else '20'})
+            records.append([record[k] for k in HEAD])
+        self.service.spreadsheets.return_value.values.return_value.get.return_value.execute.return_value={'values':[HEAD]+records}
+        at=self.app('2026-11-01')
+        html=next(x.value for x in at.markdown if '<div class="cal-shell">' in x.value)
+        from html.parser import HTMLParser
+        class Events(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.events={}
+            def handle_starttag(self,tag,attrs):
+                attrs=dict(attrs)
+                if tag=='a' and attrs.get('class')=='cal-event':
+                    self.events[attrs['title'].split(' · ')[1]]=attrs['style']
+        events=Events()
+        events.feed(html)
+        for name,color in [('김주원','#f59e0b'),('이상인','#22a05a'),('조인환','#3b82f6')]:
+            self.assertIn(color,events.events[name])
+        self.assertIn('✓ 김주원 업무',html)
+
     def setUp(self):
         st.cache_resource.clear()
         self.service = MagicMock()

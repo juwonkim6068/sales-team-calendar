@@ -34,6 +34,25 @@ class MemoUITests(unittest.TestCase):
   self.assertEqual([r['ID'] for r in filter_memos(RECORDS,'김주원',date(2026,10,29),True,'정산')],['b'])
   self.assertEqual(filter_memos(RECORDS,'김주원',date(2026,10,29),False,'영업'),[])
 
+ def test_default_lists_past_memos_and_dates_without_other_authors(self):
+  at=AppTest.from_string(SOURCE)
+  at.session_state['memo_selected_day']=date(2026,11,15)
+  at.session_state['memo_ui_period']='선택 날짜'
+  at.run()
+  self.assertFalse(at.exception)
+  self.assertEqual(at.selectbox(key='memo_ui_period_all_dates').value,'전체 날짜')
+  self.assertEqual([b.key for b in at.button if b.key and b.key.startswith('memo_pick_')],['memo_pick_a','memo_pick_b'])
+  self.assertTrue(any(c.value=='작성일 2026-10-28' for c in at.caption))
+  at.text_input(key='memo_ui_search').set_value('정산').run()
+  self.assertTrue(any(b.key=='memo_pick_b' for b in at.button))
+  self.assertFalse(any(b.key=='memo_pick_a' for b in at.button))
+
+ def test_optional_date_filter(self):
+  at=self.app()
+  at.selectbox(key='memo_ui_period_all_dates').set_value('선택 날짜').run()
+  self.assertTrue(any(b.key=='memo_pick_a' for b in at.button))
+  self.assertFalse(any(b.key=='memo_pick_b' for b in at.button))
+
  def test_new_memo_save_returns_to_reading(self):
   at=self.app()
   at.button(key='memo_ui_new').click().run()
@@ -43,7 +62,7 @@ class MemoUITests(unittest.TestCase):
   self.assertFalse(at.exception)
   saved=next(r for r in at.session_state['records'] if r['제목']=='새 기록')
   self.assertEqual(saved['작성자'],'김주원')
-  self.assertEqual(saved['날짜'],'2026-10-29')
+  self.assertEqual(saved['날짜'],date.today().isoformat())
   self.assertEqual(saved['내용'],'첫째 줄\n둘째 줄')
   self.assertEqual(at.session_state['memo_ui_mode'],'read')
 

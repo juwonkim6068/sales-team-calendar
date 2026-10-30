@@ -1215,7 +1215,7 @@ else:
             st.error(f'메모장 연결 오류: {exc}');st.stop()
         import importlib
         import memo_ui
-        if getattr(memo_ui,"UI_VERSION",None)!="20261029-memo-images-1":
+        if getattr(memo_ui,"UI_VERSION",None)!="20261030-memo-all-dates-1":
             importlib.reload(memo_ui)
         render_memos=memo_ui.render_memos
         render_memos(memos,people,person_label,memo_save,memo_delete)

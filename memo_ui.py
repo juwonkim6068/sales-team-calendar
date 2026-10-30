@@ -6,7 +6,7 @@ from html import escape
 import streamlit as st
 from memo_attachments import split_content, join_content, clipboard, save_images, show_images
 
-UI_VERSION="20261029-memo-images-1"
+UI_VERSION="20261030-memo-all-dates-1"
 
 MEMO_CSS = '''<style>
 .memo-heading{display:flex;align-items:center;justify-content:space-between;margin:0 0 22px}
@@ -44,8 +44,9 @@ def render_memos(records, people, person_label, save, delete):
     controls = st.columns([1.3, 1.1, 1, 1.8], vertical_alignment='bottom')
     owner = controls[0].selectbox('작성자', owner_options, index=owner_options.index(previous) if previous in owner_options else 0,
                                   key='memo_owner', format_func=person_label)
-    selected_day = controls[1].date_input('날짜', value=date.today(), key='memo_selected_day')
-    period = controls[2].selectbox('조회 범위', ['선택 날짜', '전체 날짜'], key='memo_ui_period')
+    period = controls[1].selectbox('조회 범위', ['전체 날짜', '선택 날짜'], key='memo_ui_period_all_dates')
+    filter_day = controls[2].date_input('검색 날짜', value=date.today(), key='memo_selected_day', disabled=period == '전체 날짜')
+    selected_day = filter_day if period == '선택 날짜' else date.today()
     query = controls[3].text_input('메모 검색', placeholder='제목 또는 내용 검색', key='memo_ui_search')
     context = (owner, selected_day.isoformat(), period, query)
     if st.session_state.get('memo_ui_context') != context:
@@ -79,13 +80,14 @@ def render_memos(records, people, person_label, save, delete):
                     st.session_state['memo_ui_mode'] = 'read'
                     st.rerun()
                 preview = ' '.join(split_content(record['내용'])[0].split())
-                st.caption(record['날짜'] + ' · ' + preview[:65] + ('…' if len(preview) > 65 else ''))
+                st.caption('작성일 ' + record['날짜'])
+                if preview:st.caption(preview[:65] + ('…' if len(preview) > 65 else ''))
     mode = st.session_state.get('memo_ui_mode', 'read')
     with workspace:
         if selected is not None and mode == 'read':
             with st.container(border=True):
                 st.markdown(f'<div class="memo-document-title">{escape(selected["제목"])}</div>'
-                            f'<div class="memo-document-meta">{escape(person_label(selected["작성자"]))} · {escape(selected["날짜"])} · 수정 {escape(selected["수정일"] or "—")}</div>'
+                            f'<div class="memo-document-meta">{escape(person_label(selected["작성자"]))} · 작성일 {escape(selected["날짜"])} · 수정 {escape(selected["수정일"] or "—")}</div>'
                             f'<div class="memo-document">{escape(split_content(selected["내용"])[0])}</div>', unsafe_allow_html=True)
                 show_images(split_content(selected["내용"])[1])
                 st.divider()
@@ -149,4 +151,4 @@ def render_memos(records, people, person_label, save, delete):
                     st.session_state['memo_ui_mode'] = 'read'
                     st.rerun()
     with st.expander('메모 이용 안내'):
-        st.caption('메모는 작성자와 날짜별로 저장됩니다. 이 앱은 공유 편집 방식이므로 다른 사용자도 작성자를 선택하면 메모를 볼 수 있습니다.')
+        st.caption('선택한 작성자의 모든 메모를 날짜와 관계없이 최신 날짜순으로 표시합니다. 작성일은 각 메모에 별도로 표시되며, 필요한 경우 조회 범위를 선택 날짜로 변경해 검색할 수 있습니다. 이 앱은 공유 편집 방식이므로 다른 사용자도 작성자를 선택하면 메모를 볼 수 있습니다.')

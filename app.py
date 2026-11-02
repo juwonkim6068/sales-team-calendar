@@ -11,6 +11,7 @@ import streamlit as st
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from sheets_gateway import SheetsGateway, fresh_reads
+from fixed_tasks import monthly_occurrences
 
 # 업무 카드 배지: 담당자 이름과 업무구분 값마다 고정된 색상을 부여합니다.
 # 빨간색 계열은 마감 지연/위험 표시와 혼동되지 않도록 제외합니다.
@@ -680,6 +681,7 @@ def calendar_view_month(params,current=None,today=None):
 
 def form(svc,people,existing=None,key='new',compact=False):
     old=existing or {}
+    if old.get('원본시트')=='고정업무':st.caption('매월 마감일의 일자에 반복됩니다. 시작일 이전에는 표시하지 않으며, 주말은 다음 월요일로 이동합니다.')
     old_kind,old_title=task_title_parts(old.get('업무명'))
     with st.form('edit_'+key):
         st.markdown('<div class="task-form-marker"></div>',unsafe_allow_html=True)
@@ -850,7 +852,10 @@ def memo_delete(record_id):
     svc.spreadsheets().batchUpdate(spreadsheetId=SID,body={'requests':[{'deleteDimension':{'range':{'sheetId':sheet_id,'dimension':'ROWS','startIndex':index,'endIndex':index+1}}}]}).execute()
 
 st.sidebar.markdown('### 영업팀 대시보드')
-page=st.sidebar.radio('메뉴',['🗓️ 달력','📋 업무현황','📝 회의록','🗒️ 개인 메모장','📁 공유파일','🏢 거래처 특이사항','⚙️ 데이터 통합/설정'],format_func=lambda value: {'🗓️ 달력':'달력','📋 업무현황':'업무 현황','📝 회의록':'회의록','🗒️ 개인 메모장':'개인 메모장','📁 공유파일':'공유파일','🏢 거래처 특이사항':'거래처 관리','⚙️ 데이터 통합/설정':'데이터 설정'}[value],label_visibility='collapsed')
+page=st.sidebar.radio('메뉴',['🗓️ 달력','🔁 고정업무','📋 업무현황','📝 회의록','🗒️ 개인 메모장','📁 공유파일','🏢 거래처 특이사항','⚙️ 데이터 통합/설정'],format_func=lambda value: {'🔁 고정업무':'고정업무','🗓️ 달력':'달력','📋 업무현황':'업무 현황','📝 회의록':'회의록','🗒️ 개인 메모장':'개인 메모장','📁 공유파일':'공유파일','🏢 거래처 특이사항':'거래처 관리','⚙️ 데이터 통합/설정':'데이터 설정'}[value],label_visibility='collapsed',index=1 if st.query_params.get('fixed')=='1' else 0)
+fixed_page=page=='🔁 고정업무'
+if fixed_page:st.query_params['fixed']='1'
+else:st.query_params.pop('fixed',None)
 sidebar_filter=st.sidebar.container()
 st.sidebar.divider()
 if st.sidebar.button('↻ 새로고침',use_container_width=True):st.rerun()
@@ -902,12 +907,18 @@ else:
     if st.session_state.person_filter not in choices:st.session_state.person_filter='전체'
     person=sidebar_filter.selectbox('담당자',choices,key='person_filter',format_func=person_label)
     shown=df if person=='전체' else df[df['담당자'].isin([person,'전체'])]
-    if page=='🗓️ 달력':
+    if page in ('🗓️ 달력','🔁 고정업무'):
         st.session_state.month=calendar_view_month(st.query_params,st.session_state.get('month'))
         m=st.session_state.month
+        if fixed_page:
+            shown=shown[shown['원본시트']=='고정업무']
+            shown=pd.DataFrame(monthly_occurrences(shown.to_dict('records'),m),columns=HEAD)
+        else:
+            shown=shown[shown['원본시트']!='고정업무']
         month_tasks=shown[shown['마감일'].astype(str).str.startswith(m.strftime('%Y-%m'))]
         month_done=int(month_tasks['진행상태'].eq('완료').sum())
-        st.markdown(f'<div class="cal-page-header"><div><h1>캘린더</h1><p>팀 일정과 업무 진행 현황을 한눈에 확인하세요.</p></div><div class="cal-overview"><div><span>이달의 업무</span><b>{len(month_tasks)}</b></div><div><span>미완료</span><b>{len(month_tasks)-month_done}</b></div><div class="complete"><span>완료</span><b>{month_done}</b></div></div></div>',unsafe_allow_html=True)
+        st.markdown(f'<div class="cal-page-header"><div><h1>{'고정업무' if fixed_page else '캘린더'}</h1><p>팀 일정과 업무 진행 현황을 한눈에 확인하세요.</p></div><div class="cal-overview"><div><span>이달의 업무</span><b>{len(month_tasks)}</b></div><div><span>미완료</span><b>{len(month_tasks)-month_done}</b></div><div class="complete"><span>완료</span><b>{month_done}</b></div></div></div>',unsafe_allow_html=True)
+        if fixed_page:st.caption('매월 마감일의 날짜에 반복 · 토·일요일은 다음 월요일 · 없는 날짜는 말일 기준. 수정한 내용과 진행상태는 반복 기준 전체에 적용됩니다.')
         left,title,right,todaycol,spacer,add=st.columns([.65,2.2,.65,.85,3.2,1.4],vertical_alignment='center')
         if left.button('❮',key='month_prev',use_container_width=True):
             st.session_state.month=(pd.Timestamp(m)-pd.DateOffset(months=1)).date()
@@ -927,7 +938,7 @@ else:
             st.session_state.pop('calendar_new_open',None)
         @st.dialog('일정 추가',width='large',on_dismiss=close_calendar_new)
         def calendar_new_add():
-            form(svc,people,key='calendar_new')
+            form(svc,people,existing={'원본시트':'고정업무'} if fixed_page else None,key='calendar_new')
         if st.session_state.get('calendar_new_open'):
             calendar_new_add()
         if st.session_state.get('calendar_saved_notice'):
@@ -940,7 +951,7 @@ else:
         @st.dialog('📅 선택한 날짜에 일정 추가', width='large', on_dismiss=close_calendar_date_add)
         def calendar_date_add(selected_day):
             st.caption(f'{selected_day:%Y년 %m월 %d일} · 시작일과 마감일을 변경할 수 있습니다.')
-            form(svc,people,existing={'시작일':selected_day.isoformat(),'마감일':selected_day.isoformat()},key='calendar_date_'+selected_day.isoformat())
+            form(svc,people,existing={'원본시트':'고정업무' if fixed_page else '통합업무','시작일':selected_day.isoformat(),'마감일':selected_day.isoformat()},key='calendar_date_'+selected_day.isoformat())
         selected_date=st.query_params.get('calendar_date')
         if selected_date and not st.query_params.get('calendar_task'):
             try:
@@ -1005,7 +1016,7 @@ else:
                 daily=cal_entries(day)
                 dayclass=' is-today' if day==date.today() else ''
                 daycount=f'<span class="cal-day-count">{len(daily)}건</span>' if len(daily) else ''
-                html.append(f'<div class="cal-day{outside}{dayclass}"><div class="cal-date-row"><a class="day-num{todaycls}" href="?calendar_date={day.isoformat()}&amp;calendar_month={m.isoformat()}" target="_self" aria-label="{day.isoformat()} 일정 추가" title="{day.isoformat()} 일정 추가">{day.day}</a>{daycount}</div>')
+                html.append(f'<div class="cal-day{outside}{dayclass}"><div class="cal-date-row"><a class="day-num{todaycls}" href="?{"fixed=1&amp;" if fixed_page else ""}calendar_date={day.isoformat()}&amp;calendar_month={m.isoformat()}" target="_self" aria-label="{day.isoformat()} 일정 추가" title="{day.isoformat()} 일정 추가">{day.day}</a>{daycount}</div>')
                 for event_index,(_,r) in enumerate(daily.iterrows()):
                     if event_index==3:
                         html.append(f'<details class="cal-overflow"><summary class="cal-more"><span class="cal-more-label">+ {len(daily)-3}건 더보기</span><span class="cal-less-label">접기</span></summary>')
@@ -1016,7 +1027,7 @@ else:
                     status=safe(r.get('진행상태'))
                     task=escape(safe(r.get('업무명')));owner_html=escape(person_label(owner))
                     tm=escape(safe(r.get('시작시간')))
-                    html.append(f'<a class="cal-event" href="?calendar_task={quote(safe(r.get("통합ID")),safe="")}&amp;calendar_month={m.isoformat()}" target="_self" title="{task} · {owner_html} · {escape(status)} · {progress}%" style="background:{bg};color:{fg};border-left:3px solid {color}"><div class="event-title">{"✓ " if status=="완료" else ""}{tm+" " if tm else ""}{task}</div><div class="event-sub"><span class="event-owner">{owner_html}</span><div class="track"><div class="fill" style="width:{progress}%;background:{color}"></div></div><b>{progress}%</b></div></a>')
+                    html.append(f'<a class="cal-event" href="?{"fixed=1&amp;" if fixed_page else ""}calendar_task={quote(safe(r.get("통합ID")),safe="")}&amp;calendar_month={m.isoformat()}" target="_self" title="{task} · {owner_html} · {escape(status)} · {progress}%" style="background:{bg};color:{fg};border-left:3px solid {color}"><div class="event-title">{"✓ " if status=="완료" else ""}{tm+" " if tm else ""}{task}</div><div class="event-sub"><span class="event-owner">{owner_html}</span><div class="track"><div class="fill" style="width:{progress}%;background:{color}"></div></div><b>{progress}%</b></div></a>')
                 if len(daily)>3:html.append('</details>')
                 html.append('</div>')
         html.append('</div></div>')

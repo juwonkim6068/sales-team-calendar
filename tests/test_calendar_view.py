@@ -209,3 +209,44 @@ class CalendarViewTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class FixedCalendarViewTests(unittest.TestCase):
+    setUp = CalendarViewTests.setUp
+    app = CalendarViewTests.app
+    existing_record = CalendarViewTests.existing_record
+
+    def test_fixed_calendar_projection_and_edit_anchor(self):
+        self.existing_record()
+        values=self.service.spreadsheets.return_value.values.return_value.get.return_value.execute.return_value['values']
+        values[1][HEAD.index('원본시트')]='고정업무'
+        values[1][HEAD.index('마감일')]='2026-09-14'
+        values[1][HEAD.index('시작일')]='2026-09-14'
+        at=self.app('2026-11-01')
+        at.sidebar.radio[0].set_value('🔁 고정업무').run(timeout=30)
+        self.assertFalse(at.exception)
+        html=next(x.value for x in at.markdown if '<div class="cal-shell">' in x.value)
+        self.assertIn('fixed=1&amp;calendar_task=existing',html)
+        from html.parser import HTMLParser
+        class Days(HTMLParser):
+            def __init__(self):
+                super().__init__(); self.day=''; self.events=[]
+            def handle_starttag(self,tag,attrs):
+                attrs=dict(attrs)
+                if tag=='a' and 'calendar_date=' in attrs.get('href',''):
+                    self.day=attrs['href'].split('calendar_date=')[1].split('&')[0]
+                if attrs.get('class')=='cal-event':self.events.append(self.day)
+        parsed=Days();parsed.feed(html)
+        self.assertEqual(parsed.events,['2026-11-16'])
+        at.query_params['calendar_task']='existing'
+        at.run(timeout=30)
+        self.assertEqual(next(x for x in at.date_input if x.label=='마감일').value,date(2026,9,14))
+
+    def test_new_fixed_task_is_saved_as_template(self):
+        at=self.app('2026-11-01')
+        at.sidebar.radio[0].set_value('🔁 고정업무').run(timeout=30)
+        next(b for b in at.button if b.label=='＋ 일정 추가').click().run(timeout=30)
+        next(x for x in at.text_input if x.label=='업무명 *').set_value('월간 정산')
+        next(b for b in at.button if b.label=='저장').click().run(timeout=30)
+        self.assertFalse(at.exception)
+        saved=self.service.spreadsheets.return_value.values.return_value.append.call_args.kwargs['body']['values'][0]
+        self.assertEqual(dict(zip(HEAD,saved))['원본시트'],'고정업무')

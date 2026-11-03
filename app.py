@@ -600,15 +600,15 @@ def save_record(svc,record,old_id=None):
         svc.spreadsheets().values().update(spreadsheetId=SID,range=f"'{TAB}'!A{line}:R{line}",valueInputOption='RAW',body={'values':[[safe(record.get(k)) for k in HEAD]]}).execute()
     else:append_rows(svc,[record])
 
-def delete_completed_record(svc, record_id):
-    """Delete exactly one completed task from the integrated sheet by stable ID."""
+def delete_task_record(svc, record_id, *, completed_only=False):
+    """Delete one freshly resolved task by stable ID, never a displayed row index."""
     with fresh_reads(svc):
         rows = read_tab(svc, TAB)
     matches = rows.index[rows['통합ID'] == record_id].tolist() if not rows.empty else []
     if len(matches) != 1:
         raise RuntimeError('삭제 대상이 없거나 ID가 중복되어 삭제하지 않았습니다. 새로고침 후 확인하세요.')
     row_idx = matches[0]
-    if safe(rows.iloc[row_idx].get('진행상태')) != '완료':
+    if completed_only and safe(rows.iloc[row_idx].get('진행상태')) != '완료':
         raise RuntimeError('완료 상태인 업무만 삭제할 수 있습니다.')
     sheets = svc.spreadsheets().get(spreadsheetId=SID, fields='sheets(properties(sheetId,title))').execute().get('sheets', [])
     ids = [sh['properties']['sheetId'] for sh in sheets if sh['properties'].get('title') == TAB]
@@ -619,6 +619,9 @@ def delete_completed_record(svc, record_id):
         {'deleteDimension': {'range': {'sheetId': ids[0], 'dimension': 'ROWS',
                                        'startIndex': row_idx + 1, 'endIndex': row_idx + 2}}}
     ]}).execute()
+
+def delete_completed_record(svc, record_id):
+    delete_task_record(svc, record_id, completed_only=True)
 
 @st.dialog('완료 업무 삭제 확인')
 def confirm_completed_task_delete(svc, task_id):
@@ -985,6 +988,23 @@ else:
             with st.expander('✏️ 업무 정보 수정 · 클릭하여 펼치기', expanded=False):
                 st.caption('수정할 내용을 입력한 뒤 하단의 파란 저장 버튼을 누르세요.')
                 form(svc,people,existing=task_row,key='calendar_detail_'+safe(task_row.get('통합ID')))
+            task_id=safe(task_row.get('통합ID'))
+            with st.expander('🗑️ 일정 삭제', expanded=False):
+                if safe(task_row.get('원본시트'))=='고정업무':
+                    st.warning('이 고정업무와 모든 달의 반복 표시가 함께 삭제됩니다. 복구할 수 없습니다.')
+                else:
+                    st.warning('이 일정을 삭제하면 복구할 수 없습니다.')
+                confirmed=st.checkbox('삭제할 일정을 확인했습니다',key='calendar_delete_confirm_'+task_id)
+                if st.button('일정 삭제',icon=':material/delete_outline:',key='calendar_delete_'+task_id,
+                             disabled=not confirmed,type='primary'):
+                    try:
+                        delete_task_record(svc,task_id)
+                    except Exception as exc:
+                        st.error(f'삭제 실패: {exc}')
+                    else:
+                        st.query_params.pop('calendar_task',None)
+                        st.session_state['calendar_saved_notice']='일정이 삭제되었습니다.'
+                        st.rerun()
             if st.button('닫기',key='calendar_detail_close'):
                 st.query_params.pop('calendar_task',None)
                 st.rerun()

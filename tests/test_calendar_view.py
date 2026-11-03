@@ -250,3 +250,63 @@ class FixedCalendarViewTests(unittest.TestCase):
         self.assertFalse(at.exception)
         saved=self.service.spreadsheets.return_value.values.return_value.append.call_args.kwargs['body']['values'][0]
         self.assertEqual(dict(zip(HEAD,saved))['원본시트'],'고정업무')
+
+class CalendarDeleteTests(unittest.TestCase):
+    setUp = CalendarViewTests.setUp
+    app = CalendarViewTests.app
+    existing_record = CalendarViewTests.existing_record
+
+    def detail(self, fixed=False):
+        self.existing_record()
+        if fixed:
+            rows=self.service.spreadsheets.return_value.values.return_value.get.return_value.execute.return_value['values']
+            rows[1][HEAD.index('원본시트')]='고정업무'
+        self.service.spreadsheets.return_value.get.return_value.execute.return_value={'sheets':[{'properties':{'title':'통합업무','sheetId':42}}]}
+        at=self.app('2026-11-01')
+        if fixed:at.sidebar.radio[0].set_value('🔁 고정업무').run(timeout=30)
+        at.query_params['calendar_task']='existing'
+        at.run(timeout=30)
+        self.assertFalse(at.exception)
+        return at
+
+    def test_delete_requires_confirmation_then_deletes_exact_row(self):
+        at=self.detail()
+        self.assertTrue(at.button(key='calendar_delete_existing').disabled)
+        self.service.spreadsheets.return_value.batchUpdate.assert_not_called()
+        at.checkbox(key='calendar_delete_confirm_existing').check().run(timeout=30)
+        at.button(key='calendar_delete_existing').click().run(timeout=30)
+        self.assertFalse(at.exception)
+        body=self.service.spreadsheets.return_value.batchUpdate.call_args.kwargs['body']
+        self.assertEqual(body,{'requests':[{'deleteDimension':{'range':{'sheetId':42,'dimension':'ROWS','startIndex':1,'endIndex':2}}}]})
+        self.assertNotIn('calendar_task',at.query_params)
+        self.assertTrue(any('일정이 삭제' in x.value for x in at.success))
+        self.assertEqual(at.session_state['month'],date(2026,11,1))
+
+    def test_fixed_task_warns_all_repetitions_and_deletes_unfinished_task(self):
+        at=self.detail(fixed=True)
+        self.assertTrue(any('모든 달의 반복' in x.value for x in at.warning))
+        at.checkbox(key='calendar_delete_confirm_existing').check().run(timeout=30)
+        at.button(key='calendar_delete_existing').click().run(timeout=30)
+        self.assertFalse(at.exception)
+        self.service.spreadsheets.return_value.batchUpdate.assert_called_once()
+        self.assertNotIn('calendar_task',at.query_params)
+        self.assertEqual(at.query_params['fixed'],['1'])
+
+    def test_failed_delete_keeps_detail_open(self):
+        at=self.detail()
+        self.service.spreadsheets.return_value.batchUpdate.return_value.execute.side_effect=RuntimeError('write failed')
+        at.checkbox(key='calendar_delete_confirm_existing').check().run(timeout=30)
+        at.button(key='calendar_delete_existing').click().run(timeout=30)
+        self.assertFalse(at.exception)
+        self.assertIn('calendar_task',at.query_params)
+        self.assertTrue(any('삭제 실패' in x.value for x in at.error))
+
+    def test_duplicate_id_prevents_delete(self):
+        at=self.detail()
+        values=self.service.spreadsheets.return_value.values.return_value.get.return_value.execute.return_value['values']
+        at.checkbox(key='calendar_delete_confirm_existing').check().run(timeout=30)
+        self.service.spreadsheets.return_value.values.return_value.get.return_value.execute.side_effect=[{'values':values},{'values':values},{'values':values+[list(values[1])]}]
+        at.button(key='calendar_delete_existing').click().run(timeout=30)
+        self.assertFalse(at.exception)
+        self.service.spreadsheets.return_value.batchUpdate.assert_not_called()
+        self.assertTrue(any('ID가 중복' in x.value for x in at.error))

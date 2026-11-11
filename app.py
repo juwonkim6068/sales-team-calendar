@@ -2,7 +2,7 @@ import calendar
 import hashlib
 import json
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from html import escape
 from urllib.parse import quote
 
@@ -684,7 +684,7 @@ def calendar_view_month(params,current=None,today=None):
 
 def form(svc,people,existing=None,key='new',compact=False):
     old=existing or {}
-    if old.get('원본시트')=='고정업무':st.caption('매월 마감일의 일자에 반복됩니다. 시작일 이전에는 표시하지 않으며, 주말은 다음 월요일로 이동합니다.')
+    if old.get('원본시트')=='고정업무':st.caption('매월은 마감일의 일자, 매주는 마감일의 요일에 반복됩니다. 시작일 이전에는 표시하지 않으며, 매월 반복의 주말은 다음 월요일로 이동합니다.')
     old_kind,old_title=task_title_parts(old.get('업무명'))
     with st.form('edit_'+key):
         st.markdown('<div class="task-form-marker"></div>',unsafe_allow_html=True)
@@ -711,6 +711,10 @@ def form(svc,people,existing=None,key='new',compact=False):
         start=c1.date_input('시작일',value=dt(old.get('시작일')) or date.today())
         due=c2.date_input('마감일',value=dt(old.get('마감일')) or date.today())
         tm=c3.text_input('시작시간 (선택)',value=safe(old.get('시작시간')),placeholder='09:00')
+        repeat='매월'
+        if old.get('원본시트')=='고정업무':
+            repeat=st.selectbox('반복 주기',['매월','매주'],index=1 if safe(old.get('원본ID')).startswith('weekly:') else 0)
+            st.caption('매주 반복은 마감일로 선택한 날짜의 요일을 기준으로 합니다. 금요일 날짜를 선택하면 매주 금요일에 표시됩니다.')
         c1,c2=st.columns(2)
         state_opts=list(dict.fromkeys(STATES+([safe(old.get('진행상태'))] if safe(old.get('진행상태')) else [])))
         status=c1.selectbox('진행상태',state_opts,index=state_opts.index(safe(old.get('진행상태'))) if safe(old.get('진행상태')) in state_opts else 0)
@@ -737,6 +741,9 @@ def form(svc,people,existing=None,key='new',compact=False):
              '시작일':start.isoformat(),'마감일':due.isoformat(),'시작시간':tm,'진행상태':('완료' if progress == 100 or status == '완료' else status),
              '우선순위':priority,'진행률':str(100 if status == '완료' else progress),'메모':memo,'첨부파일URL':link,
              '작성일':safe(old.get('작성일')) or now,'수정일':now})
+            if old.get('원본시트')=='고정업무':
+                source_id=rec['원본ID'].removeprefix('weekly:')
+                rec['원본ID']=('weekly:' if repeat=='매주' else '')+source_id
             try:
                 save_record(svc,rec,safe(old.get('통합ID')) or None)
                 if key.startswith('calendar_'):
@@ -921,7 +928,28 @@ else:
         month_tasks=shown[shown['마감일'].astype(str).str.startswith(m.strftime('%Y-%m'))]
         month_done=int(month_tasks['진행상태'].eq('완료').sum())
         st.markdown(f'<div class="cal-page-header"><div><h1>{'고정업무' if fixed_page else '캘린더'}</h1><p>팀 일정과 업무 진행 현황을 한눈에 확인하세요.</p></div><div class="cal-overview"><div><span>이달의 업무</span><b>{len(month_tasks)}</b></div><div><span>미완료</span><b>{len(month_tasks)-month_done}</b></div><div class="complete"><span>완료</span><b>{month_done}</b></div></div></div>',unsafe_allow_html=True)
-        if fixed_page:st.caption('매월 마감일의 날짜에 반복 · 토·일요일은 다음 월요일 · 없는 날짜는 말일 기준. 수정한 내용과 진행상태는 반복 기준 전체에 적용됩니다.')
+        if fixed_page:
+            st.caption('매월 또는 매주 반복 · 매월 반복의 토·일요일은 다음 월요일 · 없는 날짜는 말일 기준. 수정한 내용과 진행상태는 반복 기준 전체에 적용됩니다.')
+            if st.button('매주 금요일 · 주간회의 작성 및 제출 등록',key='add_weekly_meeting'):
+                try:
+                    with fresh_reads(svc):
+                        current=read_tab(svc,TAB)
+                    if not current.empty and ((current['원본시트']=='고정업무') & current['업무명'].eq('｢공통｣ 주간회의 작성 및 제출') & current['원본ID'].str.startswith('weekly:') & current['마감일'].map(lambda value: bool(dt(value)) and dt(value).weekday()==4)).any():
+                        st.info('동일한 금요일 공통업무가 이미 등록되어 있습니다.')
+                    else:
+                        today=date.today()
+                        friday=today+timedelta(days=(4-today.weekday())%7)
+                        now=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        record={field:'' for field in HEAD}
+                        record.update({'통합ID':uuid.uuid4().hex,'원본시트':'고정업무','원본ID':'weekly:'+uuid.uuid4().hex,
+                                       '업무명':'｢공통｣ 주간회의 작성 및 제출','담당자':'전체','업무구분':'회의',
+                                       '시작일':friday.isoformat(),'마감일':friday.isoformat(),'진행상태':'미진행',
+                                       '우선순위':'보통','진행률':'0','작성일':now,'수정일':now})
+                        save_record(svc,record)
+                        st.session_state['calendar_saved_notice']='매주 금요일 공통업무를 등록했습니다.'
+                        st.rerun()
+                except Exception as exc:
+                    st.error(f'등록 실패: {exc}')
         left,title,right,todaycol,spacer,add=st.columns([.65,2.2,.65,.85,3.2,1.4],vertical_alignment='center')
         if left.button('❮',key='month_prev',use_container_width=True):
             st.session_state.month=(pd.Timestamp(m)-pd.DateOffset(months=1)).date()

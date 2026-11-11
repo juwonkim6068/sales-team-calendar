@@ -310,3 +310,40 @@ class CalendarDeleteTests(unittest.TestCase):
         self.assertFalse(at.exception)
         self.service.spreadsheets.return_value.batchUpdate.assert_not_called()
         self.assertTrue(any('ID가 중복' in x.value for x in at.error))
+
+class WeeklyMeetingTests(unittest.TestCase):
+    setUp=CalendarViewTests.setUp
+    app=CalendarViewTests.app
+
+    def test_shortcut_saves_shared_friday_weekly_task(self):
+        at=self.app('2026-11-01')
+        at.sidebar.radio[0].set_value('🔁 고정업무').run(timeout=30)
+        at.button(key='add_weekly_meeting').click().run(timeout=30)
+        self.assertFalse(at.exception)
+        values=self.service.spreadsheets.return_value.values.return_value.append.call_args.kwargs['body']['values'][0]
+        record=dict(zip(HEAD,values))
+        self.assertEqual(record['업무명'],'｢공통｣ 주간회의 작성 및 제출')
+        self.assertEqual(record['담당자'],'전체')
+        self.assertEqual(date.fromisoformat(record['마감일']).weekday(),4)
+        self.assertTrue(record['원본ID'].startswith('weekly:'))
+        self.assertEqual(record['원본시트'],'고정업무')
+        self.service.spreadsheets.return_value.values.return_value.get.return_value.execute.return_value={'values':[HEAD,values]}
+        at.button(key='add_weekly_meeting').click().run(timeout=30)
+        self.assertFalse(at.exception)
+        self.service.spreadsheets.return_value.values.return_value.append.assert_called_once()
+        self.assertTrue(any('이미 등록' in x.value for x in at.info))
+
+    def test_weekly_form_preserves_frequency_when_edited(self):
+        record={field:'' for field in HEAD}
+        record.update({'통합ID':'weekly-task','원본시트':'고정업무','원본ID':'weekly:abc',
+                       '업무명':'｢공통｣ 주간회의 작성 및 제출','시작일':'2026-11-13','마감일':'2026-11-13'})
+        self.service.spreadsheets.return_value.values.return_value.get.return_value.execute.return_value={'values':[HEAD,[record[field] for field in HEAD]]}
+        at=self.app('2026-11-01')
+        at.sidebar.radio[0].set_value('🔁 고정업무').run(timeout=30)
+        at.query_params['calendar_task']='weekly-task'
+        at.run(timeout=30)
+        self.assertEqual(next(x for x in at.selectbox if x.label=='반복 주기').value,'매주')
+        next(x for x in at.button if x.label=='저장').click().run(timeout=30)
+        self.assertFalse(at.exception)
+        saved=self.service.spreadsheets.return_value.values.return_value.update.call_args.kwargs['body']['values'][0]
+        self.assertEqual(dict(zip(HEAD,saved))['원본ID'],'weekly:abc')

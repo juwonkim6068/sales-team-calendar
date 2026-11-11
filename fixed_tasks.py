@@ -1,4 +1,4 @@
-"""Monthly fixed-task projection; original dates remain the recurrence anchor."""
+"""Fixed-task projection; original dates remain the recurrence anchor."""
 import calendar
 from datetime import date, timedelta
 
@@ -19,6 +19,13 @@ def monthly_occurrences(records, month):
             anchor = date.fromisoformat(record['마감일'])
             start = date.fromisoformat(record['시작일'] or record['마감일'])
         except (ValueError, TypeError, KeyError):
+            continue
+        if str(record.get('원본ID', '')).startswith('weekly:'):
+            actual = max(first, anchor, start)
+            actual += timedelta(days=(anchor.weekday()-actual.weekday()) % 7)
+            while actual <= last:
+                result.append(dict(record, 마감일=actual.isoformat(), 시작일=actual.isoformat()))
+                actual += timedelta(days=7)
             continue
         for target in months:
             nominal = target.replace(day=min(anchor.day, calendar.monthrange(target.year, target.month)[1]))

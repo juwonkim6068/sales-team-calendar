@@ -328,10 +328,11 @@ class WeeklyMeetingTests(unittest.TestCase):
         self.assertTrue(record['원본ID'].startswith('weekly:'))
         self.assertEqual(record['원본시트'],'고정업무')
         self.service.spreadsheets.return_value.values.return_value.get.return_value.execute.return_value={'values':[HEAD,values]}
-        at.button(key='add_weekly_meeting').click().run(timeout=30)
+        at.run(timeout=30)
         self.assertFalse(at.exception)
         self.service.spreadsheets.return_value.values.return_value.append.assert_called_once()
-        self.assertTrue(any('이미 등록' in x.value for x in at.info))
+        self.assertTrue(at.button(key='add_weekly_meeting').disabled)
+        self.assertEqual(at.button(key='add_weekly_meeting').label,'등록 완료')
 
     def test_weekly_form_preserves_frequency_when_edited(self):
         record={field:'' for field in HEAD}

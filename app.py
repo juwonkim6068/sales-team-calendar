@@ -429,6 +429,17 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 [data-testid="stSidebar"] button:hover{background:#f4f7fb!important;color:#245fc2!important;border-color:#c8d8ef!important}
 [data-testid="stSidebar"] hr{border-color:#e9edf3!important;margin:14px 0!important}
 @media(max-width:767px){[data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding:1rem .85rem!important}}
+
+/* Weekly shared task shortcut */
+.st-key-weekly_meeting_card{background:linear-gradient(110deg,#edf4ff 0%,#fff 90%);border:1px solid #d9e5fb;border-radius:16px;padding:20px 24px;margin:8px 0 22px;box-shadow:0 4px 16px #245fc206}
+.weekly-meeting-label{display:flex;align-items:center;gap:8px;color:#3566ad;font-size:11px;font-weight:650;margin-bottom:8px}
+.weekly-meeting-label span{background:#dfeaff;color:#245fc2;border-radius:6px;padding:3px 8px}
+.weekly-meeting-title{font-size:18px;font-weight:750;letter-spacing:-.03em;color:#213b60;margin-bottom:5px}
+.weekly-meeting-note{font-size:12px;color:#73839a;line-height:1.6}
+.st-key-add_weekly_meeting button{border-radius:10px!important;min-height:46px!important;font-weight:650!important;box-shadow:0 4px 10px #2563eb18!important}
+.st-key-add_weekly_meeting button:disabled{background:#e7f3ec!important;border:1px solid #cce5d7!important;color:#28764e!important;opacity:1!important;box-shadow:none!important}
+@media(max-width:767px){.st-key-weekly_meeting_card{padding:16px;margin-bottom:16px}.weekly-meeting-title{font-size:16px}.st-key-weekly_meeting_card [data-testid="stHorizontalBlock"]{flex-wrap:wrap}.st-key-weekly_meeting_card [data-testid="stColumn"]{width:100%!important;flex:1 1 100%!important}}
+
 /* Calendar page: unified typography, spacing and responsive reading */
 .cal-page-header{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:0 0 26px}
 .cal-page-header h1{font-size:28px!important;font-weight:750!important;letter-spacing:-.045em;margin:0!important;padding:0!important}
@@ -930,7 +941,12 @@ else:
         st.markdown(f'<div class="cal-page-header"><div><h1>{'고정업무' if fixed_page else '캘린더'}</h1><p>팀 일정과 업무 진행 현황을 한눈에 확인하세요.</p></div><div class="cal-overview"><div><span>이달의 업무</span><b>{len(month_tasks)}</b></div><div><span>미완료</span><b>{len(month_tasks)-month_done}</b></div><div class="complete"><span>완료</span><b>{month_done}</b></div></div></div>',unsafe_allow_html=True)
         if fixed_page:
             st.caption('매월 또는 매주 반복 · 매월 반복의 토·일요일은 다음 월요일 · 없는 날짜는 말일 기준. 수정한 내용과 진행상태는 반복 기준 전체에 적용됩니다.')
-            if st.button('매주 금요일 · 주간회의 작성 및 제출 등록',key='add_weekly_meeting'):
+            weekly_registered=not df.empty and ((df['원본시트']=='고정업무') & df['업무명'].eq('｢공통｣ 주간회의 작성 및 제출') & df['원본ID'].str.startswith('weekly:') & df['마감일'].map(lambda value: bool(dt(value)) and dt(value).weekday()==4)).any()
+            with st.container(key='weekly_meeting_card'):
+                weekly_info,weekly_action=st.columns([3,1],vertical_alignment='center')
+                weekly_info.markdown('<div class="weekly-meeting-label"><span>매주 금요일</span>공통업무</div><div class="weekly-meeting-title">주간회의 작성 및 제출</div><div class="weekly-meeting-note">'+('금요일마다 달력에 표시됩니다.' if weekly_registered else '한 번 등록하면 매주 금요일에 자동으로 반복됩니다.')+'</div>',unsafe_allow_html=True)
+                weekly_clicked=weekly_action.button('등록 완료' if weekly_registered else '반복 일정 등록',icon=':material/check_circle:' if weekly_registered else ':material/add_circle:',key='add_weekly_meeting',type='primary',use_container_width=True,disabled=bool(weekly_registered))
+            if weekly_clicked:
                 try:
                     with fresh_reads(svc):
                         current=read_tab(svc,TAB)

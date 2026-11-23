@@ -892,7 +892,7 @@ except Exception as exc:
     steps = " → ".join(
         f"{frame.name}({frame.lineno}번 줄)" for frame in frames[-6:]
     )
-    st.error(f"Google Sheets 오류: {type(exc).__name__} / 위치: {steps}")
+    st.error(f"Google Sheets 오류: HTTP {getattr(exc.resp, 'status', '없음') if hasattr(exc, 'resp') else '없음'}")
     st.stop()
 if TAB not in tabs:
     st.warning('통합업무 시트가 아직 생성되지 않았습니다. 설정 메뉴에서 최초 통합을 실행하세요.')

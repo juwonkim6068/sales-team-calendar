@@ -508,7 +508,7 @@ h1{font-size:1.8rem!important;margin-bottom:.2rem!important}
 .task-card-meta span.meta-category{background:var(--badge-bg,#e5f7f3)!important;border-color:var(--badge-border,#b9e5d9)!important;color:var(--badge-fg,#137b69)!important}
 .task-card-meta span.meta-category b{color:inherit!important}
 </style>""",unsafe_allow_html=True)
-SID='1cvkG3hyxVyIkMUdcDxUVMZbTPFn0bj0huJ8nTPA-Sko'
+SID='1iAZw2Gnw36zsW6VQ8wnjvOljlzE5ll8I'
 TAB='통합업무'
 HEAD=['통합ID','원본시트','원본ID','업무명','상세내용','거래처','담당자','업무구분','시작일','마감일','시작시간','진행상태','우선순위','진행률','메모','첨부파일URL','작성일','수정일']
 STATES=['미진행','진행중','거의완료','완료','보류']

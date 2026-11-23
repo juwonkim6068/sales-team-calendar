@@ -885,7 +885,9 @@ if page=='📁 공유파일':
     render_shared_files(secrets_credential())
     st.stop()
 try:svc=api();tabs=tab_names(svc)
-except Exception:st.error('Google Sheets 연결이 일시적으로 지연되고 있습니다. 약 1분 후 다시 시도해 주세요.');st.stop()
+except Exception as exc:
+    st.error(f"Google Sheets 오류: {type(exc).__name__} / HTTP {getattr(getattr(exc, 'resp', None), 'status', '없음')}")
+    st.stop()
 if TAB not in tabs:
     st.warning('통합업무 시트가 아직 생성되지 않았습니다. 설정 메뉴에서 최초 통합을 실행하세요.')
     if page!='⚙️ 데이터 통합/설정':st.stop()

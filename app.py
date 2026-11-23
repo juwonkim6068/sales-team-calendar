@@ -886,7 +886,6 @@ if page=='📁 공유파일':
     st.stop()
 try:svc=api();tabs=tab_names(svc)
 except Exception as exc:
-    except Exception as exc:
     import traceback
 
     frames = traceback.extract_tb(exc.__traceback__)
